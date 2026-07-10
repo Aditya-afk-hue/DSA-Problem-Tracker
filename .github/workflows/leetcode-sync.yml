@@ -1,1 +1,30 @@
+name: Sync LeetCode solved list
 
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Fetch solved list from LeetCode
+        env:
+          LEETCODE_SESSION: ${{ secrets.LEETCODE_SESSION }}
+          LEETCODE_CSRF_TOKEN: ${{ secrets.LEETCODE_CSRF_TOKEN }}
+        run: node scripts/leetcode-sync.mjs
+      - name: Commit and push if changed
+        run: |
+          git config user.name "leetcode-sync-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/solved.json
+          git diff --cached --quiet || git commit -m "chore: sync solved list [skip ci]"
+          git push
