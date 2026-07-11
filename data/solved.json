@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-11T08:06:55.407Z",
+  "updatedAt": "2026-07-11T13:43:05.592Z",
   "slugs": [
     "two-sum",
     "longest-common-prefix",
@@ -34,6 +34,7 @@
     "majority-element",
     "rotate-array",
     "reverse-linked-list",
+    "kth-largest-element-in-an-array",
     "summary-ranges",
     "palindrome-linked-list",
     "longest-increasing-subsequence",
