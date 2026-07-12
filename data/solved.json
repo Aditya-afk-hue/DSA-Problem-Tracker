@@ -1,7 +1,9 @@
 {
-  "updatedAt": "2026-07-12T08:28:02.396Z",
+  "updatedAt": "2026-07-12T13:44:02.674Z",
   "slugs": [
     "two-sum",
+    "reverse-integer",
+    "palindrome-number",
     "longest-common-prefix",
     "remove-nth-node-from-end-of-list",
     "valid-parentheses",
@@ -40,6 +42,7 @@
     "find-median-from-data-stream",
     "longest-increasing-subsequence",
     "is-subsequence",
+    "fibonacci-number",
     "subarray-sum-equals-k",
     "middle-of-the-linked-list",
     "k-closest-points-to-origin",
