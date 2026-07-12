@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-12T03:38:51.801Z",
+  "updatedAt": "2026-07-12T08:28:02.396Z",
   "slugs": [
     "two-sum",
     "longest-common-prefix",
@@ -37,10 +37,12 @@
     "kth-largest-element-in-an-array",
     "summary-ranges",
     "palindrome-linked-list",
+    "find-median-from-data-stream",
     "longest-increasing-subsequence",
     "is-subsequence",
     "subarray-sum-equals-k",
     "middle-of-the-linked-list",
+    "k-closest-points-to-origin",
     "subarray-sums-divisible-by-k",
     "delete-the-middle-node-of-a-linked-list"
   ]
