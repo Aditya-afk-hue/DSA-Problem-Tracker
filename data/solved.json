@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-13T14:51:50.551Z",
+  "updatedAt": "2026-07-13T19:39:36.007Z",
   "slugs": [
     "two-sum",
     "reverse-integer",
@@ -27,6 +27,7 @@
     "best-time-to-buy-and-sell-stock",
     "valid-palindrome",
     "longest-consecutive-sequence",
+    "single-number",
     "linked-list-cycle",
     "linked-list-cycle-ii",
     "evaluate-reverse-polish-notation",
@@ -45,6 +46,7 @@
     "find-median-from-data-stream",
     "longest-increasing-subsequence",
     "is-subsequence",
+    "max-consecutive-ones",
     "fibonacci-number",
     "subarray-sum-equals-k",
     "middle-of-the-linked-list",
