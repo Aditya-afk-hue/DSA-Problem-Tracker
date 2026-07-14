@@ -998,10 +998,15 @@
 </div>
 
 <div class="modal-overlay" id="codeEditorModal">
-  <div class="modal-box" style="max-width:920px;">
+  <div class="modal-box" style="max-width:960px;">
     <button class="modal-close" data-close="codeEditorModal">✕</button>
     <h3>⌨️ Code editor</h3>
     <div class="modal-sub" id="codeEditorModalSub"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+      <button class="btn-secondary" id="solveSummaryBtn" type="button" style="padding:4px 10px;font-size:11.5px;">🤖 AI problem summary</button>
+      <a class="btn-secondary" id="solveOpenLeetcodeBtn2" href="#" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;padding:4px 10px;font-size:11.5px;">Read the real question on LeetCode ↗</a>
+    </div>
+    <div id="solveProblemSummary" style="display:none;font-size:13px;line-height:1.6;color:var(--ink-soft);background:var(--card);border:1px solid var(--rule-soft);border-radius:8px;padding:12px 14px;margin-bottom:12px;white-space:pre-wrap;"></div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0 8px;">
       <label for="solveLangSel" style="margin:0;">Language</label>
       <select id="solveLangSel">
@@ -1013,22 +1018,27 @@
         <option value="csharp">C#</option>
         <option value="go">Go</option>
         <option value="typescript">TypeScript</option>
+        <option value="sql">SQL</option>
       </select>
       <span style="flex:1;"></span>
       <span class="stamp-btn" id="solveSolvedBadge" style="display:none;position:static;width:auto;height:auto;padding:4px 10px;">✓ Solved</span>
       <a class="btn-secondary" id="solveOpenLeetcodeBtn" href="#" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;">Open on LeetCode ↗</a>
     </div>
-    <textarea id="solveCodeInput" spellcheck="false" placeholder="Write your solution here…" style="width:100%;min-height:340px;font-family:'IBM Plex Mono',monospace;font-size:13px;padding:12px;border:1.5px solid var(--rule);border-radius:8px;background:var(--paper);color:var(--ink);resize:vertical;box-sizing:border-box;line-height:1.5;"></textarea>
-    <div class="modal-note" id="solveRunNote">Autosaves as you type, per problem and per language. Only JavaScript actually runs here in-browser — for other languages, write and save your solution, then use "Open on LeetCode" to run and submit it for real.</div>
+    <textarea id="solveCodeInput" spellcheck="false" placeholder="Write your solution here…" style="width:100%;min-height:280px;font-family:'IBM Plex Mono',monospace;font-size:13px;padding:12px;border:1.5px solid var(--rule);border-radius:8px;background:var(--paper);color:var(--ink);resize:vertical;box-sizing:border-box;line-height:1.5;"></textarea>
+    <div class="modal-note" id="solveRunNote">Autosaves as you type, per problem and per language. JavaScript, Python, and SQL actually run here in-browser (Python via Pyodide, SQL via sql.js — first run loads the runtime, ~10-20s). Java, C++, C, C#, and Go can't run in-browser — write and save your solution here, then use "Open on LeetCode" to run and submit it for real.</div>
     <div id="solveConsoleWrap" style="display:none;margin-top:10px;">
       <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.5px;text-transform:uppercase;color:var(--ink-faint);margin-bottom:4px;">Console output</div>
       <pre id="solveConsoleOutput" style="background:var(--card);border:1px solid var(--rule-soft);border-radius:8px;padding:10px 12px;font-size:12.5px;white-space:pre-wrap;max-height:200px;overflow:auto;margin:0;"></pre>
     </div>
-    <div class="modal-actions">
-      <button class="btn-secondary" data-close="codeEditorModal">Close</button>
+    <div class="modal-actions" style="justify-content:flex-start;">
       <button class="btn-secondary" id="solveUndoBtn" type="button" title="Undo (Ctrl+Z)">↶ Undo</button>
       <button class="btn-secondary" id="solveRedoBtn" type="button" title="Redo (Ctrl+Y)">↷ Redo</button>
       <button class="btn-secondary" id="solveRunBtn" type="button">▶ Run</button>
+    </div>
+    <div class="code-section-divider"></div>
+    <div class="mock-tc-box" id="solveTestCasesBox"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" data-close="codeEditorModal">Close</button>
     </div>
   </div>
 </div>
@@ -7828,21 +7838,42 @@ function applySolveHistory(index){
   if(solveModalId!=null) setSolveCode(solveModalId, document.getElementById('solveLangSel').value, value);
   updateSolveHistoryButtons();
 }
+function langKeyToLabel(v){
+  return { javascript:'JavaScript', python:'Python', sql:'SQL', java:'Java', cpp:'C++', c:'C', csharp:'C#', go:'Go', typescript:'TypeScript' }[v] || v;
+}
+function solveLangSupportsRun(){
+  const v = document.getElementById('solveLangSel').value;
+  return v === 'javascript' || v === 'python' || v === 'sql';
+}
+let solveTestCases = [];
+let solveTestCasesGenerated = false;
+let solveTestCasesLoading = false;
+function resetSolveTestCases(){
+  solveTestCases = [];
+  solveTestCasesGenerated = false;
+  solveTestCasesLoading = false;
+  renderSolveTestCases();
+}
 function openCodeEditorModal(id){
   solveModalId = id;
   const p = PROBLEMS.find(x=>x.id===id);
   document.getElementById('codeEditorModalSub').textContent = p.title + ' — ' + p.section;
   document.getElementById('solveOpenLeetcodeBtn').href = `https://leetcode.com/problems/${p.slug}/`;
+  document.getElementById('solveOpenLeetcodeBtn2').href = `https://leetcode.com/problems/${p.slug}/`;
   const isSolved = solved.has(id);
   const badge = document.getElementById('solveSolvedBadge');
   badge.style.display = isSolved ? 'inline-block' : 'none';
-  const lang = document.getElementById('solveLangSel').value || 'javascript';
+  const savedLang = document.getElementById('solveLangSel').value || 'javascript';
+  const lang = (p.section === 'Database & SQL') ? 'sql' : savedLang;
   document.getElementById('solveLangSel').value = lang;
   const code = getSolveCode(id, lang);
   document.getElementById('solveCodeInput').value = code;
   resetSolveHistory(code);
   document.getElementById('solveConsoleWrap').style.display = 'none';
   document.getElementById('solveConsoleOutput').textContent = '';
+  document.getElementById('solveProblemSummary').style.display = 'none';
+  document.getElementById('solveProblemSummary').innerHTML = '';
+  resetSolveTestCases();
   document.getElementById('codeEditorModal').classList.add('show');
 }
 document.getElementById('solveLangSel').addEventListener('change', ()=>{
@@ -7850,6 +7881,7 @@ document.getElementById('solveLangSel').addEventListener('change', ()=>{
   const code = getSolveCode(solveModalId, document.getElementById('solveLangSel').value);
   document.getElementById('solveCodeInput').value = code;
   resetSolveHistory(code);
+  resetSolveTestCases();
 });
 document.getElementById('solveCodeInput').addEventListener('input', ()=>{
   if(solveModalId==null) return;
@@ -7871,59 +7903,238 @@ document.getElementById('solveUndoBtn').addEventListener('click', ()=>{
 document.getElementById('solveRedoBtn').addEventListener('click', ()=>{
   applySolveHistory(solveHistoryIndex + 1);
 });
-function runJsInSandbox(code, outputEl){
-  outputEl.textContent = 'Running…';
-  const iframe = document.createElement('iframe');
-  iframe.style.display = 'none';
-  iframe.setAttribute('sandbox', 'allow-scripts');
-  document.body.appendChild(iframe);
-  const logs = [];
-  let done = false;
-  const cleanup = ()=>{
-    if(done) return;
-    done = true;
-    window.removeEventListener('message', handler);
-    setTimeout(()=>{ if(iframe.parentNode) iframe.remove(); }, 30);
-  };
-  const handler = (e)=>{
-    if(e.source !== iframe.contentWindow || !e.data) return;
-    if(e.data.__solveConsole){
-      logs.push(e.data.text);
-      outputEl.textContent = logs.join('\n');
-    }
-    if(e.data.__solveDone) cleanup();
-  };
-  window.addEventListener('message', handler);
-  const safeCode = code.replace(/<\/script>/gi, '<\\/script>');
-  const doc = iframe.contentDocument;
-  doc.open();
-  doc.write(
-    '<script>' +
-    'const __send = (t) => parent.postMessage({__solveConsole:true, text:t}, "*");' +
-    'console.log = (...a) => __send(a.map(x=>{ try{ return typeof x==="string" ? x : JSON.stringify(x); }catch(e){ return String(x); } }).join(" "));' +
-    'console.error = console.warn = console.log;' +
-    'window.onerror = function(msg){ __send("⚠️ " + msg); parent.postMessage({__solveDone:true}, "*"); return true; };' +
-    'try {' + safeCode + '\n} catch(err) { __send("⚠️ " + (err && err.message ? err.message : String(err))); }' +
-    'parent.postMessage({__solveDone:true}, "*");' +
-    '<\/script>'
-  );
-  doc.close();
-  setTimeout(cleanup, 5000);
-}
-document.getElementById('solveRunBtn').addEventListener('click', ()=>{
-  const lang = document.getElementById('solveLangSel').value;
+
+document.getElementById('solveRunBtn').addEventListener('click', async ()=>{
+  const langVal = document.getElementById('solveLangSel').value;
   const code = document.getElementById('solveCodeInput').value;
   const wrap = document.getElementById('solveConsoleWrap');
   const out = document.getElementById('solveConsoleOutput');
+  const runBtn = document.getElementById('solveRunBtn');
   wrap.style.display = 'block';
-  if(!code.trim()){ out.textContent = 'Nothing to run — write some code first.'; return; }
-  if(lang === 'javascript' || lang === 'typescript'){
-    if(lang === 'typescript'){ out.textContent = 'Running as plain JavaScript — type annotations may cause errors. Strip types for a clean run, or use "Open on LeetCode" to run real TypeScript.'; }
-    runJsInSandbox(code, out);
-  } else {
-    out.textContent = `Live execution isn't supported for this language in-browser. Your code is saved — click "Open on LeetCode ↗" to actually run and submit it.`;
+  if(!code.trim()){ out.textContent = 'Nothing to run yet — write some code first.'; return; }
+  if(!solveLangSupportsRun()){
+    out.textContent = `Live execution isn't available for ${langKeyToLabel(langVal)} in-browser (needs a server-side compiler for Java/C++/C#/Go). Write your solution here and use "Open on LeetCode" to actually run and submit it — or switch the language dropdown to Python, JavaScript, or SQL to run code right here.`;
+    return;
+  }
+  runBtn.disabled = true;
+  runBtn.textContent = langVal === 'python' && !pyodideLoadPromise ? 'Loading Python runtime…' : (langVal === 'sql' && !sqlJsLoadPromise ? 'Loading SQL runtime…' : 'Running…');
+  out.textContent = 'Running…';
+  try{
+    const result = langVal === 'javascript' ? await runJSInWorker(code, null) : langVal === 'sql' ? await runSQLCode(code, null) : await runPythonCode(code, null);
+    const lines = [];
+    if(result.logs && result.logs.length) lines.push(...result.logs);
+    if(result.error) lines.push('⚠ ' + result.error);
+    if(!lines.length) lines.push('(ran with no output — use print()/console.log to see values)');
+    out.textContent = lines.join('\n');
+  }catch(err){
+    out.textContent = '⚠ ' + ((err && err.message) ? err.message : String(err));
+  }finally{
+    runBtn.disabled = false;
+    runBtn.textContent = '▶ Run';
   }
 });
+
+document.getElementById('solveSummaryBtn').addEventListener('click', async ()=>{
+  const p = PROBLEMS.find(x=>x.id===solveModalId);
+  const box = document.getElementById('solveProblemSummary');
+  const btn = document.getElementById('solveSummaryBtn');
+  const savedKey = localStorage.getItem(APIKEY_KEY) || '';
+  const key = savedKey || prompt('Paste your Gemini API key (only used client-side, never sent anywhere but Google\'s API — same key as the 💡 hint feature):');
+  if(!key) return;
+  try{ localStorage.setItem(APIKEY_KEY, key); }catch(e){}
+  btn.disabled = true; btn.textContent = 'Summarizing…';
+  box.style.display = 'block';
+  box.innerHTML = `<span class="ai-tag">AI paraphrase — verify against the real problem</span>\nAsking for a summary…`;
+  try{
+    const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=' + encodeURIComponent(key), {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({
+        contents:[{ role:'user', parts:[{ text:
+          `In your own words (do not quote LeetCode's text), briefly restate the LeetCode problem "${p.title}" (topic: ${p.section}, difficulty: ${p.diff==='E'?'Easy':p.diff==='M'?'Medium':'Hard'}) for someone about to solve it. ` +
+          `Include: a 2-3 sentence plain-English restatement of the task, the input/output format, 1-2 small example inputs+outputs, and key constraints if commonly known for this problem. ` +
+          `If you're not confident of the exact details for this specific problem, say so plainly instead of guessing. Do not include any solution approach or code. Plain text, no markdown asterisks, under 180 words.`
+        }]}],
+        generationConfig:{ maxOutputTokens:500, thinkingConfig:{ thinkingLevel:'minimal' } }
+      })
+    });
+    if(!resp.ok){
+      const errText = await resp.text();
+      throw new Error('API error ' + resp.status + ': ' + errText.slice(0,300));
+    }
+    const data = await resp.json();
+    const candidate = data.candidates && data.candidates[0];
+    const parts = (candidate && candidate.content && candidate.content.parts) || [];
+    const text = parts.map(b=>b.text||'').join('\n').trim();
+    box.innerHTML = `<span class="ai-tag">AI paraphrase — verify against the real problem</span>\n${escapeHtml(text || 'No summary came back — try again, or just read it on LeetCode.')}`;
+  }catch(err){
+    box.innerHTML = `<span class="ai-tag">AI paraphrase</span>\n⚠ ${escapeHtml((err && err.message) ? err.message : String(err))}`;
+  }finally{
+    btn.disabled = false; btn.textContent = '🤖 AI problem summary';
+  }
+});
+
+async function generateSolveTestCases(){
+  const p = PROBLEMS.find(x=>x.id===solveModalId);
+  if(!p) return;
+  const savedKey = localStorage.getItem(APIKEY_KEY) || '';
+  const key = savedKey || prompt('Paste your Gemini API key (only used client-side, never sent anywhere but Google\'s API — same key as the 💡 hint feature):');
+  if(!key) return;
+  try{ localStorage.setItem(APIKEY_KEY, key); }catch(e){}
+  const langLabel = langKeyToLabel(document.getElementById('solveLangSel').value);
+  solveTestCasesLoading = true;
+  renderSolveTestCases();
+  try{
+    const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=' + encodeURIComponent(key), {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({
+        contents:[{ role:'user', parts:[{ text:
+          `Generate 3 small example test cases for the LeetCode problem "${p.title}" (topic: ${p.section}, difficulty: ${p.diff==='E'?'Easy':p.diff==='M'?'Medium':'Hard'}). ` +
+          `Use well-known example inputs/outputs for this specific problem if you know them; otherwise construct small, plausible cases consistent with its usual constraints, and don't guess wildly. ` +
+          (langLabel === 'SQL' ?
+            `This is a SQL/database problem, so "input" must be a JSON object of {"TableName": [{"col1": val, "col2": val}, ...], ...} representing the seed rows for each table the query needs — use the real table/column names LeetCode uses for this problem if known. ` :
+            `The "input" is what a program would json.loads() and read as a single INPUT value (an array/object combining all parameters). `) +
+          `Respond with ONLY a raw JSON array, no markdown code fences, no prose — each element exactly: {"input": <the input as described above>, "expected": "<the expected output, as the exact plain-text string the last output row/line should equal>"}.`
+        }]}],
+        generationConfig:{ maxOutputTokens:500, thinkingConfig:{ thinkingLevel:'minimal' } }
+      })
+    });
+    if(!resp.ok){
+      const errText = await resp.text();
+      throw new Error('API error ' + resp.status + ': ' + errText.slice(0,300));
+    }
+    const data = await resp.json();
+    const candidate = data.candidates && data.candidates[0];
+    const parts = (candidate && candidate.content && candidate.content.parts) || [];
+    const text = (parts.map(b=>b.text||'').join('\n').trim());
+    const jsonText = text.replace(/^```(json)?/i,'').replace(/```$/,'').trim();
+    const arr = JSON.parse(jsonText);
+    if(!Array.isArray(arr) || !arr.length) throw new Error('Model returned no test cases');
+    solveTestCases = arr.slice(0,5).map(tc => ({
+      id: 'st' + Date.now() + Math.floor(Math.random()*1000),
+      input: typeof tc.input === 'string' ? tc.input : JSON.stringify(tc.input),
+      expected: typeof tc.expected === 'string' ? tc.expected : JSON.stringify(tc.expected),
+      status: 'idle', actual: ''
+    }));
+    solveTestCasesGenerated = true;
+  }catch(err){
+    showToast('⚠ Could not auto-generate test cases — add one manually instead.');
+  }finally{
+    solveTestCasesLoading = false;
+    renderSolveTestCases();
+  }
+}
+function renderSolveTestCases(){
+  const box = document.getElementById('solveTestCasesBox');
+  if(!box) return;
+  const langLabel = langKeyToLabel(document.getElementById('solveLangSel').value);
+  if(solveTestCasesLoading){
+    box.innerHTML = `
+      <div class="mock-tc-head"><span class="mock-output-label" style="margin:0;">Test cases</span></div>
+      <div style="font-size:12.5px;color:var(--ink-faint);padding:8px 0;">🤖 Generating test cases from the problem…</div>
+    `;
+    return;
+  }
+  if(!solveTestCases.length){
+    box.innerHTML = `
+      <div class="mock-tc-head"><span class="mock-output-label" style="margin:0;">Test cases</span></div>
+      <div style="font-size:12.5px;color:var(--ink-faint);margin-bottom:10px;">No test cases yet.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn-primary" id="solveGenTcBtn" type="button">🤖 Generate test cases</button>
+        <button class="btn-secondary" id="solveAddTcBtn" type="button">+ Add manually</button>
+      </div>
+    `;
+    document.getElementById('solveGenTcBtn').addEventListener('click', generateSolveTestCases);
+    document.getElementById('solveAddTcBtn').addEventListener('click', ()=>{
+      solveTestCases.push(newMockTestCase());
+      renderSolveTestCases();
+    });
+    return;
+  }
+  const rows = solveTestCases.map((tc, i)=>`
+    <div class="mock-tc-row" data-idx="${i}">
+      <div class="mock-tc-fields">
+        <div><label>Input (JSON, becomes <code>INPUT</code>)</label>
+          <input type="text" class="solve-tc-input" data-idx="${i}" data-field="input" placeholder='e.g. [[1,2],[2,3],[4,2]]' value="${escapeHtml(tc.input)}"></div>
+        <div><label>Expected output</label>
+          <input type="text" class="solve-tc-input" data-idx="${i}" data-field="expected" placeholder="e.g. 2" value="${escapeHtml(tc.expected)}"></div>
+      </div>
+      <div class="mock-tc-status ${tc.status}">${
+        tc.status==='pass' ? '✓ Pass' : tc.status==='fail' ? `✕ Fail — got: ${escapeHtml(tc.actual||'(no output)')}` :
+        tc.status==='error' ? `⚠ Error — ${escapeHtml(tc.actual||'')}` : ''
+      }</div>
+      <button class="mock-tc-remove" data-idx="${i}" type="button" title="Remove test case">✕</button>
+    </div>
+  `).join('');
+  box.innerHTML = `
+    <div class="mock-tc-head">
+      <span class="mock-output-label" style="margin:0;">Test cases ${solveTestCasesGenerated ? '<span class=\"ai-tag\" style=\"margin-left:6px;\">AI-generated — check these</span>' : ''}</span>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-secondary" id="solveRegenTcBtn" type="button" style="padding:4px 10px;font-size:11.5px;">🔄 Regenerate</button>
+        <button class="btn-secondary" id="solveAddTcBtn" type="button" style="padding:4px 10px;font-size:11.5px;">+ Add test case</button>
+      </div>
+    </div>
+    <div style="font-size:11.5px;color:var(--ink-faint);margin:4px 0 10px;">${langLabel === 'SQL' ? 'Input for each case seeds the table(s) as an object like <code>{"Employee": [{"id":1,"salary":100}, ...]}</code> — write your query against those table names; Submit runs it and compares the last result row to "Expected output".' : 'Your code doesn\'t have LeetCode\'s real function signature, so read the input from the <code>INPUT</code> global and print your final answer as the last line of output — Submit compares that line to "Expected output" for each row.'} Edit or remove any case that looks wrong.</div>
+    ${rows}
+    <div class="mock-run-row">
+      <button class="btn-primary" id="solveSubmitBtn" type="button">✓ Submit (run all test cases)</button>
+    </div>
+  `;
+  box.querySelectorAll('.solve-tc-input').forEach(inp=>{
+    inp.addEventListener('input', (e)=>{
+      const idx = parseInt(e.target.getAttribute('data-idx'),10);
+      const field = e.target.getAttribute('data-field');
+      if(solveTestCases[idx]){
+        solveTestCases[idx][field] = e.target.value;
+        solveTestCases[idx].status = 'idle';
+      }
+    });
+  });
+  box.querySelectorAll('.mock-tc-remove').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      const idx = parseInt(e.target.getAttribute('data-idx'),10);
+      solveTestCases.splice(idx,1);
+      renderSolveTestCases();
+    });
+  });
+  document.getElementById('solveAddTcBtn').addEventListener('click', ()=>{
+    solveTestCases.push(newMockTestCase());
+    renderSolveTestCases();
+  });
+  document.getElementById('solveRegenTcBtn').addEventListener('click', generateSolveTestCases);
+  document.getElementById('solveSubmitBtn').addEventListener('click', submitSolveTestCases);
+}
+async function submitSolveTestCases(){
+  const langVal = document.getElementById('solveLangSel').value;
+  const submitBtn = document.getElementById('solveSubmitBtn');
+  const code = document.getElementById('solveCodeInput').value;
+  if(!solveLangSupportsRun()){
+    showToast('Submit needs a runnable language — switch to Python, JavaScript, or SQL to test against cases.');
+    return;
+  }
+  if(!code.trim()){ showToast('Write some code first.'); return; }
+  submitBtn.disabled = true; submitBtn.textContent = 'Running test cases…';
+  for(let i=0; i<solveTestCases.length; i++){
+    const tc = solveTestCases[i];
+    try{
+      const result = langVal === 'javascript' ? await runJSInWorker(code, tc.input || null) : langVal === 'sql' ? await runSQLCode(code, tc.input || null) : await runPythonCode(code, tc.input || null);
+      if(!result.ok){
+        tc.status = 'error'; tc.actual = result.error || 'unknown error';
+      } else {
+        const lastLine = (result.logs || []).filter(l=>l.trim()).pop() || '';
+        tc.actual = lastLine;
+        tc.status = normalizeForCompare(lastLine) === normalizeForCompare(tc.expected) ? 'pass' : 'fail';
+      }
+    }catch(err){
+      tc.status = 'error'; tc.actual = (err && err.message) ? err.message : String(err);
+    }
+  }
+  submitBtn.disabled = false; submitBtn.textContent = '✓ Submit (run all test cases)';
+  renderSolveTestCases();
+  const passed = solveTestCases.filter(t=>t.status==='pass').length;
+  showToast(`${passed}/${solveTestCases.length} test cases passed`);
+}
 
 function closeModal(id){ document.getElementById(id).classList.remove('show'); }
 document.querySelectorAll('[data-close]').forEach(el=>{
