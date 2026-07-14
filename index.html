@@ -545,7 +545,20 @@
   .hint-output{
     background:var(--card);border:1px solid var(--rule-soft);border-radius:8px;
     padding:12px;font-size:13px;line-height:1.6;margin-top:10px;white-space:pre-wrap;
+    max-height:480px;overflow-y:auto;
   }
+  .chat-bubble{
+    border-radius:12px;padding:10px 14px;margin:0 0 14px;max-width:88%;
+    white-space:pre-wrap;font-size:13px;line-height:1.6;
+  }
+  .chat-bubble.chat-user{
+    background:var(--pine);color:#fff;margin-left:auto;border-bottom-right-radius:4px;
+  }
+  .chat-bubble.chat-assistant{
+    background:var(--medium-bg);color:var(--ink);margin-right:auto;border-bottom-left-radius:4px;
+    border:1px solid var(--rule-soft);
+  }
+  .chat-bubble.chat-assistant .hint-label:first-child{margin-top:0;}
   .hint-output .hint-label{
     font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.8px;
     font-size:11px;color:var(--pine);font-weight:600;margin:12px 0 4px;
@@ -979,6 +992,10 @@
 </div>
 
 <div class="toast" id="toast"></div>
+<div id="factoryResetUndoBanner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:var(--stamp-deep);color:#fff;padding:12px 20px;text-align:center;font-size:13px;">
+  Factory reset complete. <button type="button" id="factoryResetUndoBtn" style="background:#fff;color:var(--stamp-deep);border:none;border-radius:6px;padding:5px 12px;font-weight:700;cursor:pointer;margin:0 8px;">↩ Undo</button>
+  <button type="button" id="factoryResetDismissBtn" style="background:transparent;color:#fff;border:1.5px solid #fff;border-radius:6px;padding:5px 12px;cursor:pointer;">Dismiss</button>
+</div>
 
 <div class="modal-overlay" id="notesModal">
   <div class="modal-box">
@@ -1025,15 +1042,14 @@
       <a class="btn-secondary" id="solveOpenLeetcodeBtn" href="#" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;">Open on LeetCode ↗</a>
     </div>
     <textarea id="solveCodeInput" spellcheck="false" placeholder="Write your solution here…" style="width:100%;min-height:280px;font-family:'IBM Plex Mono',monospace;font-size:13px;padding:12px;border:1.5px solid var(--rule);border-radius:8px;background:var(--paper);color:var(--ink);resize:vertical;box-sizing:border-box;line-height:1.5;"></textarea>
-    <div class="modal-note" id="solveRunNote">Autosaves as you type, per problem and per language. JavaScript, Python, and SQL actually run here in-browser (Python via Pyodide, SQL via sql.js — first run loads the runtime, ~10-20s). Java, C++, C, C#, and Go can't run in-browser — write and save your solution here, then use "Open on LeetCode" to run and submit it for real.</div>
+    <div class="modal-note" id="solveRunNote">Autosaves as you type, per problem and per language. JavaScript, Python, Java, and SQL actually run here in-browser (Python via Pyodide, SQL via sql.js, Java via CheerpJ's in-browser JVM+compiler — first run of Python/Java loads a runtime, can take 10-30s). For Java, write a full program: <code>public class Main { public static void main(String[] args) { ... } }</code>. C++, C, C#, and Go can't run in-browser — write and save your solution here, then use "Open on LeetCode" to run and submit it for real.</div>
     <div id="solveConsoleWrap" style="display:none;margin-top:10px;">
       <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.5px;text-transform:uppercase;color:var(--ink-faint);margin-bottom:4px;">Console output</div>
       <pre id="solveConsoleOutput" style="background:var(--card);border:1px solid var(--rule-soft);border-radius:8px;padding:10px 12px;font-size:12.5px;white-space:pre-wrap;max-height:200px;overflow:auto;margin:0;"></pre>
     </div>
     <div class="modal-actions" style="justify-content:flex-start;">
-      <button class="btn-secondary" id="solveUndoBtn" type="button" title="Undo (Ctrl+Z)">↶ Undo</button>
-      <button class="btn-secondary" id="solveRedoBtn" type="button" title="Redo (Ctrl+Y)">↷ Redo</button>
       <button class="btn-secondary" id="solveRunBtn" type="button">▶ Run</button>
+      <span style="font-size:11px;color:var(--ink-faint);align-self:center;">Ctrl+Z / Ctrl+Y to undo/redo</span>
     </div>
     <div class="code-section-divider"></div>
     <div class="mock-tc-box" id="solveTestCasesBox"></div>
@@ -1053,13 +1069,16 @@
       <input type="text" id="hintApiKey" placeholder="AIza...">
       <div class="modal-note">This is sent directly from your browser to Google's Gemini API to generate the hint — it is never sent anywhere else, and isn't included if you export or share your progress. Get a key at aistudio.google.com/apikey. This is optional — the tracker works fully without it. It's also the key used below for 💻 Get the code.</div>
     </div>
+    <div class="modal-actions" style="justify-content:flex-start;margin:10px 0 4px;">
+      <button class="btn-primary" id="hintGetBtn">Get hint</button>
+    </div>
     <div id="hintOutputSection" style="display:none;">
       <div class="hint-output" id="hintOutput"></div>
     </div>
 
     <div class="code-section-divider"></div>
-    <button type="button" class="code-toggle-btn" id="codeToggleBtn">💻 Get the code (brute force &amp; optimal) ▾</button>
-    <div id="codeSection" style="display:none;">
+    <div style="font-weight:700;font-size:14px;color:var(--ink);margin-bottom:10px;">💻 Get the code (brute force &amp; optimal)</div>
+    <div id="codeSection">
       <div class="code-tabs">
         <button type="button" class="code-tab brute active" data-code-tab="brute">🐢 Brute Force</button>
         <button type="button" class="code-tab optimal" data-code-tab="optimal">⚡ Optimal</button>
@@ -1094,8 +1113,8 @@
     </div>
 
     <div class="code-section-divider"></div>
-    <button type="button" class="code-toggle-btn" id="reviewToggleBtn">🤖 Review &amp; debug my solution ▾</button>
-    <div id="reviewSection" style="display:none;">
+    <div style="font-weight:700;font-size:14px;color:var(--ink);margin-bottom:10px;">🤖 Review &amp; debug my solution</div>
+    <div id="reviewSection">
       <div id="reviewOutputSection">
         <div class="hint-output" id="reviewOutput" style="display:none;"></div>
       </div>
@@ -1109,7 +1128,6 @@
 
     <div class="modal-actions">
       <button class="btn-secondary" data-close="hintModal">Close</button>
-      <button class="btn-primary" id="hintGetBtn">Get hint</button>
     </div>
   </div>
 </div>
@@ -4292,6 +4310,8 @@ let activeMock = null;
 let mockCM = null; 
 let pyodideLoadPromise = null; 
 let sqlJsLoadPromise = null; 
+let cheerpjLoadPromise = null;
+let cheerpjBootCounter = 0;
 const _resourceLoadCache = {}; 
 
 const REVIEW_INTERVALS_DAYS = [3, 7, 14, 30, 90];
@@ -7812,7 +7832,6 @@ function setSolveCode(id, lang, code){
 function resetSolveHistory(value){
   solveHistory = [value];
   solveHistoryIndex = 0;
-  updateSolveHistoryButtons();
 }
 function pushSolveHistorySnapshot(){
   const value = document.getElementById('solveCodeInput').value;
@@ -7821,13 +7840,6 @@ function pushSolveHistorySnapshot(){
   solveHistory.push(value);
   if(solveHistory.length > 200) solveHistory.shift();
   solveHistoryIndex = solveHistory.length - 1;
-  updateSolveHistoryButtons();
-}
-function updateSolveHistoryButtons(){
-  const undoBtn = document.getElementById('solveUndoBtn');
-  const redoBtn = document.getElementById('solveRedoBtn');
-  if(undoBtn) undoBtn.disabled = solveHistoryIndex <= 0;
-  if(redoBtn) redoBtn.disabled = solveHistoryIndex >= solveHistory.length - 1;
 }
 function applySolveHistory(index){
   if(index < 0 || index >= solveHistory.length) return;
@@ -7836,14 +7848,21 @@ function applySolveHistory(index){
   const ta = document.getElementById('solveCodeInput');
   ta.value = value;
   if(solveModalId!=null) setSolveCode(solveModalId, document.getElementById('solveLangSel').value, value);
-  updateSolveHistoryButtons();
+}
+function undoSolveCode(){
+  clearTimeout(solveHistoryTimer);
+  pushSolveHistorySnapshot();
+  applySolveHistory(solveHistoryIndex - 1);
+}
+function redoSolveCode(){
+  applySolveHistory(solveHistoryIndex + 1);
 }
 function langKeyToLabel(v){
   return { javascript:'JavaScript', python:'Python', sql:'SQL', java:'Java', cpp:'C++', c:'C', csharp:'C#', go:'Go', typescript:'TypeScript' }[v] || v;
 }
 function solveLangSupportsRun(){
   const v = document.getElementById('solveLangSel').value;
-  return v === 'javascript' || v === 'python' || v === 'sql';
+  return v === 'javascript' || v === 'python' || v === 'sql' || v === 'java';
 }
 let solveTestCases = [];
 let solveTestCasesGenerated = false;
@@ -7863,7 +7882,7 @@ function openCodeEditorModal(id){
   const isSolved = solved.has(id);
   const badge = document.getElementById('solveSolvedBadge');
   badge.style.display = isSolved ? 'inline-block' : 'none';
-  const savedLang = document.getElementById('solveLangSel').value || 'javascript';
+  const savedLang = localStorage.getItem(SOLVE_LANG_KEY) || 'java';
   const lang = (p.section === 'Database & SQL') ? 'sql' : savedLang;
   document.getElementById('solveLangSel').value = lang;
   const code = getSolveCode(id, lang);
@@ -7875,9 +7894,17 @@ function openCodeEditorModal(id){
   document.getElementById('solveProblemSummary').innerHTML = '';
   resetSolveTestCases();
   document.getElementById('codeEditorModal').classList.add('show');
+
+  let hasKey = false;
+  try{ hasKey = !!localStorage.getItem(APIKEY_KEY); }catch(e){}
+  if(hasKey){
+    generateSolveProblemSummary(true);
+    generateSolveTestCases(true);
+  }
 }
 document.getElementById('solveLangSel').addEventListener('change', ()=>{
   if(solveModalId==null) return;
+  try{ localStorage.setItem(SOLVE_LANG_KEY, document.getElementById('solveLangSel').value); }catch(e){}
   const code = getSolveCode(solveModalId, document.getElementById('solveLangSel').value);
   document.getElementById('solveCodeInput').value = code;
   resetSolveHistory(code);
@@ -7892,16 +7919,8 @@ document.getElementById('solveCodeInput').addEventListener('input', ()=>{
 document.getElementById('solveCodeInput').addEventListener('keydown', (e)=>{
   const mod = e.ctrlKey || e.metaKey;
   if(!mod) return;
-  if(e.key === 'z' && !e.shiftKey){ e.preventDefault(); document.getElementById('solveUndoBtn').click(); }
-  else if(e.key === 'y' || (e.key === 'z' && e.shiftKey)){ e.preventDefault(); document.getElementById('solveRedoBtn').click(); }
-});
-document.getElementById('solveUndoBtn').addEventListener('click', ()=>{
-  clearTimeout(solveHistoryTimer);
-  pushSolveHistorySnapshot();
-  applySolveHistory(solveHistoryIndex - 1);
-});
-document.getElementById('solveRedoBtn').addEventListener('click', ()=>{
-  applySolveHistory(solveHistoryIndex + 1);
+  if(e.key === 'z' && !e.shiftKey){ e.preventDefault(); undoSolveCode(); }
+  else if(e.key === 'y' || (e.key === 'z' && e.shiftKey)){ e.preventDefault(); redoSolveCode(); }
 });
 
 document.getElementById('solveRunBtn').addEventListener('click', async ()=>{
@@ -7913,14 +7932,17 @@ document.getElementById('solveRunBtn').addEventListener('click', async ()=>{
   wrap.style.display = 'block';
   if(!code.trim()){ out.textContent = 'Nothing to run yet — write some code first.'; return; }
   if(!solveLangSupportsRun()){
-    out.textContent = `Live execution isn't available for ${langKeyToLabel(langVal)} in-browser (needs a server-side compiler for Java/C++/C#/Go). Write your solution here and use "Open on LeetCode" to actually run and submit it — or switch the language dropdown to Python, JavaScript, or SQL to run code right here.`;
+    out.textContent = `Live execution isn't available for ${langKeyToLabel(langVal)} in-browser (needs a server-side compiler for C++/C#/Go). Write your solution here and use "Open on LeetCode" to actually run and submit it — or switch the language dropdown to Python, JavaScript, Java, or SQL to run code right here.`;
     return;
   }
   runBtn.disabled = true;
-  runBtn.textContent = langVal === 'python' && !pyodideLoadPromise ? 'Loading Python runtime…' : (langVal === 'sql' && !sqlJsLoadPromise ? 'Loading SQL runtime…' : 'Running…');
+  runBtn.textContent = langVal === 'python' && !pyodideLoadPromise ? 'Loading Python runtime…' : (langVal === 'sql' && !sqlJsLoadPromise ? 'Loading SQL runtime…' : (langVal === 'java' && !cheerpjLoadPromise ? 'Loading Java runtime (can take a while first time)…' : 'Running…'));
   out.textContent = 'Running…';
   try{
-    const result = langVal === 'javascript' ? await runJSInWorker(code, null) : langVal === 'sql' ? await runSQLCode(code, null) : await runPythonCode(code, null);
+    const result = langVal === 'javascript' ? await runJSInWorker(code, null)
+      : langVal === 'sql' ? await runSQLCode(code, null)
+      : langVal === 'java' ? await runJavaCode(code, null)
+      : await runPythonCode(code, null);
     const lines = [];
     if(result.logs && result.logs.length) lines.push(...result.logs);
     if(result.error) lines.push('⚠ ' + result.error);
@@ -7934,12 +7956,12 @@ document.getElementById('solveRunBtn').addEventListener('click', async ()=>{
   }
 });
 
-document.getElementById('solveSummaryBtn').addEventListener('click', async ()=>{
+async function generateSolveProblemSummary(auto){
   const p = PROBLEMS.find(x=>x.id===solveModalId);
   const box = document.getElementById('solveProblemSummary');
   const btn = document.getElementById('solveSummaryBtn');
   const savedKey = localStorage.getItem(APIKEY_KEY) || '';
-  const key = savedKey || prompt('Paste your Gemini API key (only used client-side, never sent anywhere but Google\'s API — same key as the 💡 hint feature):');
+  const key = savedKey || (auto ? '' : prompt('Paste your Gemini API key (only used client-side, never sent anywhere but Google\'s API — same key as the 💡 hint feature):'));
   if(!key) return;
   try{ localStorage.setItem(APIKEY_KEY, key); }catch(e){}
   btn.disabled = true; btn.textContent = 'Summarizing…';
@@ -7972,13 +7994,14 @@ document.getElementById('solveSummaryBtn').addEventListener('click', async ()=>{
   }finally{
     btn.disabled = false; btn.textContent = '🤖 AI problem summary';
   }
-});
+}
+document.getElementById('solveSummaryBtn').addEventListener('click', ()=>generateSolveProblemSummary(false));
 
-async function generateSolveTestCases(){
+async function generateSolveTestCases(auto){
   const p = PROBLEMS.find(x=>x.id===solveModalId);
   if(!p) return;
   const savedKey = localStorage.getItem(APIKEY_KEY) || '';
-  const key = savedKey || prompt('Paste your Gemini API key (only used client-side, never sent anywhere but Google\'s API — same key as the 💡 hint feature):');
+  const key = savedKey || (auto ? '' : prompt('Paste your Gemini API key (only used client-side, never sent anywhere but Google\'s API — same key as the 💡 hint feature):'));
   if(!key) return;
   try{ localStorage.setItem(APIKEY_KEY, key); }catch(e){}
   const langLabel = langKeyToLabel(document.getElementById('solveLangSel').value);
@@ -8045,7 +8068,7 @@ function renderSolveTestCases(){
         <button class="btn-secondary" id="solveAddTcBtn" type="button">+ Add manually</button>
       </div>
     `;
-    document.getElementById('solveGenTcBtn').addEventListener('click', generateSolveTestCases);
+    document.getElementById('solveGenTcBtn').addEventListener('click', ()=>generateSolveTestCases(false));
     document.getElementById('solveAddTcBtn').addEventListener('click', ()=>{
       solveTestCases.push(newMockTestCase());
       renderSolveTestCases();
@@ -8075,7 +8098,7 @@ function renderSolveTestCases(){
         <button class="btn-secondary" id="solveAddTcBtn" type="button" style="padding:4px 10px;font-size:11.5px;">+ Add test case</button>
       </div>
     </div>
-    <div style="font-size:11.5px;color:var(--ink-faint);margin:4px 0 10px;">${langLabel === 'SQL' ? 'Input for each case seeds the table(s) as an object like <code>{"Employee": [{"id":1,"salary":100}, ...]}</code> — write your query against those table names; Submit runs it and compares the last result row to "Expected output".' : 'Your code doesn\'t have LeetCode\'s real function signature, so read the input from the <code>INPUT</code> global and print your final answer as the last line of output — Submit compares that line to "Expected output" for each row.'} Edit or remove any case that looks wrong.</div>
+    <div style="font-size:11.5px;color:var(--ink-faint);margin:4px 0 10px;">${langLabel === 'SQL' ? 'Input for each case seeds the table(s) as an object like <code>{"Employee": [{"id":1,"salary":100}, ...]}</code> — write your query against those table names; Submit runs it and compares the last result row to "Expected output".' : langLabel === 'Java' ? 'Your code doesn\'t have LeetCode\'s real function signature, so read the input from <code>args[0]</code> in <code>main(String[] args)</code> and print your final answer as the last line of output — Submit compares that line to "Expected output" for each row.' : 'Your code doesn\'t have LeetCode\'s real function signature, so read the input from the <code>INPUT</code> global and print your final answer as the last line of output — Submit compares that line to "Expected output" for each row.'} Edit or remove any case that looks wrong.</div>
     ${rows}
     <div class="mock-run-row">
       <button class="btn-primary" id="solveSubmitBtn" type="button">✓ Submit (run all test cases)</button>
@@ -8102,7 +8125,7 @@ function renderSolveTestCases(){
     solveTestCases.push(newMockTestCase());
     renderSolveTestCases();
   });
-  document.getElementById('solveRegenTcBtn').addEventListener('click', generateSolveTestCases);
+  document.getElementById('solveRegenTcBtn').addEventListener('click', ()=>generateSolveTestCases(false));
   document.getElementById('solveSubmitBtn').addEventListener('click', submitSolveTestCases);
 }
 async function submitSolveTestCases(){
@@ -8110,7 +8133,7 @@ async function submitSolveTestCases(){
   const submitBtn = document.getElementById('solveSubmitBtn');
   const code = document.getElementById('solveCodeInput').value;
   if(!solveLangSupportsRun()){
-    showToast('Submit needs a runnable language — switch to Python, JavaScript, or SQL to test against cases.');
+    showToast('Submit needs a runnable language — switch to Python, JavaScript, Java, or SQL to test against cases.');
     return;
   }
   if(!code.trim()){ showToast('Write some code first.'); return; }
@@ -8118,7 +8141,10 @@ async function submitSolveTestCases(){
   for(let i=0; i<solveTestCases.length; i++){
     const tc = solveTestCases[i];
     try{
-      const result = langVal === 'javascript' ? await runJSInWorker(code, tc.input || null) : langVal === 'sql' ? await runSQLCode(code, tc.input || null) : await runPythonCode(code, tc.input || null);
+      const result = langVal === 'javascript' ? await runJSInWorker(code, tc.input || null)
+        : langVal === 'sql' ? await runSQLCode(code, tc.input || null)
+        : langVal === 'java' ? await runJavaCode(code, tc.input || null)
+        : await runPythonCode(code, tc.input || null);
       if(!result.ok){
         tc.status = 'error'; tc.actual = result.error || 'unknown error';
       } else {
@@ -8538,6 +8564,55 @@ async function runSQLCode(code, rawInputJson){
     db.close();
   }
 }
+
+// Java, via CheerpJ — a real JVM compiled to WebAssembly that runs entirely
+// in the browser. It ships the actual OpenJDK javac compiler, so we compile
+// the user's source with it, then run the resulting class, same as a real
+// javac + java pipeline, just client-side. First run downloads a JDK image
+// (tens of MB) and is slow; later runs are fast. Unlike the JS/Python/SQL
+// engines above, this can only run ONE Java program per page load — CheerpJ
+// doesn't support being reset, so each run after the first reuses the same
+// JVM instance (isolated per run via a fresh class name).
+function ensureCheerpJ(){
+  if(cheerpjLoadPromise) return cheerpjLoadPromise;
+  cheerpjLoadPromise = loadScript('https://cjrtnc.leaningtech.com/4.3/loader.js')
+    .then(()=> cheerpjInit());
+  return cheerpjLoadPromise;
+}
+async function runJavaCode(code, rawInputJson){
+  await ensureCheerpJ();
+  cheerpjBootCounter++;
+  const runId = cheerpjBootCounter;
+  const srcPath = `/str/Main${runId}.java`;
+  // CheerpJ needs the public class name to match the filename it compiles —
+  // rewrite the user's "public class X" to a unique name per run so repeated
+  // runs in the same session don't collide.
+  const className = `Main${runId}`;
+  const rewritten = code.replace(/public\s+class\s+\w+/, `public class ${className}`);
+  if(!/public\s+class\s+\w+/.test(code)){
+    return { ok:false, logs:[], error:'Java needs a full program — write a "public class Main { public static void main(String[] args) { ... } }" wrapper around your solution. Read args[0] for the test-case input.' };
+  }
+  cheerpOSAddStringFile(srcPath, rewritten);
+  const logs = [];
+  const origLog = console.log;
+  const origError = console.error;
+  console.log = (...a)=>{ logs.push(a.map(String).join(' ')); };
+  console.error = (...a)=>{ logs.push(a.map(String).join(' ')); };
+  try{
+    const compileExit = await cheerpjRunMain('com.sun.tools.javac.Main', '/app/tools.jar', srcPath, '-d', '/files/');
+    if(compileExit !== 0){
+      return { ok:false, logs, error: 'Compile error — see output above.' };
+    }
+    const runArgs = rawInputJson ? [rawInputJson] : [];
+    await cheerpjRunMain(className, '/app/tools.jar:/files/', ...runArgs);
+    return { ok:true, logs, error:null };
+  }catch(err){
+    return { ok:false, logs, error: 'CheerpJ error: ' + ((err && err.message) ? err.message : String(err)) };
+  }finally{
+    console.log = origLog;
+    console.error = origError;
+  }
+}
 async function runMockCode(){
   const out = document.getElementById('mockOutputPanel');
   const runBtn = document.getElementById('mockRunBtn');
@@ -8865,7 +8940,10 @@ function renderMockSetupView(){
     renderMockPanel();
     let hasKey = false;
     try{ hasKey = !!localStorage.getItem(APIKEY_KEY); }catch(e){}
-    if(hasKey) generateMockTestCases(); 
+    if(hasKey){
+      generateMockTestCases();
+      generateMockProblemSummary();
+    }
   });
 }
 function startMockTimer(){
@@ -9626,6 +9704,8 @@ function applyFullProgressSlugs(slugs, sourceLabel){
 
 const GH_SYNC_KEY = 'dsa-tracker-gh-sync-v1';
 const SOLVE_CODE_KEY = 'dsa-tracker-solve-code-v1';
+const SOLVE_LANG_KEY = 'dsa-tracker-solve-lang-v1';
+const FACTORY_RESET_BACKUP_KEY = 'dsa-tracker-factory-reset-backup-v1';
 
 function loadGhSyncConfig(){
   try{
@@ -9890,19 +9970,14 @@ function openHintModal(id){
   codeModalId = id;
   codeModalTab = 'brute';
   stopTracePlay();
-  document.getElementById('codeSection').style.display = 'none';
-  document.getElementById('codeToggleBtn').classList.remove('open');
-  document.getElementById('codeToggleBtn').textContent = '💻 Get the code (brute force & optimal) ▾';
-  document.getElementById('reviewSection').style.display = 'none';
-  document.getElementById('reviewToggleBtn').classList.remove('open');
-  document.getElementById('reviewToggleBtn').textContent = '🤖 Review & debug my solution ▾';
+  document.getElementById('codeOutputSection').style.display = 'none';
   document.getElementById('reviewOutput').innerHTML = '';
   document.getElementById('reviewOutput').style.display = 'none';
   document.getElementById('reviewChatInput').value = '';
   reviewConversation = [];
   document.querySelectorAll('.code-tab').forEach(t=>t.classList.remove('active'));
   document.querySelector('.code-tab.brute').classList.add('active');
-  const savedLang = localStorage.getItem(CODE_LANG_KEY) || 'JavaScript';
+  const savedLang = localStorage.getItem(CODE_LANG_KEY) || 'Java';
   document.getElementById('codeLangSel').value = (p.section === 'Database & SQL') ? 'SQL' : savedLang;
   renderCodeModalBody();
   document.getElementById('hintModal').classList.add('show');
@@ -9975,38 +10050,6 @@ let tracePlayTimer = null;
 function codeCacheKey(id, tab, lang){ return id + '-' + tab + '-' + (lang || 'JavaScript'); }
 function currentCodeLang(){ return document.getElementById('codeLangSel').value; }
 
-document.getElementById('codeToggleBtn').addEventListener('click', ()=>{
-  const section = document.getElementById('codeSection');
-  const btn = document.getElementById('codeToggleBtn');
-  const isOpen = section.style.display !== 'none';
-  if(isOpen){
-    section.style.display = 'none';
-    btn.classList.remove('open');
-    btn.textContent = '💻 Get the code (brute force & optimal) ▾';
-    stopTracePlay();
-  } else {
-    section.style.display = 'block';
-    btn.classList.add('open');
-    btn.textContent = '💻 Get the code (brute force & optimal) ▴';
-    renderCodeModalBody();
-  }
-});
-
-document.getElementById('reviewToggleBtn').addEventListener('click', ()=>{
-  const section = document.getElementById('reviewSection');
-  const btn = document.getElementById('reviewToggleBtn');
-  const isOpen = section.style.display !== 'none';
-  if(isOpen){
-    section.style.display = 'none';
-    btn.classList.remove('open');
-    btn.textContent = '🤖 Review & debug my solution ▾';
-  } else {
-    section.style.display = 'block';
-    btn.classList.add('open');
-    btn.textContent = '🤖 Review & debug my solution ▴';
-  }
-});
-
 async function sendReviewMessage(){
   const key = document.getElementById('hintApiKey').value.trim() || (localStorage.getItem(APIKEY_KEY) || '');
   if(!key){ alert('Add your Gemini API key first (in the field above) — this feature needs it, same as hints and code.'); return; }
@@ -10031,12 +10074,13 @@ async function sendReviewMessage(){
 
   reviewConversation.push({ role:'user', parts:[{ text: payloadText }] });
   const qWrap = document.createElement('div');
-  qWrap.innerHTML = `<div class="hint-label" style="margin-top:${isFirst?'0':'16px'};">You</div><div class="hint-line" style="white-space:pre-wrap;">${escapeHtml(message)}</div>`;
+  qWrap.className = 'chat-bubble chat-user';
+  qWrap.textContent = message;
   out.appendChild(qWrap);
   input.value = '';
   sendBtn.disabled = true; sendBtn.textContent = 'Thinking…';
   const thinkingEl = document.createElement('div');
-  thinkingEl.className = 'hint-line';
+  thinkingEl.className = 'chat-bubble chat-assistant';
   thinkingEl.textContent = '…';
   out.appendChild(thinkingEl);
   qWrap.scrollIntoView({ behavior:'smooth', block:'start' });
@@ -10058,22 +10102,19 @@ async function sendReviewMessage(){
     const candidate = data.candidates && data.candidates[0];
     const parts = (candidate && candidate.content && candidate.content.parts) || [];
     const text = parts.map(b=>b.text||'').join('\n').trim();
-    thinkingEl.remove();
     if(text){
       reviewConversation.push({ role:'model', parts: parts.length ? parts : [{text}] });
-      const replyWrap = document.createElement('div');
-      replyWrap.innerHTML = renderReviewText(text);
-      out.appendChild(replyWrap);
+      thinkingEl.className = 'chat-bubble chat-assistant';
+      thinkingEl.innerHTML = renderReviewText(text);
       attachReviewCodeCopyButtons(out);
     } else {
       reviewConversation.pop();
       const reason = (candidate && candidate.finishReason) || (data.promptFeedback && data.promptFeedback.blockReason) || 'unknown';
-      out.insertAdjacentHTML('beforeend', `<div class="hint-line">⚠️ No reply came back (reason: ${escapeHtml(reason)}) — try again.</div>`);
+      thinkingEl.textContent = `⚠️ No reply came back (reason: ${reason}) — try again.`;
     }
   }catch(err){
-    thinkingEl.remove();
     reviewConversation.pop();
-    out.insertAdjacentHTML('beforeend', `<div class="hint-line">⚠️ Could not reach the API (${escapeHtml(err.message)}). Double-check the key is a valid Gemini API key from aistudio.google.com/apikey.</div>`);
+    thinkingEl.textContent = `⚠️ Could not reach the API (${err.message}). Double-check the key is a valid Gemini API key from aistudio.google.com/apikey.`;
   }finally{
     sendBtn.disabled = false; sendBtn.textContent = 'Send';
     // Scroll so the question and its answer are both visible together — not
@@ -10304,13 +10345,20 @@ document.getElementById('factoryResetBtn').addEventListener('click', ()=>{
     '• GitHub Actions sync settings\n' +
     '• Theme preference\n' +
     (hadKey ? '• Your Pro license key (' + getLicenseToken() + ') — write this down first if you want to paste it back in afterward; it will still work, it just won\'t be remembered here.\n' : '') +
-    '\nThis cannot be undone. Type RESET to confirm:';
+    '\nYou\'ll get one chance to undo this right after, before it\'s gone for good. Type RESET to confirm:';
   const confirmation = prompt(warning);
   if(confirmation !== 'RESET') return;
 
-  [STORAGE_KEY, META_KEY, APIKEY_KEY, MOCK_LANG_KEY, CODE_LANG_KEY, MOCK_KEY,
+  const allKeys = [STORAGE_KEY, META_KEY, APIKEY_KEY, MOCK_LANG_KEY, CODE_LANG_KEY, MOCK_KEY,
    LAST_SYNC_KEY, SYNCED_KEY, CERT_PROFILE_KEY, PRO_TOKEN_KEY, PRO_CACHE_KEY,
-   GH_SYNC_KEY, THEME_KEY, SOLVE_CODE_KEY].forEach(k=>{
+   GH_SYNC_KEY, THEME_KEY, SOLVE_CODE_KEY, SOLVE_LANG_KEY];
+  const backup = {};
+  allKeys.forEach(k=>{
+    const v = localStorage.getItem(k);
+    if(v !== null) backup[k] = v;
+  });
+  try{ localStorage.setItem(FACTORY_RESET_BACKUP_KEY, JSON.stringify(backup)); }catch(e){}
+  allKeys.forEach(k=>{
     try{ localStorage.removeItem(k); }catch(e){}
   });
   location.reload();
@@ -10371,7 +10419,30 @@ syncHeaderProfileLink();
 loadSolved();
 loadMockSessions();
 document.getElementById('versionBadge').textContent = 'v' + APP_VERSION;
-refreshProStatus(); 
+refreshProStatus();
+
+(function checkFactoryResetUndo(){
+  let raw;
+  try{ raw = localStorage.getItem(FACTORY_RESET_BACKUP_KEY); }catch(e){ raw = null; }
+  if(!raw) return;
+  const banner = document.getElementById('factoryResetUndoBanner');
+  banner.style.display = 'block';
+  document.getElementById('factoryResetUndoBtn').addEventListener('click', ()=>{
+    let backup;
+    try{ backup = JSON.parse(raw); }catch(e){ backup = null; }
+    if(backup){
+      Object.entries(backup).forEach(([k,v])=>{
+        try{ localStorage.setItem(k, v); }catch(e){}
+      });
+    }
+    try{ localStorage.removeItem(FACTORY_RESET_BACKUP_KEY); }catch(e){}
+    location.reload();
+  });
+  document.getElementById('factoryResetDismissBtn').addEventListener('click', ()=>{
+    try{ localStorage.removeItem(FACTORY_RESET_BACKUP_KEY); }catch(e){}
+    banner.style.display = 'none';
+  });
+})();
 </script>
 </body>
 </html>
