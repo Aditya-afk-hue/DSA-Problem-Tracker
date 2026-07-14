@@ -1026,6 +1026,8 @@
     </div>
     <div class="modal-actions">
       <button class="btn-secondary" data-close="codeEditorModal">Close</button>
+      <button class="btn-secondary" id="solveUndoBtn" type="button" title="Undo (Ctrl+Z)">↶ Undo</button>
+      <button class="btn-secondary" id="solveRedoBtn" type="button" title="Redo (Ctrl+Y)">↷ Redo</button>
       <button class="btn-secondary" id="solveRunBtn" type="button">▶ Run</button>
     </div>
   </div>
@@ -1084,21 +1086,14 @@
     <div class="code-section-divider"></div>
     <button type="button" class="code-toggle-btn" id="reviewToggleBtn">🤖 Review &amp; debug my solution ▾</button>
     <div id="reviewSection" style="display:none;">
-      <label for="reviewCodeInput">Paste your code</label>
-      <textarea id="reviewCodeInput" rows="12" placeholder="Paste your solution here. It'll be reviewed for correctness, missed edge cases, complexity, and style — and if it's broken, what's wrong and how to fix it." style="min-height:220px;"></textarea>
-      <div class="modal-note">Uses the same Gemini API key as the hint/code features above — sent directly from your browser to Google, never stored anywhere else.</div>
-      <div id="reviewOutputSection" style="display:none;">
-        <div class="hint-output" id="reviewOutput"></div>
-        <div id="reviewChatComposer" style="display:none;">
-          <label for="reviewChatInput">Ask a follow-up</label>
-          <textarea id="reviewChatInput" rows="2" placeholder="e.g. Can you rewrite this using two pointers? Why is the space complexity O(k) and not O(1)?" style="min-height:54px;"></textarea>
-          <div class="modal-actions" style="justify-content:flex-start;margin-top:10px;">
-            <button class="btn-primary" id="reviewChatSendBtn">Send</button>
-          </div>
-        </div>
+      <div id="reviewOutputSection">
+        <div class="hint-output" id="reviewOutput" style="display:none;"></div>
       </div>
+      <label for="reviewChatInput">Paste your code and/or ask a question</label>
+      <textarea id="reviewChatInput" rows="8" placeholder="Paste your solution for a review, ask a question about the problem, or both — e.g. &quot;Here's my code, why is it TLE-ing on large inputs?&quot; Keep chatting below after the first reply." style="min-height:160px;"></textarea>
+      <div class="modal-note">Uses the same Gemini API key as the hint/code features above — sent directly from your browser to Google, never stored anywhere else.</div>
       <div class="modal-actions" style="justify-content:flex-start;margin-top:12px;">
-        <button class="btn-primary" id="reviewGetBtn">Review my solution</button>
+        <button class="btn-primary" id="reviewChatSendBtn">Send</button>
       </div>
     </div>
 
@@ -7785,6 +7780,9 @@ document.getElementById('notesSaveBtn').addEventListener('click', ()=>{
 });
 
 let solveModalId = null;
+let solveHistory = [];
+let solveHistoryIndex = -1;
+let solveHistoryTimer = null;
 function loadSolveCode(){
   try{ return JSON.parse(localStorage.getItem(SOLVE_CODE_KEY) || '{}'); }catch(e){ return {}; }
 }
@@ -7801,6 +7799,35 @@ function setSolveCode(id, lang, code){
   store[id][lang] = code;
   saveSolveCodeStore(store);
 }
+function resetSolveHistory(value){
+  solveHistory = [value];
+  solveHistoryIndex = 0;
+  updateSolveHistoryButtons();
+}
+function pushSolveHistorySnapshot(){
+  const value = document.getElementById('solveCodeInput').value;
+  if(solveHistory[solveHistoryIndex] === value) return;
+  solveHistory = solveHistory.slice(0, solveHistoryIndex + 1);
+  solveHistory.push(value);
+  if(solveHistory.length > 200) solveHistory.shift();
+  solveHistoryIndex = solveHistory.length - 1;
+  updateSolveHistoryButtons();
+}
+function updateSolveHistoryButtons(){
+  const undoBtn = document.getElementById('solveUndoBtn');
+  const redoBtn = document.getElementById('solveRedoBtn');
+  if(undoBtn) undoBtn.disabled = solveHistoryIndex <= 0;
+  if(redoBtn) redoBtn.disabled = solveHistoryIndex >= solveHistory.length - 1;
+}
+function applySolveHistory(index){
+  if(index < 0 || index >= solveHistory.length) return;
+  solveHistoryIndex = index;
+  const value = solveHistory[index];
+  const ta = document.getElementById('solveCodeInput');
+  ta.value = value;
+  if(solveModalId!=null) setSolveCode(solveModalId, document.getElementById('solveLangSel').value, value);
+  updateSolveHistoryButtons();
+}
 function openCodeEditorModal(id){
   solveModalId = id;
   const p = PROBLEMS.find(x=>x.id===id);
@@ -7811,18 +7838,38 @@ function openCodeEditorModal(id){
   badge.style.display = isSolved ? 'inline-block' : 'none';
   const lang = document.getElementById('solveLangSel').value || 'javascript';
   document.getElementById('solveLangSel').value = lang;
-  document.getElementById('solveCodeInput').value = getSolveCode(id, lang);
+  const code = getSolveCode(id, lang);
+  document.getElementById('solveCodeInput').value = code;
+  resetSolveHistory(code);
   document.getElementById('solveConsoleWrap').style.display = 'none';
   document.getElementById('solveConsoleOutput').textContent = '';
   document.getElementById('codeEditorModal').classList.add('show');
 }
 document.getElementById('solveLangSel').addEventListener('change', ()=>{
   if(solveModalId==null) return;
-  document.getElementById('solveCodeInput').value = getSolveCode(solveModalId, document.getElementById('solveLangSel').value);
+  const code = getSolveCode(solveModalId, document.getElementById('solveLangSel').value);
+  document.getElementById('solveCodeInput').value = code;
+  resetSolveHistory(code);
 });
 document.getElementById('solveCodeInput').addEventListener('input', ()=>{
   if(solveModalId==null) return;
   setSolveCode(solveModalId, document.getElementById('solveLangSel').value, document.getElementById('solveCodeInput').value);
+  clearTimeout(solveHistoryTimer);
+  solveHistoryTimer = setTimeout(pushSolveHistorySnapshot, 500);
+});
+document.getElementById('solveCodeInput').addEventListener('keydown', (e)=>{
+  const mod = e.ctrlKey || e.metaKey;
+  if(!mod) return;
+  if(e.key === 'z' && !e.shiftKey){ e.preventDefault(); document.getElementById('solveUndoBtn').click(); }
+  else if(e.key === 'y' || (e.key === 'z' && e.shiftKey)){ e.preventDefault(); document.getElementById('solveRedoBtn').click(); }
+});
+document.getElementById('solveUndoBtn').addEventListener('click', ()=>{
+  clearTimeout(solveHistoryTimer);
+  pushSolveHistorySnapshot();
+  applySolveHistory(solveHistoryIndex - 1);
+});
+document.getElementById('solveRedoBtn').addEventListener('click', ()=>{
+  applySolveHistory(solveHistoryIndex + 1);
 });
 function runJsInSandbox(code, outputEl){
   outputEl.textContent = 'Running…';
@@ -9638,10 +9685,8 @@ function openHintModal(id){
   document.getElementById('reviewSection').style.display = 'none';
   document.getElementById('reviewToggleBtn').classList.remove('open');
   document.getElementById('reviewToggleBtn').textContent = '🤖 Review & debug my solution ▾';
-  document.getElementById('reviewCodeInput').value = '';
-  document.getElementById('reviewOutputSection').style.display = 'none';
   document.getElementById('reviewOutput').innerHTML = '';
-  document.getElementById('reviewChatComposer').style.display = 'none';
+  document.getElementById('reviewOutput').style.display = 'none';
   document.getElementById('reviewChatInput').value = '';
   reviewConversation = [];
   document.querySelectorAll('.code-tab').forEach(t=>t.classList.remove('active'));
@@ -9751,37 +9796,40 @@ document.getElementById('reviewToggleBtn').addEventListener('click', ()=>{
   }
 });
 
-document.getElementById('reviewGetBtn').addEventListener('click', async ()=>{
+async function sendReviewMessage(){
   const key = document.getElementById('hintApiKey').value.trim() || (localStorage.getItem(APIKEY_KEY) || '');
-  if(!key){ alert('Add your Gemini API key first (in the field above) — the review feature needs it, same as hints and code.'); return; }
-  const code = document.getElementById('reviewCodeInput').value;
-  if(!code.trim()){ alert('Paste your code first.'); return; }
+  if(!key){ alert('Add your Gemini API key first (in the field above) — this feature needs it, same as hints and code.'); return; }
+  const input = document.getElementById('reviewChatInput');
+  const message = input.value.trim();
+  if(!message) return;
   try{ localStorage.setItem(APIKEY_KEY, key); }catch(e){}
+
   const p = PROBLEMS.find(x=>x.id===hintModalId);
-  const btn = document.getElementById('reviewGetBtn');
-  btn.disabled = true; btn.textContent = 'Reviewing…';
-  const outSection = document.getElementById('reviewOutputSection');
   const out = document.getElementById('reviewOutput');
-  outSection.style.display = 'block';
-  out.textContent = 'Reviewing your solution…';
-  document.getElementById('reviewChatComposer').style.display = 'none';
+  const sendBtn = document.getElementById('reviewChatSendBtn');
+  out.style.display = 'block';
 
-  const promptText =
-    `Review this solution to the LeetCode problem "${p.title}" (${p.section}). ` +
-    `Check it for: correctness (does it actually solve the problem, including edge cases), bugs, time/space complexity, and readability/style. ` +
-    `If it's broken or has a bug, explain exactly what's wrong, why, and how to fix it — be concrete, reference the specific lines/variables involved. ` +
-    `If it's correct, say so clearly, then suggest any real improvements (or say none are needed). ` +
-    `Reply in exactly this format, plain text, no markdown asterisks:\n\n` +
-    `VERDICT: <one line — Correct / Correct with issues / Incorrect / Doesn't compile, etc.>\n\n` +
-    `CORRECTNESS: <does it solve the problem? call out any failing cases specifically, e.g. empty input, duplicates, negative numbers>\n\n` +
-    `BUGS AND FIXES:\n1. <specific bug, if any, and the fix>\n2. <next issue, if any>\n(omit this section's numbered list and just write "None found." if there are no bugs)\n\n` +
-    `COMPLEXITY: <time and space complexity of the submitted code, and whether that's optimal for this problem>\n\n` +
-    `SUGGESTIONS: <style, naming, or minor efficiency improvements — 1-3 bullets, or "None — this is clean." if nothing to add>\n\n` +
-    `FIXED CODE: <if there were any bugs, write the corrected version of the SAME code (same language, same overall structure, minimal targeted changes) inside a single fenced code block using triple backticks. If the original code was already correct, write "No changes needed." instead of a code block.>\n\n` +
-    `Always write numbers as numeric digits (e.g. 19, 82, 100) — never spell them out as words.\n\n` +
-    `Here is the code:\n\n${code}`;
+  const isFirst = reviewConversation.length === 0;
+  const payloadText = isFirst
+    ? `You're a coding assistant helping with the LeetCode problem "${p.title}" (${p.section}). ` +
+      `The user may paste their code for review, ask a question, or both in the same message — respond to whatever they actually sent, don't force a review format onto a plain question. ` +
+      `If they paste code: evaluate correctness (call out specific failing cases if any, e.g. empty input, duplicates, negative numbers), point out bugs with specific fixes, note time/space complexity, and comment on style/readability. If there are bugs, include a corrected version of their code — same language, minimal targeted changes — inside a single fenced code block (triple backticks) preceded by a line that says exactly "FIXED CODE:". If the code is already correct, say so plainly and skip the code block entirely. ` +
+      `If they just ask a question with no code, answer directly and conversationally. ` +
+      `Be concise and concrete. Always write numbers as digits (e.g. 19, 82), never spelled out.\n\nTheir message:\n${message}`
+    : message;
 
-  reviewConversation = [{ role:'user', parts:[{ text: promptText }] }];
+  reviewConversation.push({ role:'user', parts:[{ text: payloadText }] });
+  const qWrap = document.createElement('div');
+  qWrap.innerHTML = `<div class="hint-label" style="margin-top:${isFirst?'0':'16px'};">You</div><div class="hint-line" style="white-space:pre-wrap;">${escapeHtml(message)}</div>`;
+  out.appendChild(qWrap);
+  input.value = '';
+  sendBtn.disabled = true; sendBtn.textContent = 'Thinking…';
+  const thinkingEl = document.createElement('div');
+  thinkingEl.className = 'hint-line';
+  thinkingEl.textContent = '…';
+  out.appendChild(thinkingEl);
+  qWrap.scrollIntoView({ behavior:'smooth', block:'start' });
+
   try{
     const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=' + encodeURIComponent(key), {
       method:'POST',
@@ -9789,62 +9837,6 @@ document.getElementById('reviewGetBtn').addEventListener('click', async ()=>{
       body: JSON.stringify({
         contents: reviewConversation,
         generationConfig:{ maxOutputTokens:1800, thinkingConfig:{ thinkingLevel:'minimal' } }
-      })
-    });
-    if(!resp.ok){
-      const errText = await resp.text();
-      throw new Error('API error ' + resp.status + ': ' + errText.slice(0,300));
-    }
-    const data = await resp.json();
-    const candidate = data.candidates && data.candidates[0];
-    const parts = (candidate && candidate.content && candidate.content.parts) || [];
-    const text = parts.map(b=>b.text||'').join('\n').trim();
-    if(text){
-      reviewConversation.push({ role:'model', parts: parts.length ? parts : [{text}] });
-      out.innerHTML = renderReviewText(text);
-      attachReviewCodeCopyButtons(out);
-      document.getElementById('reviewChatComposer').style.display = 'block';
-    } else {
-      const reason = (candidate && candidate.finishReason) || (data.promptFeedback && data.promptFeedback.blockReason) || 'unknown';
-      out.textContent = '⚠️ No review text came back (reason: ' + reason + '). Raw response:\n' + JSON.stringify(data, null, 2).slice(0,800);
-      reviewConversation = [];
-    }
-  }catch(err){
-    out.textContent = '⚠️ Could not reach the API from this page (' + err.message + '). Double-check the key is a valid Gemini API key from aistudio.google.com/apikey.';
-    reviewConversation = [];
-  }finally{
-    btn.disabled = false; btn.textContent = 'Review my solution';
-  }
-});
-
-document.getElementById('reviewChatSendBtn').addEventListener('click', async ()=>{
-  const key = document.getElementById('hintApiKey').value.trim() || (localStorage.getItem(APIKEY_KEY) || '');
-  if(!key){ alert('Add your Gemini API key first.'); return; }
-  const input = document.getElementById('reviewChatInput');
-  const question = input.value.trim();
-  if(!question) return;
-  if(!reviewConversation.length){ alert('Run a review first, then ask follow-ups here.'); return; }
-
-  const out = document.getElementById('reviewOutput');
-  const sendBtn = document.getElementById('reviewChatSendBtn');
-  sendBtn.disabled = true; sendBtn.textContent = 'Sending…';
-  reviewConversation.push({ role:'user', parts:[{ text: question }] });
-  out.insertAdjacentHTML('beforeend', `<div class="hint-label" style="margin-top:16px;">You asked</div><div class="hint-line">${escapeHtml(question)}</div>`);
-  input.value = '';
-  const thinkingEl = document.createElement('div');
-  thinkingEl.className = 'hint-line';
-  thinkingEl.textContent = 'Thinking…';
-  out.appendChild(thinkingEl);
-  const scrollHost = out.closest('.modal-box');
-  if(scrollHost) scrollHost.scrollTo({top: scrollHost.scrollHeight, behavior:'smooth'});
-
-  try{
-    const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=' + encodeURIComponent(key), {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify({
-        contents: reviewConversation,
-        generationConfig:{ maxOutputTokens:1400, thinkingConfig:{ thinkingLevel:'minimal' } }
       })
     });
     if(!resp.ok){
@@ -9863,23 +9855,27 @@ document.getElementById('reviewChatSendBtn').addEventListener('click', async ()=
       out.appendChild(replyWrap);
       attachReviewCodeCopyButtons(out);
     } else {
-      reviewConversation.pop(); // drop the user turn that got no answer, so retry stays clean
-      out.insertAdjacentHTML('beforeend', `<div class="hint-line">⚠️ No reply came back — try asking again.</div>`);
+      reviewConversation.pop();
+      const reason = (candidate && candidate.finishReason) || (data.promptFeedback && data.promptFeedback.blockReason) || 'unknown';
+      out.insertAdjacentHTML('beforeend', `<div class="hint-line">⚠️ No reply came back (reason: ${escapeHtml(reason)}) — try again.</div>`);
     }
   }catch(err){
     thinkingEl.remove();
     reviewConversation.pop();
-    out.insertAdjacentHTML('beforeend', `<div class="hint-line">⚠️ Could not reach the API (${escapeHtml(err.message)}).</div>`);
+    out.insertAdjacentHTML('beforeend', `<div class="hint-line">⚠️ Could not reach the API (${escapeHtml(err.message)}). Double-check the key is a valid Gemini API key from aistudio.google.com/apikey.</div>`);
   }finally{
     sendBtn.disabled = false; sendBtn.textContent = 'Send';
-    const scrollHost2 = out.closest('.modal-box');
-    if(scrollHost2) scrollHost2.scrollTo({top: scrollHost2.scrollHeight, behavior:'smooth'});
+    // Scroll so the question and its answer are both visible together — not
+    // forced all the way to the bottom of the whole conversation, so earlier
+    // messages stay put and further scrolling is left to the person.
+    qWrap.scrollIntoView({ behavior:'smooth', block:'start' });
   }
-});
+}
+document.getElementById('reviewChatSendBtn').addEventListener('click', sendReviewMessage);
 document.getElementById('reviewChatInput').addEventListener('keydown', (e)=>{
   if(e.key === 'Enter' && !e.shiftKey){
     e.preventDefault();
-    document.getElementById('reviewChatSendBtn').click();
+    sendReviewMessage();
   }
 });
 
