@@ -1019,6 +1019,7 @@
     <button class="modal-close" data-close="codeEditorModal">✕</button>
     <h3>⌨️ Code editor</h3>
     <div class="modal-sub" id="codeEditorModalSub"></div>
+    <div id="solveKeySection"></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
       <button class="btn-secondary" id="solveSummaryBtn" type="button" style="padding:4px 10px;font-size:11.5px;">🤖 AI problem summary</button>
       <a class="btn-secondary" id="solveOpenLeetcodeBtn2" href="#" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;padding:4px 10px;font-size:11.5px;">Read the real question on LeetCode ↗</a>
@@ -1064,11 +1065,7 @@
     <button class="modal-close" data-close="hintModal">✕</button>
     <h3>💡 Get a hint</h3>
     <div class="modal-sub" id="hintModalSub">A nudge, not a full solution.</div>
-    <div id="hintKeySection">
-      <label>Your Gemini API key (stored only in this browser)</label>
-      <input type="text" id="hintApiKey" placeholder="AIza...">
-      <div class="modal-note">This is sent directly from your browser to Google's Gemini API to generate the hint — it is never sent anywhere else, and isn't included if you export or share your progress. Get a key at aistudio.google.com/apikey. This is optional — the tracker works fully without it. It's also the key used below for 💻 Get the code.</div>
-    </div>
+    <div id="hintKeySection"></div>
     <div class="modal-actions" style="justify-content:flex-start;margin:10px 0 4px;">
       <button class="btn-primary" id="hintGetBtn">Get hint</button>
     </div>
@@ -4395,6 +4392,75 @@ function renderChangelogPanel(){
 const STORAGE_KEY = 'dsa-tracker-solved-v1';
 const META_KEY = 'dsa-tracker-meta-v1';
 const APIKEY_KEY = 'dsa-tracker-apikey-v1';
+const GEMINI_KEY_LINK = 'https://aistudio.google.com/api-keys';
+
+function getGeminiKey(){
+  try{ return localStorage.getItem(APIKEY_KEY) || ''; }catch(e){ return ''; }
+}
+// Renders a compact "key saved, click Edit" state once a key exists, or a
+// paste-and-save form (with a direct link to generate one) when it doesn't.
+// Used identically in the Hint modal, Solve editor, and Mock Interview panel
+// so there's exactly one place to manage the key, not one per feature.
+function renderApiKeyWidget(containerId, onSaved){
+  const container = document.getElementById(containerId);
+  if(!container) return;
+  const key = getGeminiKey();
+  if(key && !container.dataset.editing){
+    container.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--ink-faint);margin-bottom:12px;">
+        <span>🔑 Gemini API key saved</span>
+        <button type="button" class="btn-secondary" data-apikey-edit style="padding:3px 10px;font-size:11px;">See / edit key</button>
+      </div>`;
+    container.querySelector('[data-apikey-edit]').addEventListener('click', ()=>{
+      container.dataset.editing = '1';
+      renderApiKeyWidget(containerId, onSaved);
+    });
+  } else {
+    container.innerHTML = `
+      <div style="margin-bottom:12px;">
+        <label style="font-size:12px;color:var(--ink-faint);display:block;margin-bottom:4px;">Gemini API key (stored only in this browser, used by hints/code/review/AI summary/test cases everywhere in this tracker)</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <input type="text" class="apikey-input" placeholder="AIza..." value="${escapeHtml(key)}" style="flex:1 1 220px;padding:8px 12px;border:1.5px solid var(--rule);background:var(--paper);border-radius:8px;font-size:13px;color:var(--ink);font-family:'IBM Plex Mono',monospace;">
+          <a href="${GEMINI_KEY_LINK}" target="_blank" rel="noopener" class="btn-secondary" style="text-decoration:none;display:inline-flex;align-items:center;white-space:nowrap;">Get Gemini API key ↗</a>
+          <button type="button" class="btn-primary" data-apikey-save style="white-space:nowrap;">Save</button>
+          ${key ? '<button type="button" class="btn-secondary" data-apikey-cancel style="white-space:nowrap;">Cancel</button>' : ''}
+        </div>
+        <div class="modal-note" style="margin-top:6px;">Sent directly from your browser to Google's Gemini API — never sent anywhere else, never included in exports. Optional — everything else in the tracker works without it.</div>
+      </div>`;
+    const input = container.querySelector('.apikey-input');
+    container.querySelector('[data-apikey-save]').addEventListener('click', ()=>{
+      const v = input.value.trim();
+      if(v){ try{ localStorage.setItem(APIKEY_KEY, v); }catch(e){} }
+      delete container.dataset.editing;
+      renderApiKeyWidget(containerId, onSaved);
+      if(onSaved) onSaved(v);
+    });
+    const cancelBtn = container.querySelector('[data-apikey-cancel]');
+    if(cancelBtn) cancelBtn.addEventListener('click', ()=>{
+      delete container.dataset.editing;
+      renderApiKeyWidget(containerId, onSaved);
+    });
+    input.addEventListener('keydown', (e)=>{
+      if(e.key === 'Enter'){ container.querySelector('[data-apikey-save]').click(); }
+    });
+  }
+}
+// Returns the saved key, or null + a toast pointing at the widget if none is
+// set yet — used everywhere a feature needs the key instead of a blocking
+// prompt() popup.
+function requireGeminiKey(widgetContainerId){
+  const key = getGeminiKey();
+  if(key) return key;
+  const container = document.getElementById(widgetContainerId);
+  if(container){
+    delete container.dataset.editing;
+    renderApiKeyWidget(widgetContainerId);
+    container.scrollIntoView({ behavior:'smooth', block:'center' });
+    container.querySelector('.apikey-input')?.focus();
+  }
+  showToast('Add your Gemini API key first — it\'s free, click "Get Gemini API key" above.');
+  return null;
+}
 const MOCK_LANG_KEY = 'dsa-tracker-mock-lang-v1'; 
 const CODE_LANG_KEY = 'dsa-tracker-code-lang-v1'; 
 const MOCK_KEY = 'dsa-tracker-mock-sessions-v1';
@@ -7877,6 +7943,7 @@ function openCodeEditorModal(id){
   solveModalId = id;
   const p = PROBLEMS.find(x=>x.id===id);
   document.getElementById('codeEditorModalSub').textContent = p.title + ' — ' + p.section;
+  renderApiKeyWidget('solveKeySection');
   document.getElementById('solveOpenLeetcodeBtn').href = `https://leetcode.com/problems/${p.slug}/`;
   document.getElementById('solveOpenLeetcodeBtn2').href = `https://leetcode.com/problems/${p.slug}/`;
   const isSolved = solved.has(id);
@@ -7960,10 +8027,8 @@ async function generateSolveProblemSummary(auto){
   const p = PROBLEMS.find(x=>x.id===solveModalId);
   const box = document.getElementById('solveProblemSummary');
   const btn = document.getElementById('solveSummaryBtn');
-  const savedKey = localStorage.getItem(APIKEY_KEY) || '';
-  const key = savedKey || (auto ? '' : prompt('Paste your Gemini API key (only used client-side, never sent anywhere but Google\'s API — same key as the 💡 hint feature):'));
+  const key = auto ? getGeminiKey() : requireGeminiKey('solveKeySection');
   if(!key) return;
-  try{ localStorage.setItem(APIKEY_KEY, key); }catch(e){}
   btn.disabled = true; btn.textContent = 'Summarizing…';
   box.style.display = 'block';
   box.innerHTML = `<span class="ai-tag">AI paraphrase — verify against the real problem</span>\nAsking for a summary…`;
@@ -8000,10 +8065,8 @@ document.getElementById('solveSummaryBtn').addEventListener('click', ()=>generat
 async function generateSolveTestCases(auto){
   const p = PROBLEMS.find(x=>x.id===solveModalId);
   if(!p) return;
-  const savedKey = localStorage.getItem(APIKEY_KEY) || '';
-  const key = savedKey || (auto ? '' : prompt('Paste your Gemini API key (only used client-side, never sent anywhere but Google\'s API — same key as the 💡 hint feature):'));
+  const key = auto ? getGeminiKey() : requireGeminiKey('solveKeySection');
   if(!key) return;
-  try{ localStorage.setItem(APIKEY_KEY, key); }catch(e){}
   const langLabel = langKeyToLabel(document.getElementById('solveLangSel').value);
   solveTestCasesLoading = true;
   renderSolveTestCases();
@@ -8625,17 +8688,20 @@ async function runMockCode(){
     return;
   }
   const lang = activeMock ? activeMock.lang : '';
-  if(lang !== 'JavaScript' && lang !== 'Python' && lang !== 'SQL'){
+  if(lang !== 'JavaScript' && lang !== 'Python' && lang !== 'SQL' && lang !== 'Java'){
     out.classList.remove('err');
-    out.textContent = `Live execution isn't available for ${lang} in-browser (needs a server-side compiler for Java/C++/Go). Write your solution here and self-grade below — or use the language dropdown above the editor to switch to Python, JavaScript, or SQL to actually run code.`;
+    out.textContent = `Live execution isn't available for ${lang} in-browser (needs a server-side compiler for C++/Go). Write your solution here and self-grade below — or use the language dropdown above the editor to switch to Python, JavaScript, Java, or SQL to actually run code.`;
     return;
   }
   runBtn.disabled = true;
-  runBtn.textContent = lang === 'Python' && !pyodideLoadPromise ? 'Loading Python runtime…' : (lang === 'SQL' && !sqlJsLoadPromise ? 'Loading SQL runtime…' : 'Running…');
+  runBtn.textContent = lang === 'Python' && !pyodideLoadPromise ? 'Loading Python runtime…' : (lang === 'SQL' && !sqlJsLoadPromise ? 'Loading SQL runtime…' : (lang === 'Java' && !cheerpjLoadPromise ? 'Loading Java runtime (can take a while first time)…' : 'Running…'));
   out.classList.remove('err');
   out.textContent = 'Running…';
   try{
-    const result = lang === 'JavaScript' ? await runJSInWorker(code, null) : lang === 'SQL' ? await runSQLCode(code, null) : await runPythonCode(code, null);
+    const result = lang === 'JavaScript' ? await runJSInWorker(code, null)
+      : lang === 'SQL' ? await runSQLCode(code, null)
+      : lang === 'Java' ? await runJavaCode(code, null)
+      : await runPythonCode(code, null);
     const lines = [];
     if(result.logs && result.logs.length) lines.push(...result.logs);
     if(result.error) lines.push('⚠ ' + result.error);
@@ -8653,13 +8719,11 @@ async function runMockCode(){
 function newMockTestCase(){
   return { id: 't' + Date.now() + Math.floor(Math.random()*1000), input: '', expected: '', status: 'idle', actual: '' };
 }
-async function generateMockTestCases(){
+async function generateMockTestCases(auto){
   if(!activeMock) return;
   const p = PROBLEMS.find(x=>x.id===activeMock.problemId);
-  const savedKey = localStorage.getItem(APIKEY_KEY) || '';
-  const key = savedKey || prompt('Paste your Gemini API key (only used client-side, never sent anywhere but Google\'s API — same key as the 💡 hint feature):');
+  const key = auto ? getGeminiKey() : requireGeminiKey('mockKeySection');
   if(!key){ activeMock.testCasesAutoTried = true; renderMockTestCases(); return; }
-  try{ localStorage.setItem(APIKEY_KEY, key); }catch(e){}
   activeMock.testCasesAutoTried = true;
   activeMock.testCasesLoading = true;
   renderMockTestCases();
@@ -8725,7 +8789,7 @@ function renderMockTestCases(){
         <button class="btn-secondary" id="mockAddTcBtn" type="button">+ Add manually</button>
       </div>
     `;
-    document.getElementById('mockGenTcBtn').addEventListener('click', generateMockTestCases);
+    document.getElementById('mockGenTcBtn').addEventListener('click', ()=>generateMockTestCases(false));
     document.getElementById('mockAddTcBtn').addEventListener('click', ()=>{
       activeMock.testCases.push(newMockTestCase());
       renderMockTestCases();
@@ -8783,7 +8847,7 @@ function renderMockTestCases(){
     activeMock.testCases.push(newMockTestCase());
     renderMockTestCases();
   });
-  document.getElementById('mockRegenTcBtn').addEventListener('click', generateMockTestCases);
+  document.getElementById('mockRegenTcBtn').addEventListener('click', ()=>generateMockTestCases(false));
   document.getElementById('mockSubmitBtn').addEventListener('click', submitMockTestCases);
 }
 function normalizeForCompare(s){
@@ -8795,8 +8859,8 @@ async function submitMockTestCases(){
   const submitBtn = document.getElementById('mockSubmitBtn');
   const code = getMockCode();
   if(activeMock) activeMock.code = code;
-  if(lang !== 'JavaScript' && lang !== 'Python' && lang !== 'SQL'){
-    showToast(`Submit needs a runnable language — switch to Python, JavaScript, or SQL to test against cases.`);
+  if(lang !== 'JavaScript' && lang !== 'Python' && lang !== 'SQL' && lang !== 'Java'){
+    showToast(`Submit needs a runnable language — switch to Python, JavaScript, Java, or SQL to test against cases.`);
     return;
   }
   if(!code.trim()){ showToast('Write some code first.'); return; }
@@ -8804,7 +8868,10 @@ async function submitMockTestCases(){
   for(let i=0; i<activeMock.testCases.length; i++){
     const tc = activeMock.testCases[i];
     try{
-      const result = lang === 'JavaScript' ? await runJSInWorker(code, tc.input || null) : lang === 'SQL' ? await runSQLCode(code, tc.input || null) : await runPythonCode(code, tc.input || null);
+      const result = lang === 'JavaScript' ? await runJSInWorker(code, tc.input || null)
+        : lang === 'SQL' ? await runSQLCode(code, tc.input || null)
+        : lang === 'Java' ? await runJavaCode(code, tc.input || null)
+        : await runPythonCode(code, tc.input || null);
       if(!result.ok){
         tc.status = 'error'; tc.actual = result.error || 'unknown error';
       } else {
@@ -8821,14 +8888,12 @@ async function submitMockTestCases(){
   const passed = activeMock.testCases.filter(t=>t.status==='pass').length;
   showToast(`${passed}/${activeMock.testCases.length} test cases passed`);
 }
-async function generateMockProblemSummary(){
+async function generateMockProblemSummary(auto){
   const p = PROBLEMS.find(x=>x.id===activeMock.problemId);
   const box = document.getElementById('mockProblemSummary');
   const btn = document.getElementById('mockSummaryBtn');
-  const savedKey = localStorage.getItem(APIKEY_KEY) || '';
-  const key = savedKey || prompt('Paste your Gemini API key (only used client-side, never sent anywhere but Google\'s API — same key as the 💡 hint feature):');
+  const key = auto ? getGeminiKey() : requireGeminiKey('mockKeySection');
   if(!key) return;
-  try{ localStorage.setItem(APIKEY_KEY, key); }catch(e){}
   btn.disabled = true; btn.textContent = 'Summarizing…';
   box.style.display = 'block';
   box.innerHTML = `<span class="ai-tag">AI paraphrase — verify against the real problem</span>\nAsking for a summary…`;
@@ -8941,8 +9006,8 @@ function renderMockSetupView(){
     let hasKey = false;
     try{ hasKey = !!localStorage.getItem(APIKEY_KEY); }catch(e){}
     if(hasKey){
-      generateMockTestCases();
-      generateMockProblemSummary();
+      generateMockTestCases(true);
+      generateMockProblemSummary(true);
     }
   });
 }
@@ -8974,18 +9039,21 @@ function renderMockActiveView(){
       <div class="mock-timer" id="mockTimerDisplay">${fmtClock(activeMock.remainingSec)}</div>
     </div>
 
+    <div id="mockKeySection"></div>
+
     <div class="mock-problem-box">
       <div class="mock-problem-box-head">
         <div style="font-size:12px;color:var(--ink-faint);">📖 The full problem statement is LeetCode's — read it there, or get a quick AI paraphrase below.</div>
         <div class="mock-problem-actions">
           <a class="btn-secondary" href="${url}" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;">↗ Open on LeetCode</a>
-          <button class="btn-secondary" id="mockSummaryBtn" type="button">🤖 AI summary</button>
+          <button class="btn-secondary" id="mockSummaryBtn" type="button">🤖 AI problem summary</button>
         </div>
       </div>
       <div class="mock-problem-summary" id="mockProblemSummary" style="display:none;"></div>
     </div>
 
     <div class="mock-editor-toolbar">
+      <label for="mockEditorLangSel" style="margin:0;font-size:11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:0.5px;">Language</label>
       <select class="mock-editor-lang-select" id="mockEditorLangSel" title="Switch language — your code is kept when you switch">
         ${['Python','JavaScript','Java','C++','Go','SQL','Generic / pseudocode'].map(l=>`<option value="${escapeHtml(l)}" ${activeMock.lang===l?'selected':''}>${escapeHtml(l)}</option>`).join('')}
       </select>
@@ -8996,6 +9064,7 @@ function renderMockActiveView(){
     <div class="mock-editor-host" id="mockEditorHost">
       <textarea class="mock-editor" id="mockEditorFallback" spellcheck="false" placeholder="// Write your solution here — ${escapeHtml(activeMock.lang)}...">${escapeHtml(activeMock.code||'')}</textarea>
     </div>
+    <div class="modal-note" style="margin-top:6px;">Autosaves as you type, kept if you switch languages. Ctrl+Z / Ctrl+Y to undo/redo. Python, JavaScript, Java, and SQL actually run here in-browser; C++ and Go can't — write your solution and use "Open on LeetCode" to run and submit it for real.</div>
     <div class="mock-output-panel" id="mockOutputPanel" style="display:none;"></div>
     <div class="mock-tc-box" id="mockTestCasesBox"></div>
 
@@ -9025,8 +9094,9 @@ function renderMockActiveView(){
     renderMockActiveView(); 
   });
   initMockCodeEditor();
+  renderApiKeyWidget('mockKeySection');
   renderMockTestCases();
-  document.getElementById('mockSummaryBtn').addEventListener('click', generateMockProblemSummary);
+  document.getElementById('mockSummaryBtn').addEventListener('click', ()=>generateMockProblemSummary(false));
   document.getElementById('mockRunBtn').addEventListener('click', async ()=>{
     document.getElementById('mockOutputPanel').style.display = 'block';
     await runMockCode();
@@ -9963,8 +10033,7 @@ function openHintModal(id){
   document.getElementById('hintModalSub').textContent = p.title + ' — ' + p.section;
   document.getElementById('hintOutputSection').style.display = 'none';
   document.getElementById('hintOutput').textContent = '';
-  const savedKey = localStorage.getItem(APIKEY_KEY) || '';
-  document.getElementById('hintApiKey').value = savedKey;
+  renderApiKeyWidget('hintKeySection');
   document.getElementById('hintGetBtn').textContent = 'Get hint';
   document.getElementById('hintGetBtn').disabled = false;
   codeModalId = id;
@@ -9983,9 +10052,8 @@ function openHintModal(id){
   document.getElementById('hintModal').classList.add('show');
 }
 document.getElementById('hintGetBtn').addEventListener('click', async ()=>{
-  const key = document.getElementById('hintApiKey').value.trim();
-  if(!key){ alert('Add your Gemini API key first, or skip this feature — the rest of the tracker works fine without it.'); return; }
-  try{ localStorage.setItem(APIKEY_KEY, key); }catch(e){}
+  const key = requireGeminiKey('hintKeySection');
+  if(!key) return;
   const p = PROBLEMS.find(x=>x.id===hintModalId);
   const btn = document.getElementById('hintGetBtn');
   btn.disabled = true; btn.textContent = 'Thinking…';
@@ -10051,12 +10119,11 @@ function codeCacheKey(id, tab, lang){ return id + '-' + tab + '-' + (lang || 'Ja
 function currentCodeLang(){ return document.getElementById('codeLangSel').value; }
 
 async function sendReviewMessage(){
-  const key = document.getElementById('hintApiKey').value.trim() || (localStorage.getItem(APIKEY_KEY) || '');
-  if(!key){ alert('Add your Gemini API key first (in the field above) — this feature needs it, same as hints and code.'); return; }
+  const key = requireGeminiKey('hintKeySection');
+  if(!key) return;
   const input = document.getElementById('reviewChatInput');
   const message = input.value.trim();
   if(!message) return;
-  try{ localStorage.setItem(APIKEY_KEY, key); }catch(e){}
 
   const p = PROBLEMS.find(x=>x.id===hintModalId);
   const out = document.getElementById('reviewOutput');
@@ -10257,9 +10324,8 @@ function renderTraceStep(entry){
 }
 
 async function fetchCodeApproach(){
-  const key = document.getElementById('hintApiKey').value.trim();
-  if(!key){ alert('Add your Gemini API key first, or skip this feature — the rest of the tracker works fine without it.'); return; }
-  try{ localStorage.setItem(APIKEY_KEY, key); }catch(e){}
+  const key = requireGeminiKey('hintKeySection');
+  if(!key) return;
   const p = PROBLEMS.find(x=>x.id===codeModalId);
   const tab = codeModalTab;
   const lang = currentCodeLang();
