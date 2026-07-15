@@ -1050,7 +1050,6 @@
     </div>
     <div class="modal-actions" style="justify-content:flex-start;">
       <button class="btn-secondary" id="solveRunBtn" type="button">▶ Run</button>
-      <span style="font-size:11px;color:var(--ink-faint);align-self:center;">Ctrl+Z / Ctrl+Y to undo/redo</span>
     </div>
     <div class="code-section-divider"></div>
     <div class="mock-tc-box" id="solveTestCasesBox"></div>
@@ -7237,7 +7236,7 @@ async function buildCertificateSVG(spec){
     <text x="560" y="922" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="${inkFaint}">Reproducible SHA-256 fingerprint of name + profile + solved stats — see "Verify a certificate."</text>
     <text x="560" y="940" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="${inkFaint}">Progress sourced via automated GitHub Actions sync from LeetCode.</text>
 
-    <text x="800" y="1050" font-family="IBM Plex Mono, monospace" font-size="12" fill="${inkFaint}" text-anchor="middle">Verification ID is an independently reproducible SHA-256 seal over the stats above — check it yourself. Not a proctored exam or a credential issued by LeetCode or any company.</text>
+
   </svg>`;
 }
 
@@ -9064,7 +9063,7 @@ function renderMockActiveView(){
     <div class="mock-editor-host" id="mockEditorHost">
       <textarea class="mock-editor" id="mockEditorFallback" spellcheck="false" placeholder="// Write your solution here — ${escapeHtml(activeMock.lang)}...">${escapeHtml(activeMock.code||'')}</textarea>
     </div>
-    <div class="modal-note" style="margin-top:6px;">Autosaves as you type, kept if you switch languages. Ctrl+Z / Ctrl+Y to undo/redo. Python, JavaScript, Java, and SQL actually run here in-browser; C++ and Go can't — write your solution and use "Open on LeetCode" to run and submit it for real.</div>
+    <div class="modal-note" style="margin-top:6px;">Autosaves as you type, kept if you switch languages. Python, JavaScript, Java, and SQL actually run here in-browser; C++ and Go can't — write your solution and use "Open on LeetCode" to run and submit it for real.</div>
     <div class="mock-output-panel" id="mockOutputPanel" style="display:none;"></div>
     <div class="mock-tc-box" id="mockTestCasesBox"></div>
 
