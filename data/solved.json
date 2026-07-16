@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-16T08:25:47.800Z",
+  "updatedAt": "2026-07-16T14:10:52.626Z",
   "slugs": [
     "two-sum",
     "reverse-integer",
@@ -22,6 +22,7 @@
     "length-of-last-word",
     "climbing-stairs",
     "search-a-2d-matrix",
+    "sort-colors",
     "remove-duplicates-from-sorted-array-ii",
     "merge-sorted-array",
     "best-time-to-buy-and-sell-stock",
