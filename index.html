@@ -1250,6 +1250,7 @@
           </div>
           <div style="flex:0 0 auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
             <code id="certProActiveKey" style="padding:8px 12px;border:1.5px solid var(--rule);background:var(--paper);border-radius:8px;font-size:12.5px;color:var(--ink);font-family:'IBM Plex Mono',monospace;letter-spacing:0.5px;"></code>
+            <button type="button" class="btn-secondary" id="certProToggleKeyBtn">👁 Show</button>
             <button type="button" class="btn-secondary" id="certProCopyKeyBtn">Copy</button>
           </div>
         </div>
@@ -1261,36 +1262,46 @@
       <details style="margin-top:20px;border:1.5px solid var(--rule-soft);border-radius:10px;background:var(--card);">
         <summary style="cursor:pointer;padding:12px 14px;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-soft);">🔍 Verify a certificate</summary>
         <div style="padding:0 14px 16px;">
-          <div class="modal-sub" style="margin:0 0 12px;">Anyone with this tracker can independently recompute a certificate's ID — no server, no account. Enter exactly what's printed on the certificate and check it matches.</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
-            <div><label style="display:block;font-size:10px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;color:var(--ink-faint);margin-bottom:5px;">Name on certificate</label>
-              <input type="text" id="vfyName" style="width:100%;padding:8px 10px;border:1.5px solid var(--rule);background:var(--paper);border-radius:7px;font-size:13px;color:var(--ink);"></div>
-            <div><label style="display:block;font-size:10px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;color:var(--ink-faint);margin-bottom:5px;">LeetCode profile URL</label>
-              <input type="text" id="vfyProfile" style="width:100%;padding:8px 10px;border:1.5px solid var(--rule);background:var(--paper);border-radius:7px;font-size:13px;color:var(--ink);"></div>
+          <div class="modal-sub" style="margin:0 0 12px;">Paste the Verification ID printed on the certificate below and hit Check. If the issuer's tracker has a backend configured, this looks up the real issued record instantly — that's all you need.</div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px;">
+            <input type="text" id="vfyRef" placeholder="Certificate ID e.g. DSA-XXXX-XXXX-XXXX" style="flex:1 1 240px;padding:10px 12px;border:1.5px solid var(--pine);background:var(--paper);border-radius:7px;font-size:14px;color:var(--ink);font-family:'IBM Plex Mono',monospace;">
+            <button class="btn-primary" id="vfyBtn" type="button">Check</button>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
-            <div><label style="display:block;font-size:10px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;color:var(--ink-faint);margin-bottom:5px;">Track</label>
-              <select id="vfyTrack" style="width:100%;padding:8px 6px;border:1.5px solid var(--rule);background:var(--paper);border-radius:7px;font-size:13px;color:var(--ink);">
-                <option value="overall">Overall</option>
-                <option value="a2z">A2Z-210</option>
-                <option value="top150">Top 150</option>
-                <option value="neet150">NeetCode 150</option>
-                <option value="blind75">Blind 75</option>
-                <option value="babbar450">Babbar 105</option>
-                <option value="company">Company…</option>
-              </select></div>
-            <div><label style="display:block;font-size:10px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;color:var(--ink-faint);margin-bottom:5px;">Company (if any)</label>
-              <input type="text" id="vfyCompany" placeholder="e.g. Amazon" style="width:100%;padding:8px 10px;border:1.5px solid var(--rule);background:var(--paper);border-radius:7px;font-size:13px;color:var(--ink);"></div>
-            <div><label style="display:block;font-size:10px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;color:var(--ink-faint);margin-bottom:5px;">Total Solved / Total</label>
-              <input type="text" id="vfyTotal" placeholder="e.g. 250/2923" style="width:100%;padding:8px 10px;border:1.5px solid var(--rule);background:var(--paper);border-radius:7px;font-size:13px;color:var(--ink);"></div>
-            <div><label style="display:block;font-size:10px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;color:var(--ink-faint);margin-bottom:5px;">E / M / H (from cert)</label>
-              <input type="text" id="vfyDiff" placeholder="e.g. 80/80,150/150,97/97" style="width:100%;padding:8px 10px;border:1.5px solid var(--rule);background:var(--paper);border-radius:7px;font-size:13px;color:var(--ink);"></div>
-          </div>
-          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-            <input type="text" id="vfyRef" placeholder="Certificate ID e.g. DSA-XXXX-XXXX-XXXX" style="flex:1 1 240px;padding:9px 12px;border:1.5px solid var(--rule);background:var(--paper);border-radius:7px;font-size:13px;color:var(--ink);font-family:'IBM Plex Mono',monospace;">
-            <button class="btn-secondary" id="vfyBtn" type="button">Check</button>
-          </div>
-          <div id="vfyResult" style="margin-top:12px;font-family:'IBM Plex Mono',monospace;font-size:13px;"></div>
+          <div id="vfyResult" style="margin-bottom:14px;font-family:'IBM Plex Mono',monospace;font-size:13px;"></div>
+
+          <details>
+            <summary style="cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.5px;text-transform:uppercase;color:var(--ink-faint);">No record found, or an older certificate? Verify manually instead (optional)</summary>
+            <div style="margin-top:10px;">
+              <div class="modal-sub" style="margin:0 0 12px;">Every field below is optional and only used for this fallback check — it independently recomputes the ID from what you enter, no server involved. Enter exactly what's printed on the certificate.</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+                <div><label style="display:block;font-size:10px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;color:var(--ink-faint);margin-bottom:5px;">Name on certificate</label>
+                  <input type="text" id="vfyName" style="width:100%;padding:8px 10px;border:1.5px solid var(--rule);background:var(--paper);border-radius:7px;font-size:13px;color:var(--ink);"></div>
+                <div><label style="display:block;font-size:10px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;color:var(--ink-faint);margin-bottom:5px;">LeetCode profile URL</label>
+                  <input type="text" id="vfyProfile" style="width:100%;padding:8px 10px;border:1.5px solid var(--rule);background:var(--paper);border-radius:7px;font-size:13px;color:var(--ink);"></div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
+                <div><label style="display:block;font-size:10px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;color:var(--ink-faint);margin-bottom:5px;">Track</label>
+                  <select id="vfyTrack" style="width:100%;padding:8px 6px;border:1.5px solid var(--rule);background:var(--paper);border-radius:7px;font-size:13px;color:var(--ink);">
+                    <option value="overall">Overall</option>
+                    <option value="a2z">A2Z-210</option>
+                    <option value="top150">Top 150</option>
+                    <option value="neet150">NeetCode 150</option>
+                    <option value="blind75">Blind 75</option>
+                    <option value="babbar450">Babbar 105</option>
+                    <option value="company">Company…</option>
+                  </select></div>
+                <div><label style="display:block;font-size:10px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;color:var(--ink-faint);margin-bottom:5px;">Company (if any)</label>
+                  <input type="text" id="vfyCompany" placeholder="e.g. Amazon" style="width:100%;padding:8px 10px;border:1.5px solid var(--rule);background:var(--paper);border-radius:7px;font-size:13px;color:var(--ink);"></div>
+                <div><label style="display:block;font-size:10px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;color:var(--ink-faint);margin-bottom:5px;">Total Solved / Total</label>
+                  <input type="text" id="vfyTotal" placeholder="e.g. 250/2923" style="width:100%;padding:8px 10px;border:1.5px solid var(--rule);background:var(--paper);border-radius:7px;font-size:13px;color:var(--ink);"></div>
+                <div><label style="display:block;font-size:10px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;color:var(--ink-faint);margin-bottom:5px;">E / M / H (from cert)</label>
+                  <input type="text" id="vfyDiff" placeholder="e.g. 80/80,150/150,97/97" style="width:100%;padding:8px 10px;border:1.5px solid var(--rule);background:var(--paper);border-radius:7px;font-size:13px;color:var(--ink);"></div>
+              </div>
+              <div class="modal-actions" style="justify-content:flex-start;margin-top:4px;">
+                <button class="btn-secondary" id="vfyManualBtn" type="button">Recompute &amp; compare</button>
+              </div>
+            </div>
+          </details>
         </div>
       </details>
     </div>
@@ -4781,20 +4792,47 @@ let lastCertMeta = null;
 let measureCanvas = null;
 const logoDataUriCache = {}; 
 
+// Silently registers a generated certificate with the tracker owner's Worker
+// backend, if one is configured and the person has an active Pro license.
+// Never blocks or errors out certificate generation/download if this fails
+// or isn't set up — it's purely so "Verify a certificate" can later look
+// this exact record up by ID alone, instead of requiring every field to be
+// retyped. The Worker independently re-derives the same ID from the
+// submitted fields and refuses to store anything that doesn't match.
 async function publishCertRecord(certMeta){
-  if(!hasCloud()) return;
+  if(!licenseConfigured() || !isPro()) return;
+  const key = getLicenseToken();
+  if(!key) return;
   try{
-    await window.storage.set('dsa-cert:' + certMeta.ref, JSON.stringify({
-      name: certMeta.name, profileUrl: certMeta.profileUrl, trackLabel: certMeta.trackLabel,
-      stats: certMeta.stats, issuedAt: certMeta.issuedAt
-    }), true);
+    await fetch(`${BACKEND_URL}/api/certificate/register`, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({
+        license_key: key,
+        id: certMeta.ref,
+        trackLabel: certMeta.trackLabel,
+        name: certMeta.name,
+        profileUrl: certMeta.profileUrl,
+        company: (certMeta.spec && certMeta.spec.company) || null,
+        stats: certMeta.stats
+      })
+    });
   }catch(e){  }
 }
+// Public lookup — anyone checking a certificate (not just its owner) can
+// call this with just the printed ID, no license key needed. Only requires
+// that this tracker's backend is configured at all; if not, callers should
+// fall back to the offline recompute-and-compare check.
 async function lookupCertRecord(ref){
-  if(!hasCloud() || !ref) return null;
+  if(!licenseConfigured() || !ref) return null;
   try{
-    const res = await window.storage.get('dsa-cert:' + ref.trim().toUpperCase(), true);
-    return res && res.value ? JSON.parse(res.value) : null;
+    const res = await fetch(`${BACKEND_URL}/api/certificate/lookup`, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ id: ref.trim().toUpperCase() })
+    });
+    const data = await res.json();
+    return (data && data.found) ? data.record : null;
   }catch(e){ return null; }
 }
 
@@ -7241,6 +7279,12 @@ async function buildCertificateSVG(spec){
   </svg>`;
 }
 
+let licenseKeyVisible = false;
+function maskLicenseKey(key){
+  if(!key) return '';
+  const tail = key.slice(-4);
+  return '•'.repeat(Math.max(key.length - 4, 4)) + tail;
+}
 function renderCertHub(){
   const pro = isPro();
   const banner = document.getElementById('certProBanner');
@@ -7250,7 +7294,10 @@ function renderCertHub(){
     activePanel.style.display = pro ? 'block' : 'none';
     if(pro){
       const keyEl = document.getElementById('certProActiveKey');
-      if(keyEl) keyEl.textContent = getLicenseToken() || '(key not found — try re-activating)';
+      const key = getLicenseToken();
+      if(keyEl) keyEl.textContent = key ? (licenseKeyVisible ? key : maskLicenseKey(key)) : '(key not found — try re-activating)';
+      const toggleBtn = document.getElementById('certProToggleKeyBtn');
+      if(toggleBtn) toggleBtn.textContent = licenseKeyVisible ? '🙈 Hide' : '👁 Show';
     }
   }
 
@@ -7433,6 +7480,10 @@ async function downloadCertificatePdf(){
     const imgData = canvas.toDataURL('image/png');
     const pdf = new jsPDF({ orientation:'landscape', unit:'pt', format:[2000, 1414] });
     pdf.addImage(imgData, 'PNG', 0, 0, 2000, 1414);
+    // The certificate SVG is authored in a 1600x1131 box and scaled 1.25x
+    // onto the 2000x1414 canvas/PDF page — same scale applies to the
+    // clickable region placed over the LeetCode profile URL text.
+    pdf.link(695, 1085, 440, 50, { url: currentCertProfileHref() });
     pdf.save(certFilename(currentCertSpec).replace(/\.png$/i, '.pdf'));
   }catch(err){
     showToast('⚠ Could not build the PDF — try Download PNG instead.');
@@ -9675,6 +9726,10 @@ document.getElementById('certProRedeemBtn').addEventListener('click', redeemCert
 document.getElementById('certProKeyInput').addEventListener('keydown', (e)=>{
   if(e.key === 'Enter') redeemCertProKey();
 });
+document.getElementById('certProToggleKeyBtn').addEventListener('click', ()=>{
+  licenseKeyVisible = !licenseKeyVisible;
+  renderCertHub();
+});
 document.getElementById('certProCopyKeyBtn').addEventListener('click', async ()=>{
   const key = getLicenseToken();
   if(!key) return;
@@ -10007,18 +10062,35 @@ async function runGhSync(silent){
 
 document.getElementById('vfyBtn').addEventListener('click', async ()=>{
   const resultEl = document.getElementById('vfyResult');
+  const entered = document.getElementById('vfyRef').value.trim().toUpperCase();
+  if(!entered){
+    resultEl.textContent = 'Paste the Verification ID printed on the certificate first.';
+    resultEl.style.color = 'var(--ink-soft)';
+    return;
+  }
+  if(!licenseConfigured()){
+    resultEl.innerHTML = `This tracker doesn't have a verification backend configured, so ID-only lookup isn't available here — use "Verify manually instead" below.`;
+    resultEl.style.color = 'var(--ink-soft)';
+    return;
+  }
   resultEl.textContent = 'Checking…';
   resultEl.style.color = 'var(--ink-soft)';
-  const entered = document.getElementById('vfyRef').value.trim().toUpperCase();
-  if(entered){
-    const record = await lookupCertRecord(entered);
-    if(record){
-      const {stats} = record;
-      resultEl.innerHTML = `✅ <b>Verified against the issued record</b> — ${escapeHtml(record.name||'(unnamed)')}, ${escapeHtml(record.trackLabel)}, ${stats.totalSolved}/${stats.total} solved, issued ${new Date(record.issuedAt).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}.`;
-      resultEl.style.color = '#1a7d3a';
-      return;
-    }
+  const record = await lookupCertRecord(entered);
+  if(record){
+    const {stats} = record;
+    resultEl.innerHTML = `✅ <b>Verified — record found</b>: ${escapeHtml(record.name||'(unnamed)')}, ${escapeHtml(record.trackLabel)}${record.company ? ' ('+escapeHtml(record.company)+')' : ''}, ${stats.totalSolved}/${stats.total} solved, issued ${new Date(record.registeredAt||record.issuedAt).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}.`;
+    resultEl.style.color = '#1a7d3a';
+  } else {
+    resultEl.innerHTML = `No matching record found for that ID. This can mean the ID was mistyped, the certificate predates this feature, or the issuer wasn't on an active Pro plan when it was generated. Try "Verify manually instead" below.`;
+    resultEl.style.color = 'var(--ink-soft)';
   }
+});
+document.getElementById('vfyRef').addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter') document.getElementById('vfyBtn').click();
+});
+document.getElementById('vfyManualBtn').addEventListener('click', async ()=>{
+  const resultEl = document.getElementById('vfyResult');
+  const entered = document.getElementById('vfyRef').value.trim().toUpperCase();
   try{
     const track = document.getElementById('vfyTrack').value;
     const company = document.getElementById('vfyCompany').value.trim();
