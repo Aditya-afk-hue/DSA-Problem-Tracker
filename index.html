@@ -1303,6 +1303,7 @@
         <button class="btn-secondary" data-close="certModal">Close</button>
         <button class="btn-secondary" id="certLinkedInBtn" type="button">🔗 Add to LinkedIn profile</button>
         <button class="btn-primary" id="certDownloadBtn">Download PNG</button>
+        <button class="btn-primary" id="certDownloadPdfBtn">Download PDF</button>
       </div>
     </div>
 
@@ -7371,12 +7372,14 @@ function renderCertVerifyBox(){
   }
 }
 
-async function downloadCertificate(){
-  if(!isPro()){ showToast('🔒 Certificates need Pro'); return; }
-  if(!certCanGenerate(currentCertSpec)){
-    showToast('🔒 Needs a real LeetCode sync — imports alone can\'t verify a certificate');
-    return;
-  }
+let jspdfLoadPromise = null;
+function ensureJsPDF(){
+  if(jspdfLoadPromise) return jspdfLoadPromise;
+  jspdfLoadPromise = loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js')
+    .then(()=> window.jspdf.jsPDF);
+  return jspdfLoadPromise;
+}
+async function renderCertificateCanvas(){
   if(currentCertSpec.kind === 'company'){
     await ensureCompanyLogoDataUri(currentCertSpec.company);
   }
@@ -7384,24 +7387,59 @@ async function downloadCertificate(){
   const svgBlob = new Blob([svg], {type:'image/svg+xml;charset=utf-8'});
   const url = URL.createObjectURL(svgBlob);
   const img = new Image();
-  img.onload = () => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 2000; canvas.height = 1414;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#F8F4E9';
-    ctx.fillRect(0,0,canvas.width,canvas.height);
-    ctx.drawImage(img, 0, 0, 2000, 1414);
-    URL.revokeObjectURL(url);
-    canvas.toBlob(blob => {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = certFilename(currentCertSpec);
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    });
-  };
-  img.src = url;
+  return new Promise((resolve, reject)=>{
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 2000; canvas.height = 1414;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#F8F4E9';
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.drawImage(img, 0, 0, 2000, 1414);
+      URL.revokeObjectURL(url);
+      resolve(canvas);
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+async function downloadCertificate(){
+  if(!isPro()){ showToast('🔒 Certificates need Pro'); return; }
+  if(!certCanGenerate(currentCertSpec)){
+    showToast('🔒 Needs a real LeetCode sync — imports alone can\'t verify a certificate');
+    return;
+  }
+  const canvas = await renderCertificateCanvas();
+  canvas.toBlob(blob => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = certFilename(currentCertSpec);
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  });
+}
+async function downloadCertificatePdf(){
+  if(!isPro()){ showToast('🔒 Certificates need Pro'); return; }
+  if(!certCanGenerate(currentCertSpec)){
+    showToast('🔒 Needs a real LeetCode sync — imports alone can\'t verify a certificate');
+    return;
+  }
+  const btn = document.getElementById('certDownloadPdfBtn');
+  const origText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = jspdfLoadPromise ? 'Building PDF…' : 'Loading PDF library…';
+  try{
+    const [canvas, jsPDF] = await Promise.all([renderCertificateCanvas(), ensureJsPDF()]);
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF({ orientation:'landscape', unit:'pt', format:[2000, 1414] });
+    pdf.addImage(imgData, 'PNG', 0, 0, 2000, 1414);
+    pdf.save(certFilename(currentCertSpec).replace(/\.png$/i, '.pdf'));
+  }catch(err){
+    showToast('⚠ Could not build the PDF — try Download PNG instead.');
+  }finally{
+    btn.disabled = false;
+    btn.textContent = origText;
+  }
 }
 
 function showToast(msg){
@@ -10023,6 +10061,7 @@ document.getElementById('certBackBtn').addEventListener('click', ()=>{
   renderCertHub();
 });
 document.getElementById('certDownloadBtn').addEventListener('click', downloadCertificate);
+document.getElementById('certDownloadPdfBtn').addEventListener('click', downloadCertificatePdf);
 
 let hintModalId = null;
 let reviewConversation = [];
