@@ -1043,7 +1043,7 @@
       <a class="btn-secondary" id="solveOpenLeetcodeBtn" href="#" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;">Open on LeetCode ↗</a>
     </div>
     <textarea id="solveCodeInput" spellcheck="false" placeholder="Write your solution here…" style="width:100%;min-height:280px;font-family:'IBM Plex Mono',monospace;font-size:13px;padding:12px;border:1.5px solid var(--rule);border-radius:8px;background:var(--paper);color:var(--ink);resize:vertical;box-sizing:border-box;line-height:1.5;"></textarea>
-    <div class="modal-note" id="solveRunNote">Autosaves as you type, per problem and per language. JavaScript, Python, Java, and SQL actually run here in-browser (Python via Pyodide, SQL via sql.js, Java via CheerpJ's in-browser JVM+compiler — first run of Python/Java loads a runtime, can take 10-30s). For Java, write a full program: <code>public class Main { public static void main(String[] args) { ... } }</code>. C++, C, C#, and Go can't run in-browser — write and save your solution here, then use "Open on LeetCode" to run and submit it for real.</div>
+    <div class="modal-note" id="solveRunNote">Autosaves as you type, per problem and per language. JavaScript, Python, Java, and SQL actually run here in-browser (Python via Pyodide, SQL via sql.js, Java via CheerpJ's in-browser JVM+compiler — first run of Python/Java loads a runtime, can take 10-30s). When test cases are generated below, the editor auto-fills a LeetCode-style starter (just write the method body) and Run/Submit handle calling it and checking the output for you — no I/O boilerplate needed. C++, C, C#, and Go can't run in-browser — write and save your solution here, then use "Open on LeetCode" to run and submit it for real.</div>
     <div id="solveConsoleWrap" style="display:none;margin-top:10px;">
       <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.5px;text-transform:uppercase;color:var(--ink-faint);margin-bottom:4px;">Console output</div>
       <pre id="solveConsoleOutput" style="background:var(--card);border:1px solid var(--rule-soft);border-radius:8px;padding:10px 12px;font-size:12.5px;white-space:pre-wrap;max-height:200px;overflow:auto;margin:0;"></pre>
@@ -8025,6 +8025,7 @@ function resetSolveTestCases(){
   solveTestCases = [];
   solveTestCasesGenerated = false;
   solveTestCasesLoading = false;
+  solveHarness = null;
   renderSolveTestCases();
 }
 function openCodeEditorModal(id){
@@ -8040,6 +8041,7 @@ function openCodeEditorModal(id){
   const savedLang = localStorage.getItem(SOLVE_LANG_KEY) || 'java';
   const lang = (p.section === 'Database & SQL') ? 'sql' : savedLang;
   document.getElementById('solveLangSel').value = lang;
+  document.getElementById('solveCodeInput').dataset.lastLang = lang;
   const code = getSolveCode(id, lang);
   document.getElementById('solveCodeInput').value = code;
   resetSolveHistory(code);
@@ -8059,11 +8061,20 @@ function openCodeEditorModal(id){
 }
 document.getElementById('solveLangSel').addEventListener('change', ()=>{
   if(solveModalId==null) return;
-  try{ localStorage.setItem(SOLVE_LANG_KEY, document.getElementById('solveLangSel').value); }catch(e){}
-  const code = getSolveCode(solveModalId, document.getElementById('solveLangSel').value);
+  const newLang = document.getElementById('solveLangSel').value;
+  const wasSql = document.getElementById('solveCodeInput').dataset.lastLang === 'sql';
+  const isSql = newLang === 'sql';
+  try{ localStorage.setItem(SOLVE_LANG_KEY, newLang); }catch(e){}
+  const code = getSolveCode(solveModalId, newLang);
   document.getElementById('solveCodeInput').value = code;
+  document.getElementById('solveCodeInput').dataset.lastLang = newLang;
   resetSolveHistory(code);
-  resetSolveTestCases();
+  if(isSql || wasSql){
+    resetSolveTestCases(); // SQL uses a completely different test-case/harness shape
+  } else {
+    renderSolveTestCases(); // same harness still applies — just refresh labels
+    applySolveStarterCodeIfEmpty();
+  }
 });
 document.getElementById('solveCodeInput').addEventListener('input', ()=>{
   if(solveModalId==null) return;
@@ -8078,14 +8089,23 @@ document.getElementById('solveCodeInput').addEventListener('keydown', (e)=>{
   else if(e.key === 'y' || (e.key === 'z' && e.shiftKey)){ e.preventDefault(); redoSolveCode(); }
 });
 
+function buildExecutionPayload(langVal, rawUserCode, testCaseInputJson){
+  if(!solveHarness || langVal === 'sql'){
+    return { code: rawUserCode, inputJson: testCaseInputJson };
+  }
+  if(langVal === 'javascript') return { code: rawUserCode + jsHarnessFooter(solveHarness), inputJson: testCaseInputJson };
+  if(langVal === 'python') return { code: rawUserCode + pyHarnessFooter(solveHarness), inputJson: testCaseInputJson };
+  if(langVal === 'java') return { code: javaHarnessFull(rawUserCode, solveHarness), inputJson: testCaseInputJson };
+  return { code: rawUserCode, inputJson: testCaseInputJson };
+}
 document.getElementById('solveRunBtn').addEventListener('click', async ()=>{
   const langVal = document.getElementById('solveLangSel').value;
-  const code = document.getElementById('solveCodeInput').value;
+  const code_raw = document.getElementById('solveCodeInput').value;
   const wrap = document.getElementById('solveConsoleWrap');
   const out = document.getElementById('solveConsoleOutput');
   const runBtn = document.getElementById('solveRunBtn');
   wrap.style.display = 'block';
-  if(!code.trim()){ out.textContent = 'Nothing to run yet — write some code first.'; return; }
+  if(!code_raw.trim()){ out.textContent = 'Nothing to run yet — write some code first.'; return; }
   if(!solveLangSupportsRun()){
     out.textContent = `Live execution isn't available for ${langKeyToLabel(langVal)} in-browser (needs a server-side compiler for C++/C#/Go). Write your solution here and use "Open on LeetCode" to actually run and submit it — or switch the language dropdown to Python, JavaScript, Java, or SQL to run code right here.`;
     return;
@@ -8093,12 +8113,15 @@ document.getElementById('solveRunBtn').addEventListener('click', async ()=>{
   runBtn.disabled = true;
   runBtn.textContent = langVal === 'python' && !pyodideLoadPromise ? 'Loading Python runtime…' : (langVal === 'sql' && !sqlJsLoadPromise ? 'Loading SQL runtime…' : (langVal === 'java' && !cheerpjLoadPromise ? 'Loading Java runtime (can take a while first time)…' : 'Running…'));
   out.textContent = 'Running…';
+  const sampleInput = (solveHarness && solveTestCases.length) ? solveTestCases[0].input : null;
+  const { code, inputJson } = buildExecutionPayload(langVal, code_raw, sampleInput);
   try{
-    const result = langVal === 'javascript' ? await runJSInWorker(code, null)
-      : langVal === 'sql' ? await runSQLCode(code, null)
-      : langVal === 'java' ? await runJavaCode(code, null)
-      : await runPythonCode(code, null);
+    const result = langVal === 'javascript' ? await runJSInWorker(code, inputJson)
+      : langVal === 'sql' ? await runSQLCode(code, inputJson)
+      : langVal === 'java' ? await runJavaCode(code, inputJson)
+      : await runPythonCode(code, inputJson);
     const lines = [];
+    if(solveHarness && sampleInput) lines.push(`Ran ${solveHarness.functionName}(...) against test case 1 — input: ${sampleInput}`, '');
     if(result.logs && result.logs.length) lines.push(...result.logs);
     if(result.error) lines.push('⚠ ' + result.error);
     if(!lines.length) lines.push('(ran with no output — use print()/console.log to see values)');
@@ -8150,12 +8173,15 @@ async function generateSolveProblemSummary(auto){
 }
 document.getElementById('solveSummaryBtn').addEventListener('click', ()=>generateSolveProblemSummary(false));
 
+let solveHarness = null; // {functionName, params:[{name,type}], returnType} — null for SQL or if ungenerated
+const JAVA_TYPE_VOCAB = ['int','long','double','boolean','String','char','int[]','long[]','double[]','String[]','char[]','int[][]'];
 async function generateSolveTestCases(auto){
   const p = PROBLEMS.find(x=>x.id===solveModalId);
   if(!p) return;
   const key = auto ? getGeminiKey() : requireGeminiKey('solveKeySection');
   if(!key) return;
   const langLabel = langKeyToLabel(document.getElementById('solveLangSel').value);
+  const isSql = langLabel === 'SQL';
   solveTestCasesLoading = true;
   renderSolveTestCases();
   try{
@@ -8163,15 +8189,21 @@ async function generateSolveTestCases(auto){
       method:'POST',
       headers:{ 'Content-Type':'application/json' },
       body: JSON.stringify({
-        contents:[{ role:'user', parts:[{ text:
-          `Generate 3 small example test cases for the LeetCode problem "${p.title}" (topic: ${p.section}, difficulty: ${p.diff==='E'?'Easy':p.diff==='M'?'Medium':'Hard'}). ` +
-          `Use well-known example inputs/outputs for this specific problem if you know them; otherwise construct small, plausible cases consistent with its usual constraints, and don't guess wildly. ` +
-          (langLabel === 'SQL' ?
-            `This is a SQL/database problem, so "input" must be a JSON object of {"TableName": [{"col1": val, "col2": val}, ...], ...} representing the seed rows for each table the query needs — use the real table/column names LeetCode uses for this problem if known. ` :
-            `The "input" is what a program would json.loads() and read as a single INPUT value (an array/object combining all parameters). `) +
-          `Respond with ONLY a raw JSON array, no markdown code fences, no prose — each element exactly: {"input": <the input as described above>, "expected": "<the expected output, as the exact plain-text string the last output row/line should equal>"}.`
+        contents:[{ role:'user', parts:[{ text: isSql ?
+          `Generate 3 small example test cases for the LeetCode SQL problem "${p.title}" (topic: ${p.section}, difficulty: ${p.diff==='E'?'Easy':p.diff==='M'?'Medium':'Hard'}). ` +
+          `Use well-known example inputs/outputs for this specific problem if you know them; otherwise construct small, plausible cases consistent with its usual constraints. ` +
+          `"input" must be a JSON object of {"TableName": [{"col1": val, "col2": val}, ...], ...} representing the seed rows for each table the query needs — use the real table/column names LeetCode uses for this problem if known. ` +
+          `Respond with ONLY a raw JSON array, no markdown fences, no prose — each element exactly: {"input": <as described>, "expected": "<exact plain-text string the last result row should equal>"}.`
+          :
+          `For the LeetCode problem "${p.title}" (topic: ${p.section}, difficulty: ${p.diff==='E'?'Easy':p.diff==='M'?'Medium':'Hard'}), give me its real (or a plausible, conventional) function signature plus 3 small example test cases. Use well-known example inputs/outputs for this specific problem if you know them. ` +
+          `Respond with ONLY a raw JSON object, no markdown fences, no prose, exactly this shape:\n` +
+          `{"functionName": "<camelCase method name, e.g. maxSubArrayLen>", ` +
+          `"params": [{"name":"<param name>","type":"<one of: ${JAVA_TYPE_VOCAB.join(', ')}>"}, ...in order...], ` +
+          `"returnType": "<one of: ${JAVA_TYPE_VOCAB.join(', ')}>", ` +
+          `"testCases": [{"input": [<param 1 value>, <param 2 value>, ...], "expected": "<exact plain value the return should equal — a bare number/word, or compact JSON like [1,2,3] for arrays, true/false for booleans>"}, ...3 of these...]}\n` +
+          `"input" must always be a JSON array with exactly one element per parameter, in the same order as "params". Only use types from the given vocabulary (use int[] for any integer list/array regardless of what LeetCode calls it, int[][] for a 2D grid, etc — pick the closest match).`
         }]}],
-        generationConfig:{ maxOutputTokens:500, thinkingConfig:{ thinkingLevel:'minimal' } }
+        generationConfig:{ maxOutputTokens:700, thinkingConfig:{ thinkingLevel:'minimal' } }
       })
     });
     if(!resp.ok){
@@ -8183,14 +8215,33 @@ async function generateSolveTestCases(auto){
     const parts = (candidate && candidate.content && candidate.content.parts) || [];
     const text = (parts.map(b=>b.text||'').join('\n').trim());
     const jsonText = text.replace(/^```(json)?/i,'').replace(/```$/,'').trim();
-    const arr = JSON.parse(jsonText);
-    if(!Array.isArray(arr) || !arr.length) throw new Error('Model returned no test cases');
-    solveTestCases = arr.slice(0,5).map(tc => ({
-      id: 'st' + Date.now() + Math.floor(Math.random()*1000),
-      input: typeof tc.input === 'string' ? tc.input : JSON.stringify(tc.input),
-      expected: typeof tc.expected === 'string' ? tc.expected : JSON.stringify(tc.expected),
-      status: 'idle', actual: ''
-    }));
+    const parsed = JSON.parse(jsonText);
+
+    if(isSql){
+      solveHarness = null;
+      const arr = parsed;
+      if(!Array.isArray(arr) || !arr.length) throw new Error('Model returned no test cases');
+      solveTestCases = arr.slice(0,5).map(tc => ({
+        id: 'st' + Date.now() + Math.floor(Math.random()*1000),
+        input: typeof tc.input === 'string' ? tc.input : JSON.stringify(tc.input),
+        expected: typeof tc.expected === 'string' ? tc.expected : JSON.stringify(tc.expected),
+        status: 'idle', actual: ''
+      }));
+    } else {
+      if(!parsed.functionName || !Array.isArray(parsed.params) || !Array.isArray(parsed.testCases) || !parsed.testCases.length){
+        throw new Error('Model returned an incomplete signature');
+      }
+      parsed.params.forEach(pm=>{ if(!JAVA_TYPE_VOCAB.includes(pm.type)) pm.type = 'String'; });
+      if(!JAVA_TYPE_VOCAB.includes(parsed.returnType)) parsed.returnType = 'String';
+      solveHarness = { functionName: parsed.functionName, params: parsed.params, returnType: parsed.returnType };
+      solveTestCases = parsed.testCases.slice(0,5).map(tc => ({
+        id: 'st' + Date.now() + Math.floor(Math.random()*1000),
+        input: JSON.stringify(Array.isArray(tc.input) ? tc.input : [tc.input]),
+        expected: typeof tc.expected === 'string' ? tc.expected : JSON.stringify(tc.expected),
+        status: 'idle', actual: ''
+      }));
+      applySolveStarterCodeIfEmpty();
+    }
     solveTestCasesGenerated = true;
   }catch(err){
     showToast('⚠ Could not auto-generate test cases — add one manually instead.');
@@ -8199,6 +8250,134 @@ async function generateSolveTestCases(auto){
     renderSolveTestCases();
   }
 }
+// --- Starter code + execution harness, generated FROM the AI's structured
+// signature (functionName/params/returnType) rather than asking the AI to
+// freehand I/O boilerplate every time — much more reliable, since the only
+// AI-authored part is the method name/types/test values, not parsing logic.
+
+function jsStarterCode(h){
+  const doc = h.params.map(p=>` * @param {${p.type}} ${p.name}`).join('\n');
+  const names = h.params.map(p=>p.name).join(', ');
+  return `/**\n${doc}\n * @return {${h.returnType}}\n */\nvar ${h.functionName} = function(${names}) {\n    \n};`;
+}
+function pyStarterCode(h){
+  const names = h.params.map(p=>p.name).join(', ');
+  return `class Solution:\n    def ${h.functionName}(self, ${names}):\n        `;
+}
+function javaStarterCode(h){
+  const sig = h.params.map(p=>`${p.type} ${p.name}`).join(', ');
+  return `class Solution {\n    public ${h.returnType} ${h.functionName}(${sig}) {\n        \n    }\n}`;
+}
+// Only auto-fills the editor with a starter when it's empty (or still holds
+// a previously auto-filled starter for this exact language) — never
+// clobbers code you've actually started writing.
+function applySolveStarterCodeIfEmpty(){
+  if(!solveHarness) return;
+  const lang = document.getElementById('solveLangSel').value;
+  const ta = document.getElementById('solveCodeInput');
+  const current = ta.value;
+  const isBlankish = !current.trim() || current === lastAutoStarter;
+  if(!isBlankish) return;
+  const starter = lang === 'python' ? pyStarterCode(solveHarness) : lang === 'java' ? javaStarterCode(solveHarness) : lang === 'javascript' ? jsStarterCode(solveHarness) : null;
+  if(!starter) return;
+  ta.value = starter;
+  lastAutoStarter = starter;
+  if(solveModalId!=null) setSolveCode(solveModalId, lang, starter);
+  resetSolveHistory(starter);
+}
+let lastAutoStarter = '';
+
+// Wraps the person's Solution code with a small footer that calls their
+// function with the test case's INPUT array and prints a result string in
+// the same canonical form across languages, so normalizeForCompare() can
+// match a JS array output against a Python one, etc.
+function jsHarnessFooter(h){
+  const args = h.params.map((p,i)=>`INPUT[${i}]`).join(', ');
+  return `\n\n// --- auto test harness ---\n(function(){ var __r = ${h.functionName}(${args}); console.log(typeof __r === 'string' ? __r : JSON.stringify(__r)); })();`;
+}
+function pyHarnessFooter(h){
+  const args = h.params.map((p,i)=>`INPUT[${i}]`).join(', ');
+  return `\n\n# --- auto test harness ---\nimport json as __json\n__r = Solution().${h.functionName}(${args})\nprint(__r if isinstance(__r, str) else __json.dumps(__r))`;
+}
+// Java needs real parsing since args[0] arrives as a raw JSON string, not a
+// pre-parsed global. This is a fixed, hand-written, reusable parser+coercion
+// utility (not AI-generated) — the AI only ever supplies functionName/params
+// /returnType, this template does the type-directed extraction and printing
+// for every problem the same reliable way.
+function javaHarnessFull(userCode, h){
+  const argVars = h.params.map((p,i)=>{
+    const getter = {
+      'int':'toInt','long':'toLong','double':'toDouble','boolean':'toBool','String':'toStr','char':'toChar',
+      'int[]':'toIntArr','long[]':'toLongArr','double[]':'toDoubleArr','String[]':'toStrArr','char[]':'toCharArr','int[][]':'toIntMatrix'
+    }[p.type] || 'toStr';
+    return `        ${p.type} ${p.name} = __H.${getter}(__parts.get(${i}));`;
+  }).join('\n');
+  const callArgs = h.params.map(p=>p.name).join(', ');
+  const printLine = ['int[]','long[]','double[]','String[]','char[]','int[][]'].includes(h.returnType)
+    ? `        System.out.println(__H.toJson(__result));`
+    : h.returnType === 'String'
+      ? `        System.out.println(__result);`
+      : `        System.out.println(__H.toJson(__result));`;
+  return `import java.util.*;\n\n${userCode}\n\n` +
+`public class Main {\n` +
+`    public static void main(String[] args) throws Exception {\n` +
+`        String raw = args.length > 0 ? args[0] : "[]";\n` +
+`        List<String> __parts = __H.splitTopLevel(raw);\n` +
+`${argVars}\n` +
+`        ${h.returnType} __result = new Solution().${h.functionName}(${callArgs});\n` +
+`${printLine}\n` +
+`    }\n` +
+`}\n\n` +
+javaHarnessUtilSource();
+}
+function javaHarnessUtilSource(){
+  // Minimal hand-rolled JSON value splitter + per-type coercion — covers the
+  // realistic LeetCode parameter vocabulary without needing a real JSON lib.
+  return `class __H {
+    static List<String> splitTopLevel(String s){
+        s = s.trim();
+        if(s.startsWith("[")) s = s.substring(1, s.length()-1);
+        List<String> out = new ArrayList<>();
+        int depth = 0; boolean inStr = false; StringBuilder cur = new StringBuilder();
+        for(int i=0;i<s.length();i++){
+            char c = s.charAt(i);
+            if(c=='"' && (i==0 || s.charAt(i-1)!='\\\\')) inStr = !inStr;
+            if(!inStr){
+                if(c=='['||c=='{') depth++;
+                if(c==']'||c=='}') depth--;
+                if(c==',' && depth==0){ out.add(cur.toString().trim()); cur = new StringBuilder(); continue; }
+            }
+            cur.append(c);
+        }
+        if(cur.length()>0 || !out.isEmpty()) out.add(cur.toString().trim());
+        return out;
+    }
+    static String stripQuotes(String s){ s = s.trim(); if(s.startsWith("\\"") && s.endsWith("\\"") && s.length()>=2) return s.substring(1, s.length()-1); return s; }
+    static int toInt(String s){ return (int)Double.parseDouble(s.trim()); }
+    static long toLong(String s){ return (long)Double.parseDouble(s.trim()); }
+    static double toDouble(String s){ return Double.parseDouble(s.trim()); }
+    static boolean toBool(String s){ return s.trim().equalsIgnoreCase("true"); }
+    static String toStr(String s){ return stripQuotes(s); }
+    static char toChar(String s){ String v = stripQuotes(s); return v.isEmpty() ? ' ' : v.charAt(0); }
+    static int[] toIntArr(String s){ List<String> p = splitTopLevel(s); int[] r = new int[p.size()]; for(int i=0;i<p.size();i++) r[i]=toInt(p.get(i)); return r; }
+    static long[] toLongArr(String s){ List<String> p = splitTopLevel(s); long[] r = new long[p.size()]; for(int i=0;i<p.size();i++) r[i]=toLong(p.get(i)); return r; }
+    static double[] toDoubleArr(String s){ List<String> p = splitTopLevel(s); double[] r = new double[p.size()]; for(int i=0;i<p.size();i++) r[i]=toDouble(p.get(i)); return r; }
+    static String[] toStrArr(String s){ List<String> p = splitTopLevel(s); String[] r = new String[p.size()]; for(int i=0;i<p.size();i++) r[i]=toStr(p.get(i)); return r; }
+    static char[] toCharArr(String s){ List<String> p = splitTopLevel(s); char[] r = new char[p.size()]; for(int i=0;i<p.size();i++) r[i]=toChar(p.get(i)); return r; }
+    static int[][] toIntMatrix(String s){ List<String> rows = splitTopLevel(s); int[][] r = new int[rows.size()][]; for(int i=0;i<rows.size();i++) r[i]=toIntArr(rows.get(i)); return r; }
+    static String toJson(Object o){
+        if(o instanceof int[]){ int[] a=(int[])o; StringBuilder b=new StringBuilder("["); for(int i=0;i<a.length;i++){ if(i>0) b.append(","); b.append(a[i]); } return b.append("]").toString(); }
+        if(o instanceof long[]){ long[] a=(long[])o; StringBuilder b=new StringBuilder("["); for(int i=0;i<a.length;i++){ if(i>0) b.append(","); b.append(a[i]); } return b.append("]").toString(); }
+        if(o instanceof double[]){ double[] a=(double[])o; StringBuilder b=new StringBuilder("["); for(int i=0;i<a.length;i++){ if(i>0) b.append(","); b.append(a[i]); } return b.append("]").toString(); }
+        if(o instanceof String[]){ String[] a=(String[])o; StringBuilder b=new StringBuilder("["); for(int i=0;i<a.length;i++){ if(i>0) b.append(","); b.append("\\"").append(a[i]).append("\\""); } return b.append("]").toString(); }
+        if(o instanceof char[]){ char[] a=(char[])o; StringBuilder b=new StringBuilder("["); for(int i=0;i<a.length;i++){ if(i>0) b.append(","); b.append("\\"").append(a[i]).append("\\""); } return b.append("]").toString(); }
+        if(o instanceof int[][]){ int[][] a=(int[][])o; StringBuilder b=new StringBuilder("["); for(int i=0;i<a.length;i++){ if(i>0) b.append(","); b.append(toJson(a[i])); } return b.append("]").toString(); }
+        if(o instanceof Boolean) return o.toString();
+        return String.valueOf(o);
+    }
+}`;
+}
+
 function renderSolveTestCases(){
   const box = document.getElementById('solveTestCasesBox');
   if(!box) return;
@@ -8249,7 +8428,7 @@ function renderSolveTestCases(){
         <button class="btn-secondary" id="solveAddTcBtn" type="button" style="padding:4px 10px;font-size:11.5px;">+ Add test case</button>
       </div>
     </div>
-    <div style="font-size:11.5px;color:var(--ink-faint);margin:4px 0 10px;">${langLabel === 'SQL' ? 'Input for each case seeds the table(s) as an object like <code>{"Employee": [{"id":1,"salary":100}, ...]}</code> — write your query against those table names; Submit runs it and compares the last result row to "Expected output".' : langLabel === 'Java' ? 'Your code doesn\'t have LeetCode\'s real function signature, so read the input from <code>args[0]</code> in <code>main(String[] args)</code> and print your final answer as the last line of output — Submit compares that line to "Expected output" for each row.' : 'Your code doesn\'t have LeetCode\'s real function signature, so read the input from the <code>INPUT</code> global and print your final answer as the last line of output — Submit compares that line to "Expected output" for each row.'} Edit or remove any case that looks wrong.</div>
+    <div style="font-size:11.5px;color:var(--ink-faint);margin:4px 0 10px;">${langLabel === 'SQL' ? 'Input for each case seeds the table(s) as an object like <code>{"Employee": [{"id":1,"salary":100}, ...]}</code> — write your query against those table names; Submit runs it and compares the last result row to "Expected output".' : solveHarness ? `Each "input" is an array of arguments for <code>${escapeHtml(solveHarness.functionName)}(${solveHarness.params.map(p=>escapeHtml(p.name)).join(', ')})</code> — write just the method body in the editor above, Run/Submit call it for you and compare the return value to "Expected output".` : 'Your code doesn\'t have LeetCode\'s real function signature yet — generate test cases above to get an auto-filled starter, or read the input from the <code>INPUT</code> global yourself and print your final answer as the last line of output.'} Edit or remove any case that looks wrong.</div>
     ${rows}
     <div class="mock-run-row">
       <button class="btn-primary" id="solveSubmitBtn" type="button">✓ Submit (run all test cases)</button>
@@ -8282,20 +8461,21 @@ function renderSolveTestCases(){
 async function submitSolveTestCases(){
   const langVal = document.getElementById('solveLangSel').value;
   const submitBtn = document.getElementById('solveSubmitBtn');
-  const code = document.getElementById('solveCodeInput').value;
+  const rawCode = document.getElementById('solveCodeInput').value;
   if(!solveLangSupportsRun()){
     showToast('Submit needs a runnable language — switch to Python, JavaScript, Java, or SQL to test against cases.');
     return;
   }
-  if(!code.trim()){ showToast('Write some code first.'); return; }
+  if(!rawCode.trim()){ showToast('Write some code first.'); return; }
   submitBtn.disabled = true; submitBtn.textContent = 'Running test cases…';
   for(let i=0; i<solveTestCases.length; i++){
     const tc = solveTestCases[i];
     try{
-      const result = langVal === 'javascript' ? await runJSInWorker(code, tc.input || null)
-        : langVal === 'sql' ? await runSQLCode(code, tc.input || null)
-        : langVal === 'java' ? await runJavaCode(code, tc.input || null)
-        : await runPythonCode(code, tc.input || null);
+      const { code, inputJson } = buildExecutionPayload(langVal, rawCode, tc.input || null);
+      const result = langVal === 'javascript' ? await runJSInWorker(code, inputJson)
+        : langVal === 'sql' ? await runSQLCode(code, inputJson)
+        : langVal === 'java' ? await runJavaCode(code, inputJson)
+        : await runPythonCode(code, inputJson);
       if(!result.ok){
         tc.status = 'error'; tc.actual = result.error || 'unknown error';
       } else {
@@ -8311,6 +8491,29 @@ async function submitSolveTestCases(){
   renderSolveTestCases();
   const passed = solveTestCases.filter(t=>t.status==='pass').length;
   showToast(`${passed}/${solveTestCases.length} test cases passed`);
+
+  // Premium-only carve-out: premium LeetCode problems can't be attempted at
+  // all without a paid LeetCode subscription, so the normal "solved" path
+  // (real LeetCode + GitHub Actions sync) may simply never be reachable for
+  // them. If every AI-generated test case passes, mark it solved here — but
+  // deliberately NOT added to syncedIds, so certificates' "sync-verified"
+  // math still only ever counts real LeetCode-confirmed solves, not this.
+  const p = PROBLEMS.find(x=>x.id===solveModalId);
+  if(p && p.premium && solveTestCases.length > 0 && passed === solveTestCases.length && !solved.has(p.id)){
+    solved.add(p.id);
+    const m = getMeta(p.id);
+    m.solvedAt = Date.now();
+    m.reviewStage = 0;
+    m.intervalDays = REVIEW_INTERVALS_DAYS[0];
+    m.nextReview = Date.now() + REVIEW_INTERVALS_DAYS[0]*86400000;
+    m.verifiedBy = 'testcases';
+    saveSolved();
+    saveMeta();
+    document.getElementById('solveSolvedBadge').style.display = 'inline-block';
+    renderSections();
+    renderSummary();
+    showToast('🔒 Premium problem marked solved — verified by this tracker\'s test cases (not a LeetCode sync, since premium problems need a paid LeetCode account to attempt there).');
+  }
 }
 
 function closeModal(id){ document.getElementById(id).classList.remove('show'); }
