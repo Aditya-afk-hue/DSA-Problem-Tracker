@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-17T08:21:53.567Z",
+  "updatedAt": "2026-07-17T13:54:45.689Z",
   "slugs": [
     "two-sum",
     "reverse-integer",
@@ -15,8 +15,10 @@
     "search-insert-position",
     "combination-sum",
     "permutations",
+    "rotate-image",
     "n-queens-ii",
     "maximum-subarray",
+    "spiral-matrix",
     "jump-game",
     "merge-intervals",
     "length-of-last-word",
