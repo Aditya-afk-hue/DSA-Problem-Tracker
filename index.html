@@ -6968,6 +6968,17 @@ function buildQRSVG(data, x, y, size, opts){
   return `<g>${rects}</g>`;
 }
 
+// A solved problem counts toward certificate eligibility if it's either
+// confirmed by a real LeetCode sync, OR — for premium problems specifically,
+// where LeetCode sync is structurally impossible without a paid LeetCode
+// account — verified by passing this tracker's own AI-generated test cases
+// in the code editor. Both are real, checkable verification; only a raw
+// import/backup-restore (no verification at all) is excluded.
+function isCertVerified(id){
+  if(syncedIds.has(id)) return true;
+  const m = meta[id];
+  return !!(m && m.verifiedBy === 'testcases');
+}
 function certStatsFor(spec){
   const pool = certPool(spec);
   const total = pool.length;
@@ -6977,7 +6988,7 @@ function certStatsFor(spec){
     if(solved.has(p.id)) bydiff[p.diff].s++;
   });
   const totalSolved = pool.filter(p=>solved.has(p.id)).length;
-  const totalVerified = pool.filter(p=>solved.has(p.id) && syncedIds.has(p.id)).length;
+  const totalVerified = pool.filter(p=>solved.has(p.id) && isCertVerified(p.id)).length;
   return {total, totalSolved, totalVerified, bydiff};
 }
 
@@ -7322,7 +7333,7 @@ function renderCertHub(){
     else btnLabel = 'View certificate';
     if(progressUnlocked && !canGenerate){
       const unverified = st.totalSolved - st.totalVerified;
-      note = `${unverified} of ${st.totalSolved} solved problem${unverified===1?'':'s'} still ${unverified===1?"isn't":"aren't"} confirmed by a real LeetCode sync — run 🔄 Sync from LeetCode or GitHub Actions sync to unlock this certificate. Imported/backup-restored progress alone can't generate one.`;
+      note = `${unverified} of ${st.totalSolved} solved problem${unverified===1?'':'s'} still ${unverified===1?"isn't":"aren't"} verified — run 🔄 Sync from LeetCode or GitHub Actions sync, or for premium problems, pass all AI-generated test cases in the ⌨️ code editor. Imported/backup-restored progress alone can't generate one.`;
     }
     return `
     <div class="cert-hub-card">
@@ -7330,7 +7341,7 @@ function renderCertHub(){
         <span class="chc-icon">${s.icon}</span>
         <div class="chc-info">
           <div class="chc-title">${s.label}</div>
-          <div class="chc-sub">${st.totalSolved}/${st.total} solved · ${pct}%${progressUnlocked ? ` · ${st.totalVerified}/${st.totalSolved} sync-verified` : ''}</div>
+          <div class="chc-sub">${st.totalSolved}/${st.total} solved · ${pct}%${progressUnlocked ? ` · ${st.totalVerified}/${st.totalSolved} verified` : ''}</div>
         </div>
         <button class="btn-primary chc-btn" data-cert-kind="${s.kind}" ${canView ? '' : 'disabled'}>${btnLabel}</button>
       </div>
@@ -8089,13 +8100,13 @@ document.getElementById('solveCodeInput').addEventListener('keydown', (e)=>{
   else if(e.key === 'y' || (e.key === 'z' && e.shiftKey)){ e.preventDefault(); redoSolveCode(); }
 });
 
-function buildExecutionPayload(langVal, rawUserCode, testCaseInputJson){
-  if(!solveHarness || langVal === 'sql'){
+function buildExecutionPayload(langVal, rawUserCode, testCaseInputJson, harness){
+  if(!harness || langVal === 'sql'){
     return { code: rawUserCode, inputJson: testCaseInputJson };
   }
-  if(langVal === 'javascript') return { code: rawUserCode + jsHarnessFooter(solveHarness), inputJson: testCaseInputJson };
-  if(langVal === 'python') return { code: rawUserCode + pyHarnessFooter(solveHarness), inputJson: testCaseInputJson };
-  if(langVal === 'java') return { code: javaHarnessFull(rawUserCode, solveHarness), inputJson: testCaseInputJson };
+  if(langVal === 'javascript') return { code: rawUserCode + jsHarnessFooter(harness), inputJson: testCaseInputJson };
+  if(langVal === 'python') return { code: rawUserCode + pyHarnessFooter(harness), inputJson: testCaseInputJson };
+  if(langVal === 'java') return { code: javaHarnessFull(rawUserCode, harness), inputJson: testCaseInputJson };
   return { code: rawUserCode, inputJson: testCaseInputJson };
 }
 document.getElementById('solveRunBtn').addEventListener('click', async ()=>{
@@ -8114,7 +8125,7 @@ document.getElementById('solveRunBtn').addEventListener('click', async ()=>{
   runBtn.textContent = langVal === 'python' && !pyodideLoadPromise ? 'Loading Python runtime…' : (langVal === 'sql' && !sqlJsLoadPromise ? 'Loading SQL runtime…' : (langVal === 'java' && !cheerpjLoadPromise ? 'Loading Java runtime (can take a while first time)…' : 'Running…'));
   out.textContent = 'Running…';
   const sampleInput = (solveHarness && solveTestCases.length) ? solveTestCases[0].input : null;
-  const { code, inputJson } = buildExecutionPayload(langVal, code_raw, sampleInput);
+  const { code, inputJson } = buildExecutionPayload(langVal, code_raw, sampleInput, solveHarness);
   try{
     const result = langVal === 'javascript' ? await runJSInWorker(code, inputJson)
       : langVal === 'sql' ? await runSQLCode(code, inputJson)
@@ -8471,7 +8482,7 @@ async function submitSolveTestCases(){
   for(let i=0; i<solveTestCases.length; i++){
     const tc = solveTestCases[i];
     try{
-      const { code, inputJson } = buildExecutionPayload(langVal, rawCode, tc.input || null);
+      const { code, inputJson } = buildExecutionPayload(langVal, rawCode, tc.input || null, solveHarness);
       const result = langVal === 'javascript' ? await runJSInWorker(code, inputJson)
         : langVal === 'sql' ? await runSQLCode(code, inputJson)
         : langVal === 'java' ? await runJavaCode(code, inputJson)
@@ -8795,6 +8806,7 @@ async function initMockCodeEditor(){
     });
     mockCM.on('change', ()=>{ if(activeMock) activeMock.code = mockCM.getValue(); });
     mockCM.setSize('100%', 'auto');
+    applyMockStarterCodeIfEmpty();
   }catch(err){
     host.innerHTML = `<div style="padding:12px;font-size:12px;color:var(--ink-faint);">Couldn't load the syntax-highlighted editor (offline?) — using plain text instead.</div>`;
     const ta = document.createElement('textarea');
@@ -8804,12 +8816,36 @@ async function initMockCodeEditor(){
     ta.value = activeMock.code || '';
     ta.addEventListener('input', ()=>{ if(activeMock) activeMock.code = ta.value; });
     host.appendChild(ta);
+    applyMockStarterCodeIfEmpty();
   }
 }
 function getMockCode(){
   if(mockCM) return mockCM.getValue();
   const fallback = document.getElementById('mockEditorFallback');
   return fallback ? fallback.value : (activeMock ? activeMock.code || '' : '');
+}
+function setMockCode(value){
+  if(mockCM) mockCM.setValue(value);
+  else{
+    const fallback = document.getElementById('mockEditorFallback');
+    if(fallback) fallback.value = value;
+  }
+  if(activeMock) activeMock.code = value;
+}
+function mockLangToHarnessKey(label){
+  return { 'JavaScript':'javascript', 'Python':'python', 'Java':'java', 'SQL':'sql' }[label] || null;
+}
+let lastMockAutoStarter = '';
+function applyMockStarterCodeIfEmpty(){
+  if(!activeMock || !activeMock.harness) return;
+  const langKey = mockLangToHarnessKey(activeMock.lang);
+  if(!langKey || langKey === 'sql') return;
+  const current = getMockCode();
+  const isBlankish = !current.trim() || current === lastMockAutoStarter;
+  if(!isBlankish) return;
+  const starter = langKey === 'python' ? pyStarterCode(activeMock.harness) : langKey === 'java' ? javaStarterCode(activeMock.harness) : jsStarterCode(activeMock.harness);
+  setMockCode(starter);
+  lastMockAutoStarter = starter;
 }
 function destroyMockCodeEditor(){
   mockCM = null; 
@@ -8988,12 +9024,17 @@ async function runMockCode(){
   runBtn.textContent = lang === 'Python' && !pyodideLoadPromise ? 'Loading Python runtime…' : (lang === 'SQL' && !sqlJsLoadPromise ? 'Loading SQL runtime…' : (lang === 'Java' && !cheerpjLoadPromise ? 'Loading Java runtime (can take a while first time)…' : 'Running…'));
   out.classList.remove('err');
   out.textContent = 'Running…';
+  const langKey = mockLangToHarnessKey(lang);
+  const harness = activeMock ? activeMock.harness : null;
+  const sampleInput = (harness && activeMock.testCases && activeMock.testCases.length) ? activeMock.testCases[0].input : null;
+  const { code: wrappedCode, inputJson } = buildExecutionPayload(langKey, code, sampleInput, harness);
   try{
-    const result = lang === 'JavaScript' ? await runJSInWorker(code, null)
-      : lang === 'SQL' ? await runSQLCode(code, null)
-      : lang === 'Java' ? await runJavaCode(code, null)
-      : await runPythonCode(code, null);
+    const result = lang === 'JavaScript' ? await runJSInWorker(wrappedCode, inputJson)
+      : lang === 'SQL' ? await runSQLCode(wrappedCode, inputJson)
+      : lang === 'Java' ? await runJavaCode(wrappedCode, inputJson)
+      : await runPythonCode(wrappedCode, inputJson);
     const lines = [];
+    if(harness && sampleInput) lines.push(`Ran ${harness.functionName}(...) against test case 1 — input: ${sampleInput}`, '');
     if(result.logs && result.logs.length) lines.push(...result.logs);
     if(result.error) lines.push('⚠ ' + result.error);
     if(!lines.length) lines.push('(ran with no output — use print()/console.log to see values)');
@@ -9018,20 +9059,27 @@ async function generateMockTestCases(auto){
   activeMock.testCasesAutoTried = true;
   activeMock.testCasesLoading = true;
   renderMockTestCases();
+  const isSql = activeMock.lang === 'SQL';
   try{
     const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=' + encodeURIComponent(key), {
       method:'POST',
       headers:{ 'Content-Type':'application/json' },
       body: JSON.stringify({
-        contents:[{ role:'user', parts:[{ text:
-          `Generate 3 small example test cases for the LeetCode problem "${p.title}" (topic: ${p.section}, difficulty: ${p.diff==='E'?'Easy':p.diff==='M'?'Medium':'Hard'}). ` +
-          `Use well-known example inputs/outputs for this specific problem if you know them; otherwise construct small, plausible cases consistent with its usual constraints, and don't guess wildly. ` +
-          (activeMock.lang === 'SQL' ?
-            `This is a SQL/database problem, so "input" must be a JSON object of {"TableName": [{"col1": val, "col2": val}, ...], ...} representing the seed rows for each table the query needs — use the real table/column names LeetCode uses for this problem if known. ` :
-            `The "input" is what a program would json.loads() and read as a single INPUT value (an array/object combining all parameters). `) +
-          `Respond with ONLY a raw JSON array, no markdown code fences, no prose — each element exactly: {"input": <the input as described above>, "expected": "<the expected output, as the exact plain-text string the last output row/line should equal>"}.`
+        contents:[{ role:'user', parts:[{ text: isSql ?
+          `Generate 3 small example test cases for the LeetCode SQL problem "${p.title}" (topic: ${p.section}, difficulty: ${p.diff==='E'?'Easy':p.diff==='M'?'Medium':'Hard'}). ` +
+          `Use well-known example inputs/outputs for this specific problem if you know them; otherwise construct small, plausible cases consistent with its usual constraints. ` +
+          `"input" must be a JSON object of {"TableName": [{"col1": val, "col2": val}, ...], ...} representing the seed rows for each table the query needs — use the real table/column names LeetCode uses for this problem if known. ` +
+          `Respond with ONLY a raw JSON array, no markdown fences, no prose — each element exactly: {"input": <as described>, "expected": "<exact plain-text string the last result row should equal>"}.`
+          :
+          `For the LeetCode problem "${p.title}" (topic: ${p.section}, difficulty: ${p.diff==='E'?'Easy':p.diff==='M'?'Medium':'Hard'}), give me its real (or a plausible, conventional) function signature plus 3 small example test cases. Use well-known example inputs/outputs for this specific problem if you know them. ` +
+          `Respond with ONLY a raw JSON object, no markdown fences, no prose, exactly this shape:\n` +
+          `{"functionName": "<camelCase method name, e.g. maxSubArrayLen>", ` +
+          `"params": [{"name":"<param name>","type":"<one of: ${JAVA_TYPE_VOCAB.join(', ')}>"}, ...in order...], ` +
+          `"returnType": "<one of: ${JAVA_TYPE_VOCAB.join(', ')}>", ` +
+          `"testCases": [{"input": [<param 1 value>, <param 2 value>, ...], "expected": "<exact plain value the return should equal — a bare number/word, or compact JSON like [1,2,3] for arrays, true/false for booleans>"}, ...3 of these...]}\n` +
+          `"input" must always be a JSON array with exactly one element per parameter, in the same order as "params". Only use types from the given vocabulary.`
         }]}],
-        generationConfig:{ maxOutputTokens:500, thinkingConfig:{ thinkingLevel:'minimal' } }
+        generationConfig:{ maxOutputTokens:700, thinkingConfig:{ thinkingLevel:'minimal' } }
       })
     });
     if(!resp.ok){
@@ -9043,14 +9091,33 @@ async function generateMockTestCases(auto){
     const parts = (candidate && candidate.content && candidate.content.parts) || [];
     const text = (parts.map(b=>b.text||'').join('\n').trim());
     const jsonText = text.replace(/^```(json)?/i,'').replace(/```$/,'').trim();
-    const arr = JSON.parse(jsonText);
-    if(!Array.isArray(arr) || !arr.length) throw new Error('Model returned no test cases');
-    activeMock.testCases = arr.slice(0,5).map(tc => ({
-      id: 't' + Date.now() + Math.floor(Math.random()*1000),
-      input: typeof tc.input === 'string' ? tc.input : JSON.stringify(tc.input),
-      expected: typeof tc.expected === 'string' ? tc.expected : JSON.stringify(tc.expected),
-      status: 'idle', actual: ''
-    }));
+    const parsed = JSON.parse(jsonText);
+
+    if(isSql){
+      activeMock.harness = null;
+      const arr = parsed;
+      if(!Array.isArray(arr) || !arr.length) throw new Error('Model returned no test cases');
+      activeMock.testCases = arr.slice(0,5).map(tc => ({
+        id: 't' + Date.now() + Math.floor(Math.random()*1000),
+        input: typeof tc.input === 'string' ? tc.input : JSON.stringify(tc.input),
+        expected: typeof tc.expected === 'string' ? tc.expected : JSON.stringify(tc.expected),
+        status: 'idle', actual: ''
+      }));
+    } else {
+      if(!parsed.functionName || !Array.isArray(parsed.params) || !Array.isArray(parsed.testCases) || !parsed.testCases.length){
+        throw new Error('Model returned an incomplete signature');
+      }
+      parsed.params.forEach(pm=>{ if(!JAVA_TYPE_VOCAB.includes(pm.type)) pm.type = 'String'; });
+      if(!JAVA_TYPE_VOCAB.includes(parsed.returnType)) parsed.returnType = 'String';
+      activeMock.harness = { functionName: parsed.functionName, params: parsed.params, returnType: parsed.returnType };
+      activeMock.testCases = parsed.testCases.slice(0,5).map(tc => ({
+        id: 't' + Date.now() + Math.floor(Math.random()*1000),
+        input: JSON.stringify(Array.isArray(tc.input) ? tc.input : [tc.input]),
+        expected: typeof tc.expected === 'string' ? tc.expected : JSON.stringify(tc.expected),
+        status: 'idle', actual: ''
+      }));
+      applyMockStarterCodeIfEmpty();
+    }
     activeMock.testCasesGenerated = true;
   }catch(err){
     showToast('⚠ Could not auto-generate test cases — add one manually instead.');
@@ -9111,7 +9178,7 @@ function renderMockTestCases(){
         <button class="btn-secondary" id="mockAddTcBtn" type="button" style="padding:4px 10px;font-size:11.5px;">+ Add test case</button>
       </div>
     </div>
-    <div style="font-size:11.5px;color:var(--ink-faint);margin:4px 0 10px;">${activeMock.lang === 'SQL' ? 'Input for each case seeds the table(s) as an object like <code>{"Employee": [{"id":1,"salary":100}, ...]}</code> — write your query against those table names; Submit runs it and compares the last result row to "Expected output".' : 'Your code doesn\'t have LeetCode\'s real function signature, so read the input from the <code>INPUT</code> global and print your final answer as the last line of output — Submit compares that line to "Expected output" for each row.'} Edit or remove any case that looks wrong.</div>
+    <div style="font-size:11.5px;color:var(--ink-faint);margin:4px 0 10px;">${activeMock.lang === 'SQL' ? 'Input for each case seeds the table(s) as an object like <code>{"Employee": [{"id":1,"salary":100}, ...]}</code> — write your query against those table names; Submit runs it and compares the last result row to "Expected output".' : activeMock.harness ? `Each "input" is an array of arguments for <code>${escapeHtml(activeMock.harness.functionName)}(${activeMock.harness.params.map(p=>escapeHtml(p.name)).join(', ')})</code> — write just the method body in the editor above, Run/Submit call it for you and compare the return value to "Expected output".` : 'Your code doesn\'t have LeetCode\'s real function signature yet — generate test cases above to get an auto-filled starter, or read the input from the <code>INPUT</code> global yourself and print your final answer as the last line of output.'} Edit or remove any case that looks wrong.</div>
     ${rows}
     <div class="mock-run-row">
       <button class="btn-primary" id="mockSubmitBtn" type="button">✓ Submit (run all test cases)</button>
@@ -9156,13 +9223,16 @@ async function submitMockTestCases(){
   }
   if(!code.trim()){ showToast('Write some code first.'); return; }
   submitBtn.disabled = true; submitBtn.textContent = 'Running test cases…';
+  const langKey = mockLangToHarnessKey(lang);
+  const harness = activeMock.harness;
   for(let i=0; i<activeMock.testCases.length; i++){
     const tc = activeMock.testCases[i];
     try{
-      const result = lang === 'JavaScript' ? await runJSInWorker(code, tc.input || null)
-        : lang === 'SQL' ? await runSQLCode(code, tc.input || null)
-        : lang === 'Java' ? await runJavaCode(code, tc.input || null)
-        : await runPythonCode(code, tc.input || null);
+      const { code: wrappedCode, inputJson } = buildExecutionPayload(langKey, code, tc.input || null, harness);
+      const result = lang === 'JavaScript' ? await runJSInWorker(wrappedCode, inputJson)
+        : lang === 'SQL' ? await runSQLCode(wrappedCode, inputJson)
+        : lang === 'Java' ? await runJavaCode(wrappedCode, inputJson)
+        : await runPythonCode(wrappedCode, inputJson);
       if(!result.ok){
         tc.status = 'error'; tc.actual = result.error || 'unknown error';
       } else {
@@ -9178,6 +9248,26 @@ async function submitMockTestCases(){
   renderMockTestCases();
   const passed = activeMock.testCases.filter(t=>t.status==='pass').length;
   showToast(`${passed}/${activeMock.testCases.length} test cases passed`);
+
+  // Same premium carve-out as the Solve editor: mark solved (tagged as
+  // test-verified, not sync-verified) when a premium problem passes every
+  // AI-generated case, since LeetCode sync can't confirm premium solves for
+  // accounts without Premium.
+  const p = PROBLEMS.find(x=>x.id===activeMock.problemId);
+  if(p && p.premium && activeMock.testCases.length > 0 && passed === activeMock.testCases.length && !solved.has(p.id)){
+    solved.add(p.id);
+    const m = getMeta(p.id);
+    m.solvedAt = Date.now();
+    m.reviewStage = 0;
+    m.intervalDays = REVIEW_INTERVALS_DAYS[0];
+    m.nextReview = Date.now() + REVIEW_INTERVALS_DAYS[0]*86400000;
+    m.verifiedBy = 'testcases';
+    saveSolved();
+    saveMeta();
+    renderSections();
+    renderSummary();
+    showToast('🔒 Premium problem marked solved — verified by this tracker\'s test cases (not a LeetCode sync, since premium problems need a paid LeetCode account to attempt there).');
+  }
 }
 async function generateMockProblemSummary(auto){
   const p = PROBLEMS.find(x=>x.id===activeMock.problemId);
@@ -9290,9 +9380,11 @@ function renderMockSetupView(){
     activeMock = {
       problemId: p.id, allottedSec: cfg.minutes*60, remainingSec: cfg.minutes*60,
       startedAt: Date.now(), code: '', lang, paused:false,
-      testCases: [], testCasesGenerated: false, testCasesLoading: false, testCasesAutoTried: false
+      testCases: [], testCasesGenerated: false, testCasesLoading: false, testCasesAutoTried: false,
+      harness: null
     };
     startMockTimer();
+    lastMockAutoStarter = '';
     renderMockPanel();
     let hasKey = false;
     try{ hasKey = !!localStorage.getItem(APIKEY_KEY); }catch(e){}
@@ -9355,7 +9447,7 @@ function renderMockActiveView(){
     <div class="mock-editor-host" id="mockEditorHost">
       <textarea class="mock-editor" id="mockEditorFallback" spellcheck="false" placeholder="// Write your solution here — ${escapeHtml(activeMock.lang)}...">${escapeHtml(activeMock.code||'')}</textarea>
     </div>
-    <div class="modal-note" style="margin-top:6px;">Autosaves as you type, kept if you switch languages. Python, JavaScript, Java, and SQL actually run here in-browser; C++ and Go can't — write your solution and use "Open on LeetCode" to run and submit it for real.</div>
+    <div class="modal-note" style="margin-top:6px;">Autosaves as you type, kept if you switch languages. When test cases are generated below, the editor auto-fills a LeetCode-style starter and Run/Submit call it for you — no I/O boilerplate needed. Python, JavaScript, Java, and SQL actually run here in-browser; C++ and Go can't — write your solution and use "Open on LeetCode" to run and submit it for real.</div>
     <div class="mock-output-panel" id="mockOutputPanel" style="display:none;"></div>
     <div class="mock-tc-box" id="mockTestCasesBox"></div>
 
@@ -9380,9 +9472,16 @@ function renderMockActiveView(){
     }
   });
   document.getElementById('mockEditorLangSel').addEventListener('change', (e)=>{
+    const wasSql = activeMock.lang === 'SQL';
+    const isSql = e.target.value === 'SQL';
     activeMock.lang = e.target.value;
     try{ localStorage.setItem(MOCK_LANG_KEY, activeMock.lang); }catch(err){}
-    renderMockActiveView(); 
+    if(isSql || wasSql){
+      activeMock.testCases = [];
+      activeMock.testCasesGenerated = false;
+      activeMock.harness = null;
+    }
+    renderMockActiveView();
   });
   initMockCodeEditor();
   renderApiKeyWidget('mockKeySection');
@@ -9479,7 +9578,7 @@ function companyCertStats(name){
   const pool = PROBLEMS.filter(p=>(p.companies||[]).includes(name));
   const total = pool.length;
   const solvedCount = pool.filter(p=>solved.has(p.id)).length;
-  const verifiedCount = pool.filter(p=>solved.has(p.id) && syncedIds.has(p.id)).length;
+  const verifiedCount = pool.filter(p=>solved.has(p.id) && isCertVerified(p.id)).length;
   return {total, solvedCount, verifiedCount, complete: total > 0 && solvedCount === total && verifiedCount === solvedCount};
 }
 
@@ -9492,7 +9591,7 @@ function renderCompaniesPanel(){
   grid.innerHTML = list.map(c => {
     const cs = companyCertStats(c.name);
     const certTitle = cs.complete
-      ? `All ${cs.total} solved and sync-verified — click for your ${c.name} certificate`
+      ? `All ${cs.total} solved and verified — click for your ${c.name} certificate`
       : (cs.solvedCount === cs.total && cs.total > 0)
         ? `All ${cs.total} solved, but only ${cs.verifiedCount} confirmed by a real LeetCode sync — run 🔄 Sync from LeetCode to unlock`
         : `${cs.solvedCount}/${cs.total} solved — solve them all to unlock a certificate`;
