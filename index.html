@@ -279,7 +279,7 @@
     padding:2px 6px;
   }
   .section-head:hover{ background:rgba(var(--shadow-rgb),0.025); }
-  .section.open .section-head{border-bottom:1px solid var(--rule-soft);}
+  .section.open .section-head{border-bottom:1px solid var(--rule-soft); background:var(--pine-glow); border-left:3px solid var(--pine); padding-left:15px;}
   .section-head .chev{
     font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--ink-faint);
     transition:transform .18s ease;margin-right:2px;flex-shrink:0;
@@ -939,9 +939,12 @@
   <div class="panel" id="companiesPanel">
     <h2>🏢 Browse by company</h2>
     <div class="panel-sub">Company tags are sourced from the full all-time lists in <a href="https://github.com/liquidslr/leetcode-company-wise-problems" target="_blank" rel="noopener" style="color:var(--pine);">liquidslr/leetcode-company-wise-problems</a>, for 58 companies with a major India hiring presence (product companies, IT services, fintech/e-commerce unicorns, and India R&D centers). Click a company to filter the list below to just its problems.</div>
-    <input type="text" id="companySearchBox" placeholder="Search companies…" style="width:100%;padding:10px 14px;border:1.5px solid var(--rule);background:var(--paper);border-radius:8px;font-family:'IBM Plex Sans',sans-serif;font-size:14px;color:var(--ink);margin-bottom:14px;">
-    <div class="company-grid" id="companyGrid"></div>
-    <details style="margin-top:18px;border:1.5px solid var(--rule-soft);border-radius:10px;background:var(--card);">
+    <details id="companyBrowseDetails" open>
+      <summary style="cursor:pointer;padding:4px 0 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-soft);">🔍 Browse companies</summary>
+      <input type="text" id="companySearchBox" placeholder="Search companies…" style="width:100%;padding:10px 14px;border:1.5px solid var(--rule);background:var(--paper);border-radius:8px;font-family:'IBM Plex Sans',sans-serif;font-size:14px;color:var(--ink);margin-bottom:14px;">
+      <div class="company-grid" id="companyGrid"></div>
+    </details>
+    <details style="margin-top:18px;border:1.5px solid var(--rule-soft);border-radius:10px;background:var(--card);" id="studyPlanDetails">
       <summary style="cursor:pointer;padding:12px 14px;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-soft);">📋 Generate a company study plan</summary>
       <div style="padding:0 14px 16px;">
         <div class="panel-sub" style="margin:0 0 10px;">Orders that company's tagged problems into a day-by-day plan: cross-company tag count (how many of these 58 companies also ask it — the closest free proxy for "frequency" without a paid dataset) breaks ties within each difficulty, and difficulty ramps Easy → Medium → Hard within each day so early days aren't all Hard problems.</div>
@@ -985,7 +988,7 @@
     <b>🎤 Mock Interview Mode:</b> pick a duration, difficulty, topic, and/or company, then get a randomly selected problem, a countdown timer, and a real code editor (any language — it's just a labeled text editor, not a compiler or judge). Self-grade when you finish or time runs out; every session is logged to Session History and feeds the Analytics tab's mock-interview stats.<br><br>
     <b>Where your progress lives:</b> this tracker stores everything — solved problems, notes, timers, mock-interview history — in your browser's local storage. It persists on this device/browser but won't follow you to another one automatically. Use <b>Export Backup</b> to save a JSON file and <b>Import Backup</b> to restore it on another device or browser.<br><br>
     <b>🅰️ Striver A2Z 210</b> filters the list to just the original 210 problems from Striver's A2Z sheet (everything added later purely for Top 150 or company-tag coverage is hidden). <b>🧊 NeetCode 150</b>, <b>🎯 Blind 75</b>, and <b>📗 Babbar 105</b> filter down to just the problems matched to each of those respective lists.<br><br>
-    <b>🎓 Certificates</b> opens a hub of downloadable "Certificate of Achievement" images — verified practice records, not official or proctored credentials. An <b>Overall Progress</b> certificate is always available. <b>Striver A2Z (210)</b>, <b>LeetCode Top 150</b>, <b>NeetCode 150</b>, <b>Blind 75</b>, and <b>Babbar 105 (matched)</b> certificates each unlock once every problem in that respective set is solved. A <b>company-track certificate</b> unlocks per company — once every problem tagged with a given company is solved, a 🎓 icon appears on that company's card in the 🏢 Companies panel; click it to generate a certificate naming that company and its tag. Every number on every certificate is computed live from your actual solved set, and each carries a reproducible SHA-256 verification ID plus a link to your public LeetCode profile so anyone can check the numbers themselves. Generating and downloading certificates requires <b>Pro</b> — solving problems and tracking progress stay free regardless of subscription status.<br><br>
+    <b>🎓 Certificates</b> opens a hub of downloadable "Certificate of Achievement" images — verified practice records, not official or proctored credentials. An <b>Overall Progress</b> certificate is always available. <b>Striver A2Z (210)</b>, <b>LeetCode Top 150</b>, <b>NeetCode 150</b>, <b>Blind 75</b>, and <b>Babbar 105</b> certificates each unlock once every problem in that respective set is solved. A <b>company-track certificate</b> unlocks per company — once every problem tagged with a given company is solved, a 🎓 icon appears on that company's card in the 🏢 Companies panel; click it to generate a certificate naming that company and its tag. Every number on every certificate is computed live from your actual solved set, and each carries a reproducible SHA-256 verification ID plus a link to your public LeetCode profile so anyone can check the numbers themselves. Generating and downloading certificates requires <b>Pro</b> — solving problems and tracking progress stay free regardless of subscription status.<br><br>
     <b>🏢 Company study plans:</b> inside the Companies panel, "📋 Generate a company study plan" turns any company's tagged problems into a day-by-day checklist, Easy → Medium → Hard, with ties broken by how many of the 58 tracked companies also ask that problem (the closest free proxy for real per-company frequency data without a paid dataset) — downloadable as Markdown.
   </div>
 
@@ -7318,7 +7321,7 @@ function renderCertHub(){
     {kind:'top150', label:'LeetCode Top 150', icon:'⭐', note:"Unlocks once every problem on LeetCode's official Top Interview 150 is solved."},
     {kind:'neet150', label:'NeetCode 150', icon:'🧊', note:'Unlocks once every problem on the NeetCode 150 list is solved.'},
     {kind:'blind75', label:'Blind 75', icon:'🎯', note:'Unlocks once every problem on the Blind 75 list is solved.'},
-    {kind:'babbar450', label:'Babbar 105 (matched)', icon:'📗', note:"Unlocks once every LeetCode-matched problem from Love Babbar's 450 sheet is solved."},
+    {kind:'babbar450', label:'Babbar 105', icon:'📗', note:"Unlocks once every LeetCode-matched problem from Love Babbar's 450 sheet is solved."},
   ];
   const html = specs.map(s=>{
     const st = certStatsFor(s);
@@ -7630,6 +7633,7 @@ function renderSummary(){
     return `<div class="bar-seg ${DIFF_LABEL[d].toLowerCase()}" style="width:${w}%"></div>`;
   }).join('');
   bt.innerHTML = segs;
+  refreshStudyPlanProgress();
 }
 
 function matchesFilters(p){
@@ -9662,16 +9666,46 @@ function generateStudyPlan(company, days){
 }
 function renderStudyPlan(company, days, plan){
   const out = document.getElementById('studyPlanOutput');
+  out.innerHTML = '';
   const solvedInPlan = plan.reduce((s,d)=>s+d.problems.filter(p=>solved.has(p.id)).length, 0);
   const totalInPlan = plan.reduce((s,d)=>s+d.problems.length, 0);
-  out.innerHTML = `<h3 style="font-family:'Fraunces',serif;font-size:16px;margin:4px 0 4px;">📋 ${escapeHtml(company)} — ${days}-day plan</h3>
-    <div class="panel-sub" style="margin-bottom:12px;">${totalInPlan} problems, ${solvedInPlan} already solved. Ordered Easy → Medium → Hard, ties broken by cross-company frequency.</div>
-    ${plan.map(d=>`
-      <div class="study-plan-day">
-        <h4>Day ${d.day}</h4>
-        <ul>${d.problems.map(p=>`<li>${solved.has(p.id)?'✅':'⬜'} <a href="https://leetcode.com/problems/${p.slug}/" target="_blank" rel="noopener" style="color:inherit;">${escapeHtml(p.title)}</a> <span class="diff-pill ${p.diff}" style="font-size:9px;">${p.diff}</span> <span style="color:var(--ink-faint);font-size:11px;">· asked at ${p.companies.length} tracked companies</span></li>`).join('')}</ul>
-      </div>
-    `).join('')}`;
+  const pct = totalInPlan ? Math.round((solvedInPlan/totalInPlan)*100) : 0;
+
+  const header = document.createElement('div');
+  header.innerHTML = `
+    <h3 id="studyPlanHeading" style="font-family:'Fraunces',serif;font-size:16px;margin:4px 0 4px;">📋 ${escapeHtml(company)} — ${days}-day plan</h3>
+    <div class="panel-sub" style="margin-bottom:6px;">${totalInPlan} problems, ${solvedInPlan} already solved. Ordered Easy → Medium → Hard, ties broken by cross-company frequency.</div>
+    <div class="mini-progress" style="margin-bottom:16px;"><div class="mini-progress-fill" id="studyPlanProgressFill" style="width:${pct}%"></div></div>
+  `;
+  out.appendChild(header);
+
+  plan.forEach(d=>{
+    const daySolved = d.problems.filter(p=>solved.has(p.id)).length;
+    const dayWrap = document.createElement('div');
+    dayWrap.className = 'study-plan-day';
+    const dayHead = document.createElement('h4');
+    dayHead.innerHTML = `Day ${d.day} <span style="font-weight:400;color:var(--ink-faint);font-size:12px;">(${daySolved}/${d.problems.length})</span>`;
+    dayWrap.appendChild(dayHead);
+    const rows = document.createElement('div');
+    rows.className = 'rows';
+    d.problems.forEach(p=>{ rows.appendChild(buildRowEl(p)); });
+    dayWrap.appendChild(rows);
+    out.appendChild(dayWrap);
+  });
+
+  attachRowIconHandlers(out);
+}
+// Keeps the plan's own progress bar/counts in sync whenever something inside
+// it changes solved status (e.g. a premium problem passing all test cases
+// in the code editor) — same reasoning as the main list's renderSummary().
+let lastStudyPlanSolvedSig = null;
+function refreshStudyPlanProgress(){
+  if(!lastStudyPlan) return;
+  const ids = lastStudyPlan.plan.flatMap(d=>d.problems.map(p=>p.id));
+  const sig = ids.filter(id=>solved.has(id)).sort().join(',');
+  if(sig === lastStudyPlanSolvedSig) return;
+  lastStudyPlanSolvedSig = sig;
+  renderStudyPlan(lastStudyPlan.company, lastStudyPlan.days, lastStudyPlan.plan);
 }
 document.getElementById('planGenerateBtn').addEventListener('click', ()=>{
   populateStudyPlanCompanySelect();
@@ -9679,8 +9713,13 @@ document.getElementById('planGenerateBtn').addEventListener('click', ()=>{
   const days = parseInt(document.getElementById('planDaysSel').value, 10);
   if(!company) return;
   lastStudyPlan = {company, days, plan: generateStudyPlan(company, days)};
+  lastStudyPlanSolvedSig = null;
   renderStudyPlan(company, days, lastStudyPlan.plan);
   document.getElementById('planDownloadBtn').style.display = 'inline-block';
+  const browseDetails = document.getElementById('companyBrowseDetails');
+  if(browseDetails) browseDetails.open = false;
+  const studyPlanDetails = document.getElementById('studyPlanDetails');
+  if(studyPlanDetails) scrollResultsIntoView(studyPlanDetails);
 });
 document.getElementById('planDownloadBtn').addEventListener('click', ()=>{
   if(!lastStudyPlan) return;
@@ -9907,7 +9946,7 @@ document.getElementById('resetFiltersBtn').addEventListener('click', function(){
   openSections.clear();
   renderSections();
   renderSummary();
-  scrollResultsIntoView();
+  scrollResultsIntoView(document.getElementById('summaryCells'));
 });
 document.getElementById('reviewToggle').addEventListener('click', function(){
   const turningOn = !showReviewPanel;
