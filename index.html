@@ -7858,7 +7858,7 @@ function escapeHtml(s){
 }
 
 function renderHintText(raw){
-  const lines = raw.split('\n');
+  const lines = stripLatexArtifacts(raw).split('\n');
   let html = '';
   let inList = false;
   let inSection = false;
@@ -7895,14 +7895,31 @@ function renderHintText(raw){
   return html || escapeHtml(raw);
 }
 
+function stripLatexArtifacts(text){
+  return text
+    .replace(/\\times/g, 'x')
+    .replace(/\\cdot/g, '*')
+    .replace(/\\sqrt\{([^}]*)\}/g, 'sqrt($1)')
+    .replace(/\\log/g, 'log')
+    .replace(/\\Theta/g, 'Theta')
+    .replace(/\\Omega/g, 'Omega')
+    .replace(/\\O\b/g, 'O')
+    .replace(/\\[a-zA-Z]+/g, '')
+    .replace(/\$\$([^$]*)\$\$/g, '$1')
+    .replace(/\$([^$]*)\$/g, '$1')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1$2')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '');
+}
 function renderReviewText(raw){
   // Pull out fenced code blocks first so they render as real code blocks
   // (with a copy button) instead of being swallowed into plain text lines.
   const codeBlocks = [];
-  const withoutCode = raw.replace(/```[a-zA-Z0-9+#]*\n?([\s\S]*?)```/g, (m, code) => {
+  const withoutCode = stripLatexArtifacts(raw.replace(/```[a-zA-Z0-9+#]*\n?([\s\S]*?)```/g, (m, code) => {
     codeBlocks.push(code.replace(/\n$/, ''));
     return `\n@@CODEBLOCK${codeBlocks.length - 1}@@\n`;
-  });
+  }));
 
   const lines = withoutCode.split('\n');
   let html = '';
@@ -8179,7 +8196,7 @@ async function generateSolveProblemSummary(auto){
     const candidate = data.candidates && data.candidates[0];
     const parts = (candidate && candidate.content && candidate.content.parts) || [];
     const text = parts.map(b=>b.text||'').join('\n').trim();
-    box.innerHTML = `<span class="ai-tag">AI paraphrase — verify against the real problem</span>\n${escapeHtml(text || 'No summary came back — try again, or just read it on LeetCode.')}`;
+    box.innerHTML = `<span class="ai-tag">AI paraphrase — verify against the real problem</span>\n${escapeHtml(stripLatexArtifacts(text) || 'No summary came back — try again, or just read it on LeetCode.')}`;
   }catch(err){
     box.innerHTML = `<span class="ai-tag">AI paraphrase</span>\n⚠ ${escapeHtml((err && err.message) ? err.message : String(err))}`;
   }finally{
@@ -9307,7 +9324,7 @@ async function generateMockProblemSummary(auto){
     const candidate = data.candidates && data.candidates[0];
     const parts = (candidate && candidate.content && candidate.content.parts) || [];
     const text = parts.map(b=>b.text||'').join('\n').trim();
-    box.innerHTML = `<span class="ai-tag">AI paraphrase — verify against the real problem</span>\n${escapeHtml(text || 'No summary came back — try again, or just read it on LeetCode.')}`;
+    box.innerHTML = `<span class="ai-tag">AI paraphrase — verify against the real problem</span>\n${escapeHtml(stripLatexArtifacts(text) || 'No summary came back — try again, or just read it on LeetCode.')}`;
   }catch(err){
     box.innerHTML = `<span class="ai-tag">AI paraphrase</span>\n⚠ ${escapeHtml((err && err.message) ? err.message : String(err))}`;
   }finally{
@@ -10591,7 +10608,8 @@ async function sendReviewMessage(){
       `The user may paste their code for review, ask a question, or both in the same message — respond to whatever they actually sent, don't force a review format onto a plain question. ` +
       `If they paste code: evaluate correctness (call out specific failing cases if any, e.g. empty input, duplicates, negative numbers), point out bugs with specific fixes, note time/space complexity, and comment on style/readability. If there are bugs, include a corrected version of their code — same language, minimal targeted changes — inside a single fenced code block (triple backticks) preceded by a line that says exactly "FIXED CODE:". If the code is already correct, say so plainly and skip the code block entirely. ` +
       `If they just ask a question with no code, answer directly and conversationally. ` +
-      `Be concise and concrete. Always write numbers as digits (e.g. 19, 82), never spelled out.\n\nTheir message:\n${message}`
+      `Be concise and concrete. Always write numbers as digits (e.g. 19, 82), never spelled out. ` +
+      `Write complexity as plain text like "O(M x N)" or "O(n log n)" — never LaTeX or math markup (no $, no \\times, no \\O, no other backslash commands). Never use markdown bold/italic (no ** or _) or headers (no #) — plain text only, the code block for FIXED CODE is the only exception.\n\nTheir message:\n${message}`
     : message;
 
   reviewConversation.push({ role:'user', parts:[{ text: payloadText }] });
