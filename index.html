@@ -8989,12 +8989,12 @@ async function runJavaCode(code, rawInputJson){
   console.log = (...a)=>{ logs.push(a.map(String).join(' ')); };
   console.error = (...a)=>{ logs.push(a.map(String).join(' ')); };
   try{
-    const compileExit = await cheerpjRunMain('com.sun.tools.javac.Main', '/app/tools.jar', srcPath, '-d', '/files/');
+    const compileExit = await cheerpjRunMain('com.sun.tools.javac.Main', '/app/', srcPath, '-d', '/files/');
     if(compileExit !== 0){
       return { ok:false, logs, error: 'Compile error — see output above.' };
     }
     const runArgs = rawInputJson ? [rawInputJson] : [];
-    await cheerpjRunMain(className, '/app/tools.jar:/files/', ...runArgs);
+    await cheerpjRunMain(className, '/files/', ...runArgs);
     return { ok:true, logs, error:null };
   }catch(err){
     return { ok:false, logs, error: 'CheerpJ error: ' + ((err && err.message) ? err.message : String(err)) };
