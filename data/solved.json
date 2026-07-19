@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-19T13:40:32.700Z",
+  "updatedAt": "2026-07-19T19:16:16.002Z",
   "slugs": [
     "two-sum",
     "reverse-integer",
@@ -27,6 +27,7 @@
     "sort-colors",
     "remove-duplicates-from-sorted-array-ii",
     "merge-sorted-array",
+    "pascals-triangle",
     "best-time-to-buy-and-sell-stock",
     "valid-palindrome",
     "longest-consecutive-sequence",
@@ -52,6 +53,7 @@
     "max-consecutive-ones",
     "fibonacci-number",
     "subarray-sum-equals-k",
+    "binary-search",
     "middle-of-the-linked-list",
     "k-closest-points-to-origin",
     "subarray-sums-divisible-by-k",
