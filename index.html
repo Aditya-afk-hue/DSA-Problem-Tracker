@@ -280,6 +280,13 @@
   }
   .section-head:hover{ background:rgba(var(--shadow-rgb),0.025); }
   .section.open .section-head{border-bottom:1px solid var(--rule-soft); background:var(--pine-glow); border-left:3px solid var(--pine); padding-left:15px;}
+  .folio-badge{
+    font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;
+    border:1.5px solid var(--rule);border-radius:5px;background:var(--paper);color:var(--ink-faint);
+    padding:2px 6px;cursor:pointer;transition:all .15s ease;flex-shrink:0;line-height:1.4;
+  }
+  .folio-badge:hover{ border-color:var(--pine); color:var(--pine); }
+  .folio-badge.selected{ background:var(--pine); border-color:var(--pine); color:#fff; }
   .section-head .chev{
     font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--ink-faint);
     transition:transform .18s ease;margin-right:2px;flex-shrink:0;
@@ -302,6 +309,7 @@
   }
   .rows{max-height:0;overflow:hidden;transition:max-height .01s;}
   .section.open .rows{max-height:none;overflow:visible;}
+  .study-plan-day .rows{max-height:none;overflow:visible;}
   .row{
     display:grid;
     grid-template-columns:42px 210px minmax(0,1fr) minmax(0,230px) 42px auto auto 100px;
@@ -945,12 +953,12 @@
       <div class="company-grid" id="companyGrid"></div>
     </details>
     <details style="margin-top:18px;border:1.5px solid var(--rule-soft);border-radius:10px;background:var(--card);" id="studyPlanDetails">
-      <summary style="cursor:pointer;padding:12px 14px;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-soft);">📋 Generate a company study plan</summary>
+      <summary style="cursor:pointer;padding:12px 14px;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-soft);">📋 Generate a study plan</summary>
       <div style="padding:0 14px 16px;">
-        <div class="panel-sub" style="margin:0 0 10px;">Orders that company's tagged problems into a day-by-day plan: cross-company tag count (how many of these 58 companies also ask it — the closest free proxy for "frequency" without a paid dataset) breaks ties within each difficulty, and difficulty ramps Easy → Medium → Hard within each day so early days aren't all Hard problems.</div>
+        <div class="panel-sub" style="margin:0 0 10px;">Orders a certification sheet or a company's tagged problems into a day-by-day plan: cross-company tag count (how many of these 58 companies also ask it — the closest free proxy for "frequency" without a paid dataset) breaks ties within each difficulty, and difficulty ramps Easy → Medium → Hard within each day so early days aren't all Hard problems.</div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px;">
           <div style="flex:1 1 200px;min-width:180px;">
-            <label style="display:block;font-size:10px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;color:var(--ink-faint);margin-bottom:5px;">Company</label>
+            <label style="display:block;font-size:10px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;color:var(--ink-faint);margin-bottom:5px;">Sheet or company</label>
             <select id="planCompanySel" style="width:100%;padding:9px 10px;border:1.5px solid var(--rule);background:var(--paper);border-radius:8px;font-size:13px;color:var(--ink);"></select>
           </div>
           <div style="flex:0 1 140px;min-width:120px;">
@@ -989,7 +997,7 @@
     <b>Where your progress lives:</b> this tracker stores everything — solved problems, notes, timers, mock-interview history — in your browser's local storage. It persists on this device/browser but won't follow you to another one automatically. Use <b>Export Backup</b> to save a JSON file and <b>Import Backup</b> to restore it on another device or browser.<br><br>
     <b>🅰️ Striver A2Z 210</b> filters the list to just the original 210 problems from Striver's A2Z sheet (everything added later purely for Top 150 or company-tag coverage is hidden). <b>🧊 NeetCode 150</b>, <b>🎯 Blind 75</b>, and <b>📗 Babbar 105</b> filter down to just the problems matched to each of those respective lists.<br><br>
     <b>🎓 Certificates</b> opens a hub of downloadable "Certificate of Achievement" images — verified practice records, not official or proctored credentials. An <b>Overall Progress</b> certificate is always available. <b>Striver A2Z (210)</b>, <b>LeetCode Top 150</b>, <b>NeetCode 150</b>, <b>Blind 75</b>, and <b>Babbar 105</b> certificates each unlock once every problem in that respective set is solved. A <b>company-track certificate</b> unlocks per company — once every problem tagged with a given company is solved, a 🎓 icon appears on that company's card in the 🏢 Companies panel; click it to generate a certificate naming that company and its tag. Every number on every certificate is computed live from your actual solved set, and each carries a reproducible SHA-256 verification ID plus a link to your public LeetCode profile so anyone can check the numbers themselves. Generating and downloading certificates requires <b>Pro</b> — solving problems and tracking progress stay free regardless of subscription status.<br><br>
-    <b>🏢 Company study plans:</b> inside the Companies panel, "📋 Generate a company study plan" turns any company's tagged problems into a day-by-day checklist, Easy → Medium → Hard, with ties broken by how many of the 58 tracked companies also ask that problem (the closest free proxy for real per-company frequency data without a paid dataset) — downloadable as Markdown.
+    <b>📋 Study plans:</b> inside the Companies panel, "📋 Generate a study plan" turns any certification sheet (A2Z, Top 150, NeetCode 150, Blind 75, Babbar 105) or any company's tagged problems into a day-by-day checklist, Easy → Medium → Hard, with ties broken by how many of the 58 tracked companies also ask that problem (the closest free proxy for real per-problem frequency data without a paid dataset) — downloadable as Markdown.
   </div>
 
 </div>
@@ -7601,21 +7609,50 @@ function computeStats(){
   return {total, totalSolved, bydiff, a2zTotal, a2zSolved, top150Total, top150Solved, neetTotal, neetSolved, blindTotal, blindSolved, babbarTotal, babbarSolved, company, section, diff};
 }
 
+function computeSectionStats(sec){
+  const pool = PROBLEMS.filter(p=>p.section===sec);
+  const total = pool.length;
+  const bydiff = {E:{s:0,t:0}, M:{s:0,t:0}, H:{s:0,t:0}};
+  pool.forEach(p=>{
+    bydiff[p.diff].t++;
+    if(solved.has(p.id)) bydiff[p.diff].s++;
+  });
+  const totalSolved = pool.filter(p=>solved.has(p.id)).length;
+  const a2zTotal = pool.filter(p=>p.a2z).length;
+  const a2zSolved = pool.filter(p=>p.a2z && solved.has(p.id)).length;
+  const top150Total = pool.filter(p=>p.top150).length;
+  const top150Solved = pool.filter(p=>p.top150 && solved.has(p.id)).length;
+  const neetTotal = pool.filter(p=>p.neet150).length;
+  const neetSolved = pool.filter(p=>p.neet150 && solved.has(p.id)).length;
+  const blindTotal = pool.filter(p=>p.blind75).length;
+  const blindSolved = pool.filter(p=>p.blind75 && solved.has(p.id)).length;
+  const babbarTotal = pool.filter(p=>p.babbar450).length;
+  const babbarSolved = pool.filter(p=>p.babbar450 && solved.has(p.id)).length;
+  return {total, totalSolved, bydiff, a2zTotal, a2zSolved, top150Total, top150Solved, neetTotal, neetSolved, blindTotal, blindSolved, babbarTotal, babbarSolved};
+}
 function renderSummary(){
-  const {total, totalSolved, bydiff, a2zTotal, a2zSolved, top150Total, top150Solved, neetTotal, neetSolved, blindTotal, blindSolved, babbarTotal, babbarSolved, company, section, diff} = computeStats();
+  const selected = selectedTopicSection && SECTIONS.includes(selectedTopicSection) ? selectedTopicSection : null;
+  const stats = selected ? computeSectionStats(selected) : computeStats();
+  const {total, totalSolved, bydiff, a2zTotal, a2zSolved, top150Total, top150Solved, neetTotal, neetSolved, blindTotal, blindSolved, babbarTotal, babbarSolved} = stats;
+  const {company, section, diff} = selected ? {company:'', section:'', diff:''} : stats;
   const pct = total ? Math.round((totalSolved/total)*100) : 0;
-  const scopeParts = [
-    company, section, diff ? DIFF_LABEL[diff] : '',
-    showTop150Only ? 'Top 150 only' : '',
-    showA2ZOnly ? 'A2Z 210 only' : '',
-    showNeetOnly ? 'NeetCode 150 only' : '',
-    showBlindOnly ? 'Blind 75 only' : '',
-    showBabbarOnly ? 'Babbar 105 only' : '',
-    showUnsolvedOnly ? 'Unsolved only' : '',
-    document.getElementById('tagFilter').value.trim() ? `tag: ${document.getElementById('tagFilter').value.trim()}` : '',
-    document.getElementById('searchBox').value.trim() ? `"${document.getElementById('searchBox').value.trim()}"` : '',
-  ].filter(Boolean);
-  const label = scopeParts.length ? `Total Solved · ${pct}% (${scopeParts.join(', ')})` : `Total Solved · ${pct}%`;
+  let label;
+  if(selected){
+    label = `📌 ${escapeHtml(selected)} · ${pct}% <button type="button" id="clearTopicSelectionBtn" style="background:none;border:none;color:var(--pine);cursor:pointer;font-size:11px;text-decoration:underline;padding:0;margin-left:6px;">clear</button>`;
+  } else {
+    const scopeParts = [
+      company, section, diff ? DIFF_LABEL[diff] : '',
+      showTop150Only ? 'Top 150 only' : '',
+      showA2ZOnly ? 'A2Z 210 only' : '',
+      showNeetOnly ? 'NeetCode 150 only' : '',
+      showBlindOnly ? 'Blind 75 only' : '',
+      showBabbarOnly ? 'Babbar 105 only' : '',
+      showUnsolvedOnly ? 'Unsolved only' : '',
+      document.getElementById('tagFilter').value.trim() ? `tag: ${document.getElementById('tagFilter').value.trim()}` : '',
+      document.getElementById('searchBox').value.trim() ? `"${document.getElementById('searchBox').value.trim()}"` : '',
+    ].filter(Boolean);
+    label = scopeParts.length ? `Total Solved · ${pct}% (${scopeParts.join(', ')})` : `Total Solved · ${pct}%`;
+  }
   document.getElementById('summaryCells').innerHTML = `
     <div class="ledger-cell"><div class="num">${totalSolved}<span style="font-size:14px;color:var(--ink-faint)">/${total}</span></div><div class="lbl">${label}</div></div>
     <div class="ledger-cell easy"><div class="num">${bydiff.E.s}/${bydiff.E.t}</div><div class="lbl">Easy</div></div>
@@ -7627,6 +7664,15 @@ function renderSummary(){
     <div class="ledger-cell"><div class="num">${blindSolved}<span style="font-size:14px;color:var(--ink-faint)">/${blindTotal}</span></div><div class="lbl">🎯 Blind 75</div></div>
     <div class="ledger-cell"><div class="num">${babbarSolved}<span style="font-size:14px;color:var(--ink-faint)">/${babbarTotal}</span></div><div class="lbl">📗 Babbar 105</div></div>
   `;
+  if(selected){
+    const clearBtn = document.getElementById('clearTopicSelectionBtn');
+    if(clearBtn) clearBtn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      selectedTopicSection = null;
+      document.querySelectorAll('.folio-badge').forEach(b=>b.classList.remove('selected'));
+      renderSummary();
+    });
+  }
   const bt = document.getElementById('barTrack');
   const segs = ['E','M','H'].map(d=>{
     const w = total ? (bydiff[d].s/total*100) : 0;
@@ -7683,6 +7729,7 @@ function matchesFiltersExcept(p, exclude){
 }
 
 let openSections = new Set();
+let selectedTopicSection = null;
 
 function autoExpandSections(){
   openSections.clear();
@@ -7784,6 +7831,7 @@ function renderSections(focusId){
   const activeFilter = q || document.getElementById('sectionFilter').value || document.getElementById('diffFilter').value || document.getElementById('companyFilter').value || document.getElementById('tagFilter').value.trim() || showUnsolvedOnly || showTop150Only || showA2ZOnly || showNeetOnly || showBlindOnly || showBabbarOnly;
 
   container.innerHTML = '';
+  let sectionFolioIndex = 0;
   SECTIONS.forEach(sec => {
     const items = PROBLEMS.filter(p => p.section === sec);
     const visible = items.filter(matchesFilters);
@@ -7799,14 +7847,25 @@ function renderSections(focusId){
 
     const head = document.createElement('div');
     head.className = 'section-head';
+    sectionFolioIndex++;
     head.innerHTML = `
       <div class="htitle">
+        <button type="button" class="folio-badge${selectedTopicSection===sec?' selected':''}" data-select-section="${escapeHtml(sec)}" title="Select this topic to see its progress above, without expanding it">${String(sectionFolioIndex).padStart(2,'0')}</button>
         <span class="chev">▸</span>
         <span>${sec}</span>
         <span class="count">${solvedCount}/${list.length}</span>
       </div>
       <div class="mini-progress"><div class="mini-progress-fill" style="width:${list.length? (solvedCount/list.length*100):0}%"></div></div>
     `;
+    head.querySelector('[data-select-section]').addEventListener('click', (e)=>{
+      e.stopPropagation();
+      selectedTopicSection = (selectedTopicSection === sec) ? null : sec;
+      document.querySelectorAll('.folio-badge').forEach(b=>{
+        b.classList.toggle('selected', b.getAttribute('data-select-section') === selectedTopicSection);
+      });
+      renderSummary();
+      scrollResultsIntoView(document.getElementById('summaryCells'));
+    });
     head.addEventListener('click', () => {
       const wasOpen = openSections.has(sec);
       openSections.clear(); 
@@ -9665,11 +9724,28 @@ let lastStudyPlan = null;
 function populateStudyPlanCompanySelect(){
   const sel = document.getElementById('planCompanySel');
   if(!sel || sel.dataset.filled) return;
-  sel.innerHTML = COMPANIES.map(c=>`<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)} (${c.count})</option>`).join('');
+  const sheetOptions = [
+    {value:'sheet:a2z', label:'Striver A2Z (210)'},
+    {value:'sheet:top150', label:'LeetCode Top 150'},
+    {value:'sheet:neet150', label:'NeetCode 150'},
+    {value:'sheet:blind75', label:'Blind 75'},
+    {value:'sheet:babbar450', label:'Babbar 105'}
+  ].map(s=>`<option value="${s.value}">${escapeHtml(s.label)}</option>`).join('');
+  const companyOptions = COMPANIES.map(c=>`<option value="company:${escapeHtml(c.name)}">${escapeHtml(c.name)} (${c.count})</option>`).join('');
+  sel.innerHTML = `<optgroup label="Certification sheets">${sheetOptions}</optgroup><optgroup label="Companies">${companyOptions}</optgroup>`;
   sel.dataset.filled = '1';
 }
-function generateStudyPlan(company, days){
-  const pool = PROBLEMS.filter(p=>p.companies.includes(company));
+function studyPlanTargetInfo(value){
+  const [kind, ...rest] = value.split(':');
+  const arg = rest.join(':');
+  if(kind === 'sheet'){
+    const labels = {a2z:'Striver A2Z (210)', top150:'LeetCode Top 150', neet150:'NeetCode 150', blind75:'Blind 75', babbar450:'Babbar 105'};
+    return { pool: certPool({kind:arg}), label: labels[arg] || arg };
+  }
+  return { pool: certPool({kind:'company', company:arg}), label: arg };
+}
+function generateStudyPlan(targetValue, days){
+  const {pool} = studyPlanTargetInfo(targetValue);
   const diffWeight = {E:0, M:1, H:2};
   const ranked = pool.map(p=>({p, freq: p.companies.length})).sort((a,b)=>
     diffWeight[a.p.diff]-diffWeight[b.p.diff] || b.freq-a.freq
@@ -9681,16 +9757,17 @@ function generateStudyPlan(company, days){
   }
   return plan;
 }
-function renderStudyPlan(company, days, plan){
+function renderStudyPlan(targetValue, days, plan){
   const out = document.getElementById('studyPlanOutput');
   out.innerHTML = '';
+  const label = studyPlanTargetInfo(targetValue).label;
   const solvedInPlan = plan.reduce((s,d)=>s+d.problems.filter(p=>solved.has(p.id)).length, 0);
   const totalInPlan = plan.reduce((s,d)=>s+d.problems.length, 0);
   const pct = totalInPlan ? Math.round((solvedInPlan/totalInPlan)*100) : 0;
 
   const header = document.createElement('div');
   header.innerHTML = `
-    <h3 id="studyPlanHeading" style="font-family:'Fraunces',serif;font-size:16px;margin:4px 0 4px;">📋 ${escapeHtml(company)} — ${days}-day plan</h3>
+    <h3 id="studyPlanHeading" style="font-family:'Fraunces',serif;font-size:16px;margin:4px 0 4px;">📋 ${escapeHtml(label)} — ${days}-day plan</h3>
     <div class="panel-sub" style="margin-bottom:6px;">${totalInPlan} problems, ${solvedInPlan} already solved. Ordered Easy → Medium → Hard, ties broken by cross-company frequency.</div>
     <div class="mini-progress" style="margin-bottom:16px;"><div class="mini-progress-fill" id="studyPlanProgressFill" style="width:${pct}%"></div></div>
   `;
@@ -9722,16 +9799,16 @@ function refreshStudyPlanProgress(){
   const sig = ids.filter(id=>solved.has(id)).sort().join(',');
   if(sig === lastStudyPlanSolvedSig) return;
   lastStudyPlanSolvedSig = sig;
-  renderStudyPlan(lastStudyPlan.company, lastStudyPlan.days, lastStudyPlan.plan);
+  renderStudyPlan(lastStudyPlan.target, lastStudyPlan.days, lastStudyPlan.plan);
 }
 document.getElementById('planGenerateBtn').addEventListener('click', ()=>{
   populateStudyPlanCompanySelect();
-  const company = document.getElementById('planCompanySel').value;
+  const target = document.getElementById('planCompanySel').value;
   const days = parseInt(document.getElementById('planDaysSel').value, 10);
-  if(!company) return;
-  lastStudyPlan = {company, days, plan: generateStudyPlan(company, days)};
+  if(!target) return;
+  lastStudyPlan = {target, days, plan: generateStudyPlan(target, days)};
   lastStudyPlanSolvedSig = null;
-  renderStudyPlan(company, days, lastStudyPlan.plan);
+  renderStudyPlan(target, days, lastStudyPlan.plan);
   document.getElementById('planDownloadBtn').style.display = 'inline-block';
   const browseDetails = document.getElementById('companyBrowseDetails');
   if(browseDetails) browseDetails.open = false;
@@ -9740,8 +9817,9 @@ document.getElementById('planGenerateBtn').addEventListener('click', ()=>{
 });
 document.getElementById('planDownloadBtn').addEventListener('click', ()=>{
   if(!lastStudyPlan) return;
-  const {company, days, plan} = lastStudyPlan;
-  let md = `# ${company} — ${days}-day study plan\n\nGenerated by DSA Problem Tracker. Ordered Easy → Medium → Hard, ties broken by cross-company tag frequency.\n\n`;
+  const {target, days, plan} = lastStudyPlan;
+  const label = studyPlanTargetInfo(target).label;
+  let md = `# ${label} — ${days}-day study plan\n\nGenerated by DSA Problem Tracker. Ordered Easy → Medium → Hard, ties broken by cross-company tag frequency.\n\n`;
   plan.forEach(d=>{
     md += `## Day ${d.day}\n\n`;
     d.problems.forEach(p=>{
@@ -9749,7 +9827,7 @@ document.getElementById('planDownloadBtn').addEventListener('click', ()=>{
     });
     md += `\n`;
   });
-  downloadTextFile(`${company.toLowerCase().replace(/[^a-z0-9]+/g,'-')}-study-plan.md`, md);
+  downloadTextFile(`${label.toLowerCase().replace(/[^a-z0-9]+/g,'-')}-study-plan.md`, md);
 });
 
 function updateFilterAvailability(){
