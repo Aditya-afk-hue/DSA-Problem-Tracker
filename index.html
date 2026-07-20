@@ -268,16 +268,6 @@
     border-bottom:1px solid transparent;
     gap:12px;
   }
-  .section-head::before{
-    content:counter(folio, decimal-leading-zero);
-    font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:11px;
-    color:var(--ink-faint);
-    letter-spacing:0.5px;
-    flex-shrink:0;
-    border:1px solid var(--rule);
-    border-radius:4px;
-    padding:2px 6px;
-  }
   .section-head:hover{ background:rgba(var(--shadow-rgb),0.025); }
   .section.open .section-head{border-bottom:1px solid var(--rule-soft); background:var(--pine-glow); border-left:3px solid var(--pine); padding-left:15px;}
   .folio-badge{
@@ -7609,8 +7599,8 @@ function computeStats(){
   return {total, totalSolved, bydiff, a2zTotal, a2zSolved, top150Total, top150Solved, neetTotal, neetSolved, blindTotal, blindSolved, babbarTotal, babbarSolved, company, section, diff};
 }
 
-function computeSectionStats(sec){
-  const pool = PROBLEMS.filter(p=>p.section===sec);
+function computeSectionStats(sections){
+  const pool = PROBLEMS.filter(p=>sections.has(p.section));
   const total = pool.length;
   const bydiff = {E:{s:0,t:0}, M:{s:0,t:0}, H:{s:0,t:0}};
   pool.forEach(p=>{
@@ -7631,14 +7621,16 @@ function computeSectionStats(sec){
   return {total, totalSolved, bydiff, a2zTotal, a2zSolved, top150Total, top150Solved, neetTotal, neetSolved, blindTotal, blindSolved, babbarTotal, babbarSolved};
 }
 function renderSummary(){
-  const selected = selectedTopicSection && SECTIONS.includes(selectedTopicSection) ? selectedTopicSection : null;
+  const selected = selectedTopicSections.size ? selectedTopicSections : null;
   const stats = selected ? computeSectionStats(selected) : computeStats();
   const {total, totalSolved, bydiff, a2zTotal, a2zSolved, top150Total, top150Solved, neetTotal, neetSolved, blindTotal, blindSolved, babbarTotal, babbarSolved} = stats;
   const {company, section, diff} = selected ? {company:'', section:'', diff:''} : stats;
   const pct = total ? Math.round((totalSolved/total)*100) : 0;
   let label;
   if(selected){
-    label = `📌 ${escapeHtml(selected)} · ${pct}% <button type="button" id="clearTopicSelectionBtn" style="background:none;border:none;color:var(--pine);cursor:pointer;font-size:11px;text-decoration:underline;padding:0;margin-left:6px;">clear</button>`;
+    const names = Array.from(selected);
+    const shown = names.length <= 2 ? names.join(', ') : `${names.length} topics`;
+    label = `📌 ${escapeHtml(shown)} · ${pct}% <button type="button" id="clearTopicSelectionBtn" style="background:none;border:none;color:var(--pine);cursor:pointer;font-size:11px;text-decoration:underline;padding:0;margin-left:6px;">clear</button>`;
   } else {
     const scopeParts = [
       company, section, diff ? DIFF_LABEL[diff] : '',
@@ -7668,7 +7660,7 @@ function renderSummary(){
     const clearBtn = document.getElementById('clearTopicSelectionBtn');
     if(clearBtn) clearBtn.addEventListener('click', (e)=>{
       e.stopPropagation();
-      selectedTopicSection = null;
+      selectedTopicSections.clear();
       document.querySelectorAll('.folio-badge').forEach(b=>b.classList.remove('selected'));
       renderSummary();
     });
@@ -7729,7 +7721,7 @@ function matchesFiltersExcept(p, exclude){
 }
 
 let openSections = new Set();
-let selectedTopicSection = null;
+let selectedTopicSections = new Set();
 
 function autoExpandSections(){
   openSections.clear();
@@ -7850,7 +7842,7 @@ function renderSections(focusId){
     sectionFolioIndex++;
     head.innerHTML = `
       <div class="htitle">
-        <button type="button" class="folio-badge${selectedTopicSection===sec?' selected':''}" data-select-section="${escapeHtml(sec)}" title="Select this topic to see its progress above, without expanding it">${String(sectionFolioIndex).padStart(2,'0')}</button>
+        <button type="button" class="folio-badge${selectedTopicSections.has(sec)?' selected':''}" data-select-section="${escapeHtml(sec)}" title="Select this topic (click more to combine) to see combined progress above, without expanding it">${String(sectionFolioIndex).padStart(2,'0')}</button>
         <span class="chev">▸</span>
         <span>${sec}</span>
         <span class="count">${solvedCount}/${list.length}</span>
@@ -7859,9 +7851,10 @@ function renderSections(focusId){
     `;
     head.querySelector('[data-select-section]').addEventListener('click', (e)=>{
       e.stopPropagation();
-      selectedTopicSection = (selectedTopicSection === sec) ? null : sec;
+      if(selectedTopicSections.has(sec)) selectedTopicSections.delete(sec);
+      else selectedTopicSections.add(sec);
       document.querySelectorAll('.folio-badge').forEach(b=>{
-        b.classList.toggle('selected', b.getAttribute('data-select-section') === selectedTopicSection);
+        b.classList.toggle('selected', selectedTopicSections.has(b.getAttribute('data-select-section')));
       });
       renderSummary();
       scrollResultsIntoView(document.getElementById('summaryCells'));
