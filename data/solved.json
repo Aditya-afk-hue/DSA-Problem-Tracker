@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-21T08:40:10.793Z",
+  "updatedAt": "2026-07-21T14:10:16.478Z",
   "slugs": [
     "two-sum",
     "reverse-integer",
@@ -38,6 +38,7 @@
     "evaluate-reverse-polish-notation",
     "reverse-words-in-a-string",
     "find-minimum-in-rotated-sorted-array",
+    "find-peak-element",
     "two-sum-ii-input-array-is-sorted",
     "majority-element",
     "rotate-array",
@@ -46,6 +47,7 @@
     "summary-ranges",
     "power-of-two",
     "palindrome-linked-list",
+    "search-a-2d-matrix-ii",
     "missing-number",
     "move-zeroes",
     "find-median-from-data-stream",
@@ -56,6 +58,7 @@
     "single-element-in-a-sorted-array",
     "subarray-sum-equals-k",
     "binary-search",
+    "koko-eating-bananas",
     "middle-of-the-linked-list",
     "k-closest-points-to-origin",
     "subarray-sums-divisible-by-k",
