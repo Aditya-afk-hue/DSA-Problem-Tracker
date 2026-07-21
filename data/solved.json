@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-21T14:10:16.478Z",
+  "updatedAt": "2026-07-21T19:42:34.756Z",
   "slugs": [
     "two-sum",
     "reverse-integer",
@@ -62,6 +62,7 @@
     "middle-of-the-linked-list",
     "k-closest-points-to-origin",
     "subarray-sums-divisible-by-k",
+    "find-a-peak-element-ii",
     "delete-the-middle-node-of-a-linked-list",
     "rearrange-array-elements-by-sign"
   ]
