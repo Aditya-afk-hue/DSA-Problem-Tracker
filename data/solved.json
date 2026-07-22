@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-22T08:39:32.302Z",
+  "updatedAt": "2026-07-22T14:12:53.191Z",
   "slugs": [
     "two-sum",
     "median-of-two-sorted-arrays",
@@ -49,6 +49,7 @@
     "power-of-two",
     "palindrome-linked-list",
     "search-a-2d-matrix-ii",
+    "valid-anagram",
     "missing-number",
     "move-zeroes",
     "find-median-from-data-stream",
@@ -59,12 +60,14 @@
     "single-element-in-a-sorted-array",
     "subarray-sum-equals-k",
     "binary-search",
+    "rotate-string",
     "koko-eating-bananas",
     "middle-of-the-linked-list",
     "k-closest-points-to-origin",
     "subarray-sums-divisible-by-k",
     "remove-outermost-parentheses",
     "find-a-peak-element-ii",
+    "largest-odd-number-in-string",
     "delete-the-middle-node-of-a-linked-list",
     "rearrange-array-elements-by-sign"
   ]
