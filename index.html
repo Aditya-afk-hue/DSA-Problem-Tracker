@@ -299,7 +299,6 @@
   }
   .rows{max-height:0;overflow:hidden;transition:max-height .01s;}
   .section.open .rows{max-height:none;overflow:visible;}
-  .study-plan-day .rows{max-height:none;overflow:visible;}
   .row{
     display:grid;
     grid-template-columns:42px 210px minmax(0,1fr) minmax(0,230px) 42px auto auto 100px;
@@ -848,10 +847,6 @@
   .account-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;}
   .account-dot.on{background:var(--pine);}
   .account-dot.off{background:var(--medium);}
-  .study-plan-day{border:1.5px solid var(--rule-soft);border-radius:9px;padding:12px 14px;margin-bottom:8px;background:var(--paper);}
-  .study-plan-day h4{margin:0 0 6px;font-family:'Fraunces',serif;font-size:14px;}
-  .study-plan-day ul{margin:0;padding-left:18px;font-size:13px;color:var(--ink-soft);}
-  .study-plan-day li{margin-bottom:3px;}
 </style>
 </head>
 <body>
@@ -897,6 +892,7 @@
     <div class="toggle-btn" id="reviewToggle">📅 REVIEW QUEUE</div>
     <div class="toggle-btn" id="analyticsToggle">📊 ANALYTICS</div>
     <div class="toggle-btn" id="companiesToggle">🏢 COMPANIES</div>
+    <div class="toggle-btn" id="studyPlanToggle">📋 STUDY PLAN</div>
     <div class="toggle-btn" id="mockToggle">🎤 MOCK INTERVIEW</div>
     <div class="toggle-btn" id="exportBtn">EXPORT BACKUP</div>
     <div class="toggle-btn" id="importBtn">IMPORT BACKUP</div>
@@ -937,31 +933,34 @@
   <div class="panel" id="companiesPanel">
     <h2>🏢 Browse by company</h2>
     <div class="panel-sub">Company tags are sourced from the full all-time lists in <a href="https://github.com/liquidslr/leetcode-company-wise-problems" target="_blank" rel="noopener" style="color:var(--pine);">liquidslr/leetcode-company-wise-problems</a>, for 58 companies with a major India hiring presence (product companies, IT services, fintech/e-commerce unicorns, and India R&D centers). Click a company to filter the list below to just its problems.</div>
-    <details id="companyBrowseDetails" open>
-      <summary style="cursor:pointer;padding:4px 0 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-soft);">🔍 Browse companies</summary>
-      <input type="text" id="companySearchBox" placeholder="Search companies…" style="width:100%;padding:10px 14px;border:1.5px solid var(--rule);background:var(--paper);border-radius:8px;font-family:'IBM Plex Sans',sans-serif;font-size:14px;color:var(--ink);margin-bottom:14px;">
-      <div class="company-grid" id="companyGrid"></div>
-    </details>
-    <details style="margin-top:18px;border:1.5px solid var(--rule-soft);border-radius:10px;background:var(--card);" id="studyPlanDetails">
-      <summary style="cursor:pointer;padding:12px 14px;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-soft);">📋 Generate a study plan</summary>
-      <div style="padding:0 14px 16px;">
-        <div class="panel-sub" style="margin:0 0 10px;">Orders a certification sheet or a company's tagged problems into a day-by-day plan: cross-company tag count (how many of these 58 companies also ask it — the closest free proxy for "frequency" without a paid dataset) breaks ties within each difficulty, and difficulty ramps Easy → Medium → Hard within each day so early days aren't all Hard problems.</div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px;">
-          <div style="flex:1 1 200px;min-width:180px;">
-            <label style="display:block;font-size:10px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;color:var(--ink-faint);margin-bottom:5px;">Sheet or company</label>
-            <select id="planCompanySel" style="width:100%;padding:9px 10px;border:1.5px solid var(--rule);background:var(--paper);border-radius:8px;font-size:13px;color:var(--ink);"></select>
-          </div>
-          <div style="flex:0 1 140px;min-width:120px;">
-            <label style="display:block;font-size:10px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;color:var(--ink-faint);margin-bottom:5px;">Days</label>
-            <select id="planDaysSel" style="width:100%;padding:9px 10px;border:1.5px solid var(--rule);background:var(--paper);border-radius:8px;font-size:13px;color:var(--ink);">
-              <option value="7">7</option><option value="14" selected>14</option><option value="21">21</option><option value="30">30</option>
-            </select>
-          </div>
-          <button class="btn-primary" id="planGenerateBtn" type="button">Generate plan</button>
-          <button class="btn-secondary" id="planDownloadBtn" type="button" style="display:none;">⬇ Download as Markdown</button>
-        </div>
+    <input type="text" id="companySearchBox" placeholder="Search companies…" style="width:100%;padding:10px 14px;border:1.5px solid var(--rule);background:var(--paper);border-radius:8px;font-family:'IBM Plex Sans',sans-serif;font-size:14px;color:var(--ink);margin-bottom:14px;">
+    <div class="company-grid" id="companyGrid"></div>
+  </div>
+
+  <div class="panel" id="studyPlanPanel">
+    <h2>📋 Study plan</h2>
+    <div class="panel-sub">Orders a certification sheet or a company's tagged problems into a day-by-day plan: cross-company tag count (how many of the 58 tracked companies also ask it — the closest free proxy for "frequency" without a paid dataset) breaks ties within each difficulty, and difficulty ramps Easy → Medium → Hard within each day so early days aren't all Hard problems.</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px;">
+      <div style="flex:1 1 200px;min-width:180px;">
+        <label style="display:block;font-size:10px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;color:var(--ink-faint);margin-bottom:5px;">Sheet or company</label>
+        <select id="planCompanySel" style="width:100%;padding:9px 10px;border:1.5px solid var(--rule);background:var(--paper);border-radius:8px;font-size:13px;color:var(--ink);"></select>
       </div>
-    </details>
+      <div style="flex:0 1 140px;min-width:120px;">
+        <label style="display:block;font-size:10px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;color:var(--ink-faint);margin-bottom:5px;">Days</label>
+        <select id="planDaysSel" style="width:100%;padding:9px 10px;border:1.5px solid var(--rule);background:var(--paper);border-radius:8px;font-size:13px;color:var(--ink);">
+          <option value="7">7</option><option value="14" selected>14</option><option value="21">21</option><option value="30">30</option>
+        </select>
+      </div>
+      <button class="btn-primary" id="planGenerateBtn" type="button">Generate plan</button>
+      <button class="btn-secondary" id="planDownloadBtn" type="button" style="display:none;">⬇ Download as Markdown</button>
+    </div>
+    <div id="studyPlanControls" style="display:none;margin-bottom:8px;">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <input type="text" id="studyPlanSearchBox" placeholder="Search this plan's problems…" style="flex:1 1 220px;padding:9px 12px;border:1.5px solid var(--rule);background:var(--paper);border-radius:8px;font-size:13px;color:var(--ink);">
+        <div class="toggle-btn" id="studyPlanUnsolvedToggle" style="flex:0 0 auto;">SHOW UNSOLVED ONLY</div>
+        <div class="toggle-btn" id="studyPlanResetBtn" style="flex:0 0 auto;">↺ RESET</div>
+      </div>
+    </div>
     <div id="studyPlanOutput" style="margin-top:16px;"></div>
   </div>
 
@@ -7599,8 +7598,24 @@ function computeStats(){
   return {total, totalSolved, bydiff, a2zTotal, a2zSolved, top150Total, top150Solved, neetTotal, neetSolved, blindTotal, blindSolved, babbarTotal, babbarSolved, company, section, diff};
 }
 
-function computeSectionStats(sections){
-  const pool = PROBLEMS.filter(p=>sections.has(p.section));
+// A shared "selection" system: anything selectable (a topic section, a study
+// plan day, etc.) registers its problem pool under a unique key here, and
+// selectedSelectionKeys just holds which keys are currently active. This
+// lets the main progress ledger aggregate across topics AND study-plan days
+// at once, using one consistent mechanism instead of a separate one per
+// feature.
+let selectionRegistry = {};
+let selectionLabels = {};
+let selectedSelectionKeys = new Set();
+function registerSelectionPool(key, pool, label){ selectionRegistry[key] = pool; selectionLabels[key] = label; }
+function computeSectionStats(keys){
+  const seen = new Set();
+  const pool = [];
+  keys.forEach(k=>{
+    (selectionRegistry[k] || []).forEach(p=>{
+      if(!seen.has(p.id)){ seen.add(p.id); pool.push(p); }
+    });
+  });
   const total = pool.length;
   const bydiff = {E:{s:0,t:0}, M:{s:0,t:0}, H:{s:0,t:0}};
   pool.forEach(p=>{
@@ -7621,15 +7636,15 @@ function computeSectionStats(sections){
   return {total, totalSolved, bydiff, a2zTotal, a2zSolved, top150Total, top150Solved, neetTotal, neetSolved, blindTotal, blindSolved, babbarTotal, babbarSolved};
 }
 function renderSummary(){
-  const selected = selectedTopicSections.size ? selectedTopicSections : null;
+  const selected = selectedSelectionKeys.size ? selectedSelectionKeys : null;
   const stats = selected ? computeSectionStats(selected) : computeStats();
   const {total, totalSolved, bydiff, a2zTotal, a2zSolved, top150Total, top150Solved, neetTotal, neetSolved, blindTotal, blindSolved, babbarTotal, babbarSolved} = stats;
   const {company, section, diff} = selected ? {company:'', section:'', diff:''} : stats;
   const pct = total ? Math.round((totalSolved/total)*100) : 0;
   let label;
   if(selected){
-    const names = Array.from(selected);
-    const shown = names.length <= 2 ? names.join(', ') : `${names.length} topics`;
+    const names = Array.from(selected).map(k=>selectionLabels[k] || k);
+    const shown = names.length <= 2 ? names.join(', ') : `${names.length} selected`;
     label = `📌 ${escapeHtml(shown)} · ${pct}% <button type="button" id="clearTopicSelectionBtn" style="background:none;border:none;color:var(--pine);cursor:pointer;font-size:11px;text-decoration:underline;padding:0;margin-left:6px;">clear</button>`;
   } else {
     const scopeParts = [
@@ -7660,7 +7675,7 @@ function renderSummary(){
     const clearBtn = document.getElementById('clearTopicSelectionBtn');
     if(clearBtn) clearBtn.addEventListener('click', (e)=>{
       e.stopPropagation();
-      selectedTopicSections.clear();
+      selectedSelectionKeys.clear();
       document.querySelectorAll('.folio-badge').forEach(b=>b.classList.remove('selected'));
       renderSummary();
     });
@@ -7721,7 +7736,6 @@ function matchesFiltersExcept(p, exclude){
 }
 
 let openSections = new Set();
-let selectedTopicSections = new Set();
 
 function autoExpandSections(){
   openSections.clear();
@@ -7840,21 +7854,23 @@ function renderSections(focusId){
     const head = document.createElement('div');
     head.className = 'section-head';
     sectionFolioIndex++;
+    const selKey = 'topic:' + sec;
+    registerSelectionPool(selKey, items, sec);
     head.innerHTML = `
       <div class="htitle">
-        <button type="button" class="folio-badge${selectedTopicSections.has(sec)?' selected':''}" data-select-section="${escapeHtml(sec)}" title="Select this topic (click more to combine) to see combined progress above, without expanding it">${String(sectionFolioIndex).padStart(2,'0')}</button>
+        <button type="button" class="folio-badge${selectedSelectionKeys.has(selKey)?' selected':''}" data-select-key="${escapeHtml(selKey)}" title="Select this topic (click more to combine) to see combined progress above, without expanding it">${String(sectionFolioIndex).padStart(2,'0')}</button>
         <span class="chev">▸</span>
         <span>${sec}</span>
         <span class="count">${solvedCount}/${list.length}</span>
       </div>
       <div class="mini-progress"><div class="mini-progress-fill" style="width:${list.length? (solvedCount/list.length*100):0}%"></div></div>
     `;
-    head.querySelector('[data-select-section]').addEventListener('click', (e)=>{
+    head.querySelector('[data-select-key]').addEventListener('click', (e)=>{
       e.stopPropagation();
-      if(selectedTopicSections.has(sec)) selectedTopicSections.delete(sec);
-      else selectedTopicSections.add(sec);
+      if(selectedSelectionKeys.has(selKey)) selectedSelectionKeys.delete(selKey);
+      else selectedSelectionKeys.add(selKey);
       document.querySelectorAll('.folio-badge').forEach(b=>{
-        b.classList.toggle('selected', selectedTopicSections.has(b.getAttribute('data-select-section')));
+        b.classList.toggle('selected', selectedSelectionKeys.has(b.getAttribute('data-select-key')));
       });
       renderSummary();
       scrollResultsIntoView(document.getElementById('summaryCells'));
@@ -9651,6 +9667,7 @@ function populateCompanyFilter(){
 }
 
 let showCompaniesPanel = false;
+let showStudyPlanPanel = false;
 function companyCertStats(name){
   const pool = PROBLEMS.filter(p=>(p.companies||[]).includes(name));
   const total = pool.length;
@@ -9750,6 +9767,8 @@ function generateStudyPlan(targetValue, days){
   }
   return plan;
 }
+let openStudyPlanDays = new Set();
+let studyPlanUnsolvedOnly = false;
 function renderStudyPlan(targetValue, days, plan){
   const out = document.getElementById('studyPlanOutput');
   out.innerHTML = '';
@@ -9761,27 +9780,95 @@ function renderStudyPlan(targetValue, days, plan){
   const header = document.createElement('div');
   header.innerHTML = `
     <h3 id="studyPlanHeading" style="font-family:'Fraunces',serif;font-size:16px;margin:4px 0 4px;">📋 ${escapeHtml(label)} — ${days}-day plan</h3>
-    <div class="panel-sub" style="margin-bottom:6px;">${totalInPlan} problems, ${solvedInPlan} already solved. Ordered Easy → Medium → Hard, ties broken by cross-company frequency.</div>
+    <div class="panel-sub" style="margin-bottom:6px;">${totalInPlan} problems, ${solvedInPlan} already solved. Ordered Easy → Medium → Hard, ties broken by cross-company frequency. Click a day's number to add its progress to the bar above, without expanding it — same as the main topic list.</div>
     <div class="mini-progress" style="margin-bottom:16px;"><div class="mini-progress-fill" id="studyPlanProgressFill" style="width:${pct}%"></div></div>
   `;
   out.appendChild(header);
 
+  const q = (document.getElementById('studyPlanSearchBox').value || '').trim().toLowerCase();
+  document.getElementById('studyPlanControls').style.display = 'block';
+
   plan.forEach(d=>{
+    const dayKey = 'studyplan:day:' + d.day;
+    registerSelectionPool(dayKey, d.problems, `Day ${d.day}`);
+
+    let list = d.problems;
+    if(q) list = list.filter(p=>p.title.toLowerCase().includes(q));
+    if(studyPlanUnsolvedOnly) list = list.filter(p=>!solved.has(p.id));
+    if(q || studyPlanUnsolvedOnly){
+      if(list.length === 0) return; // hide empty days entirely while filtering, like the main list does
+    }
+
     const daySolved = d.problems.filter(p=>solved.has(p.id)).length;
-    const dayWrap = document.createElement('div');
-    dayWrap.className = 'study-plan-day';
-    const dayHead = document.createElement('h4');
-    dayHead.innerHTML = `Day ${d.day} <span style="font-weight:400;color:var(--ink-faint);font-size:12px;">(${daySolved}/${d.problems.length})</span>`;
-    dayWrap.appendChild(dayHead);
+    const isOpen = q ? true : openStudyPlanDays.has(d.day);
+
+    const secEl = document.createElement('div');
+    secEl.className = 'section' + (isOpen ? ' open' : '');
+    secEl.dataset.day = d.day;
+
+    const head = document.createElement('div');
+    head.className = 'section-head';
+    head.innerHTML = `
+      <div class="htitle">
+        <button type="button" class="folio-badge${selectedSelectionKeys.has(dayKey)?' selected':''}" data-select-key="${dayKey}" title="Select this day (click more to combine) to see combined progress above, without expanding it">${String(d.day).padStart(2,'0')}</button>
+        <span class="chev">▸</span>
+        <span>Day ${d.day}</span>
+        <span class="count">${daySolved}/${d.problems.length}</span>
+      </div>
+      <div class="mini-progress"><div class="mini-progress-fill" style="width:${d.problems.length? (daySolved/d.problems.length*100):0}%"></div></div>
+    `;
+    head.querySelector('[data-select-key]').addEventListener('click', (e)=>{
+      e.stopPropagation();
+      if(selectedSelectionKeys.has(dayKey)) selectedSelectionKeys.delete(dayKey);
+      else selectedSelectionKeys.add(dayKey);
+      document.querySelectorAll('.folio-badge').forEach(b=>{
+        b.classList.toggle('selected', selectedSelectionKeys.has(b.getAttribute('data-select-key')));
+      });
+      renderSummary();
+      scrollResultsIntoView(document.getElementById('summaryCells'));
+    });
+    head.addEventListener('click', ()=>{
+      const wasOpen = openStudyPlanDays.has(d.day);
+      openStudyPlanDays.clear();
+      if(!wasOpen) openStudyPlanDays.add(d.day);
+      renderStudyPlan(targetValue, days, plan);
+      const freshEl = document.querySelector(`#studyPlanOutput .section[data-day="${d.day}"]`);
+      if(freshEl) scrollResultsIntoView(freshEl);
+    });
+
     const rows = document.createElement('div');
     rows.className = 'rows';
-    d.problems.forEach(p=>{ rows.appendChild(buildRowEl(p)); });
-    dayWrap.appendChild(rows);
-    out.appendChild(dayWrap);
+    if(list.length === 0){
+      rows.innerHTML = `<div class="empty-note">No matches in this day.</div>`;
+    } else {
+      list.forEach(p=>{ rows.appendChild(buildRowEl(p)); });
+    }
+
+    secEl.appendChild(head);
+    secEl.appendChild(rows);
+    out.appendChild(secEl);
   });
 
   attachRowIconHandlers(out);
 }
+document.getElementById('studyPlanSearchBox').addEventListener('input', ()=>{
+  if(!lastStudyPlan) return;
+  renderStudyPlan(lastStudyPlan.target, lastStudyPlan.days, lastStudyPlan.plan);
+});
+document.getElementById('studyPlanUnsolvedToggle').addEventListener('click', function(){
+  studyPlanUnsolvedOnly = !studyPlanUnsolvedOnly;
+  this.classList.toggle('active', studyPlanUnsolvedOnly);
+  if(!lastStudyPlan) return;
+  renderStudyPlan(lastStudyPlan.target, lastStudyPlan.days, lastStudyPlan.plan);
+});
+document.getElementById('studyPlanResetBtn').addEventListener('click', ()=>{
+  document.getElementById('studyPlanSearchBox').value = '';
+  studyPlanUnsolvedOnly = false;
+  document.getElementById('studyPlanUnsolvedToggle').classList.remove('active');
+  openStudyPlanDays.clear();
+  if(!lastStudyPlan) return;
+  renderStudyPlan(lastStudyPlan.target, lastStudyPlan.days, lastStudyPlan.plan);
+});
 // Keeps the plan's own progress bar/counts in sync whenever something inside
 // it changes solved status (e.g. a premium problem passing all test cases
 // in the code editor) — same reasoning as the main list's renderSummary().
@@ -9801,12 +9888,10 @@ document.getElementById('planGenerateBtn').addEventListener('click', ()=>{
   if(!target) return;
   lastStudyPlan = {target, days, plan: generateStudyPlan(target, days)};
   lastStudyPlanSolvedSig = null;
+  openStudyPlanDays.clear();
   renderStudyPlan(target, days, lastStudyPlan.plan);
   document.getElementById('planDownloadBtn').style.display = 'inline-block';
-  const browseDetails = document.getElementById('companyBrowseDetails');
-  if(browseDetails) browseDetails.open = false;
-  const studyPlanDetails = document.getElementById('studyPlanDetails');
-  if(studyPlanDetails) scrollResultsIntoView(studyPlanDetails);
+  scrollResultsIntoView(document.getElementById('studyPlanHeading'));
 });
 document.getElementById('planDownloadBtn').addEventListener('click', ()=>{
   if(!lastStudyPlan) return;
@@ -9893,6 +9978,11 @@ function deactivateAllExcept(exceptId){
     document.getElementById('companiesToggle').classList.remove('active');
     document.getElementById('companiesPanel').classList.remove('show');
   }
+  if(exceptId !== 'studyPlanToggle'){
+    showStudyPlanPanel = false;
+    document.getElementById('studyPlanToggle').classList.remove('active');
+    document.getElementById('studyPlanPanel').classList.remove('show');
+  }
   if(exceptId !== 'changelogToggle'){
     showChangelogPanel = false;
     document.getElementById('changelogToggle').classList.remove('active');
@@ -9921,6 +10011,11 @@ function closeWorkspacePanels(){
     document.getElementById('companiesToggle').classList.remove('active');
     document.getElementById('companiesPanel').classList.remove('show');
   }
+  if(showStudyPlanPanel){
+    showStudyPlanPanel = false;
+    document.getElementById('studyPlanToggle').classList.remove('active');
+    document.getElementById('studyPlanPanel').classList.remove('show');
+  }
   if(showMockPanel){
     showMockPanel = false;
     document.getElementById('mockToggle').classList.remove('active');
@@ -9942,6 +10037,18 @@ document.getElementById('companiesToggle').addEventListener('click', function(){
   if(showCompaniesPanel){ clearOtherFilters(); renderCompaniesPanel(); }
   updateFilterAvailability();
   autoExpandSections();
+  renderSections();
+  renderSummary();
+  scrollResultsIntoView();
+});
+document.getElementById('studyPlanToggle').addEventListener('click', function(){
+  const turningOn = !showStudyPlanPanel;
+  deactivateAllExcept(turningOn ? 'studyPlanToggle' : null);
+  showStudyPlanPanel = turningOn;
+  this.classList.toggle('active', showStudyPlanPanel);
+  document.getElementById('studyPlanPanel').classList.toggle('show', showStudyPlanPanel);
+  if(showStudyPlanPanel) populateStudyPlanCompanySelect();
+  updateFilterAvailability();
   renderSections();
   renderSummary();
   scrollResultsIntoView();
