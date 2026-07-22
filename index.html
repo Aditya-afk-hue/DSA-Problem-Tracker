@@ -10139,6 +10139,7 @@ document.getElementById('resetFiltersBtn').addEventListener('click', function(){
   clearOtherFilters();
   updateFilterAvailability();
   openSections.clear();
+  selectedSelectionKeys.clear();
   renderSections();
   renderSummary();
   scrollResultsIntoView(document.getElementById('summaryCells'));
