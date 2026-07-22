@@ -1,7 +1,8 @@
 {
-  "updatedAt": "2026-07-21T19:42:34.756Z",
+  "updatedAt": "2026-07-22T08:39:32.302Z",
   "slugs": [
     "two-sum",
+    "median-of-two-sorted-arrays",
     "reverse-integer",
     "palindrome-number",
     "longest-common-prefix",
@@ -62,6 +63,7 @@
     "middle-of-the-linked-list",
     "k-closest-points-to-origin",
     "subarray-sums-divisible-by-k",
+    "remove-outermost-parentheses",
     "find-a-peak-element-ii",
     "delete-the-middle-node-of-a-linked-list",
     "rearrange-array-elements-by-sign"
