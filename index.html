@@ -954,13 +954,7 @@
       <button class="btn-primary" id="planGenerateBtn" type="button">Generate plan</button>
       <button class="btn-secondary" id="planDownloadBtn" type="button" style="display:none;">⬇ Download as Markdown</button>
     </div>
-    <div id="studyPlanControls" style="display:none;margin-bottom:8px;">
-      <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        <input type="text" id="studyPlanSearchBox" placeholder="Search this plan's problems…" style="flex:1 1 220px;padding:9px 12px;border:1.5px solid var(--rule);background:var(--paper);border-radius:8px;font-size:13px;color:var(--ink);">
-        <div class="toggle-btn" id="studyPlanUnsolvedToggle" style="flex:0 0 auto;">SHOW UNSOLVED ONLY</div>
-        <div class="toggle-btn" id="studyPlanResetBtn" style="flex:0 0 auto;">↺ RESET</div>
-      </div>
-    </div>
+    <div class="panel-sub" style="margin-bottom:8px;">Use the search box, tag/section/difficulty/company filters, and unsolved toggle in the controls bar above to narrow what's shown below — they filter this plan the same way they filter the main topic list, and the progress bar at the top of the page reflects your selection here too.</div>
     <div id="studyPlanOutput" style="margin-top:16px;"></div>
   </div>
 
@@ -7849,6 +7843,9 @@ function attachRowIconHandlers(root){
 
 function renderSections(focusId){
   const container = document.getElementById('sections');
+  const workspacePanelOpen = showReviewPanel || showAnalyticsPanel || showCompaniesPanel || showStudyPlanPanel || showMockPanel || showChangelogPanel;
+  container.style.display = workspacePanelOpen ? 'none' : '';
+  if(workspacePanelOpen){ container.innerHTML = ''; return; }
   const q = document.getElementById('searchBox').value.trim();
   const activeFilter = q || document.getElementById('sectionFilter').value || document.getElementById('diffFilter').value || document.getElementById('companyFilter').value || document.getElementById('tagFilter').value.trim() || showUnsolvedOnly || showTop150Only || showA2ZOnly || showNeetOnly || showBlindOnly || showBabbarOnly;
 
@@ -7889,7 +7886,6 @@ function renderSections(focusId){
         b.classList.toggle('selected', selectedSelectionKeys.has(b.getAttribute('data-select-key')));
       });
       renderSummary();
-      scrollResultsIntoView(document.getElementById('summaryCells'));
     });
     head.addEventListener('click', () => {
       const wasOpen = openSections.has(sec);
@@ -9784,39 +9780,50 @@ function generateStudyPlan(targetValue, days){
   return plan;
 }
 let openStudyPlanDays = new Set();
-let studyPlanUnsolvedOnly = false;
+function studyPlanActiveFilter(){
+  return document.getElementById('searchBox').value.trim()
+    || document.getElementById('sectionFilter').value
+    || document.getElementById('diffFilter').value
+    || document.getElementById('companyFilter').value
+    || document.getElementById('tagFilter').value.trim()
+    || showUnsolvedOnly || showTop150Only || showA2ZOnly || showNeetOnly || showBlindOnly || showBabbarOnly;
+}
 function renderStudyPlan(targetValue, days, plan){
   const out = document.getElementById('studyPlanOutput');
   out.innerHTML = '';
   const label = studyPlanTargetInfo(targetValue).label;
   const solvedInPlan = plan.reduce((s,d)=>s+d.problems.filter(p=>solved.has(p.id)).length, 0);
   const totalInPlan = plan.reduce((s,d)=>s+d.problems.length, 0);
-  const pct = totalInPlan ? Math.round((solvedInPlan/totalInPlan)*100) : 0;
+
+  // Register the whole plan (union of every day, de-duplicated) as its own
+  // selectable pool so the main progress bar can reflect the plan as soon as
+  // it's generated, without requiring the user to click into a single day.
+  const seenIds = new Set();
+  const wholePlanPool = [];
+  plan.forEach(d=>d.problems.forEach(p=>{ if(!seenIds.has(p.id)){ seenIds.add(p.id); wholePlanPool.push(p); } }));
+  registerSelectionPool('studyplan:all', wholePlanPool, `${label} plan`);
 
   const header = document.createElement('div');
   header.innerHTML = `
     <h3 id="studyPlanHeading" style="font-family:'Fraunces',serif;font-size:16px;margin:4px 0 4px;">📋 ${escapeHtml(label)} — ${days}-day plan</h3>
-    <div class="panel-sub" style="margin-bottom:6px;">${totalInPlan} problems, ${solvedInPlan} already solved. Ordered Easy → Medium → Hard, ties broken by cross-company frequency. Click a day's number to add its progress to the bar above, without expanding it — same as the main topic list.</div>
-    <div class="mini-progress" style="margin-bottom:16px;"><div class="mini-progress-fill" id="studyPlanProgressFill" style="width:${pct}%"></div></div>
+    <div class="panel-sub" style="margin-bottom:16px;">${totalInPlan} problems, ${solvedInPlan} already solved. Ordered Easy → Medium → Hard, ties broken by cross-company frequency. Click a day's number to add its progress to the bar above, without expanding it — same as the main topic list.</div>
   `;
   out.appendChild(header);
 
-  const q = (document.getElementById('studyPlanSearchBox').value || '').trim().toLowerCase();
-  document.getElementById('studyPlanControls').style.display = 'block';
+  const activeFilter = studyPlanActiveFilter();
 
   plan.forEach(d=>{
     const dayKey = 'studyplan:day:' + d.day;
     registerSelectionPool(dayKey, d.problems, `Day ${d.day}`);
 
     let list = d.problems;
-    if(q) list = list.filter(p=>p.title.toLowerCase().includes(q));
-    if(studyPlanUnsolvedOnly) list = list.filter(p=>!solved.has(p.id));
-    if(q || studyPlanUnsolvedOnly){
+    if(activeFilter){
+      list = list.filter(matchesFilters);
       if(list.length === 0) return; // hide empty days entirely while filtering, like the main list does
     }
 
     const daySolved = d.problems.filter(p=>solved.has(p.id)).length;
-    const isOpen = q ? true : openStudyPlanDays.has(d.day);
+    const isOpen = activeFilter ? true : openStudyPlanDays.has(d.day);
 
     const secEl = document.createElement('div');
     secEl.className = 'section' + (isOpen ? ' open' : '');
@@ -9835,13 +9842,16 @@ function renderStudyPlan(targetValue, days, plan){
     `;
     head.querySelector('[data-select-key]').addEventListener('click', (e)=>{
       e.stopPropagation();
+      selectedSelectionKeys.delete('studyplan:all');
       if(selectedSelectionKeys.has(dayKey)) selectedSelectionKeys.delete(dayKey);
       else selectedSelectionKeys.add(dayKey);
+      // Deselecting the last chosen day while the plan is open should fall
+      // back to showing the whole plan's progress, not the global tracker.
+      if(selectedSelectionKeys.size === 0 && showStudyPlanPanel) selectedSelectionKeys.add('studyplan:all');
       document.querySelectorAll('.folio-badge').forEach(b=>{
         b.classList.toggle('selected', selectedSelectionKeys.has(b.getAttribute('data-select-key')));
       });
       renderSummary();
-      scrollResultsIntoView(document.getElementById('summaryCells'));
     });
     head.addEventListener('click', ()=>{
       const wasOpen = openStudyPlanDays.has(d.day);
@@ -9867,24 +9877,6 @@ function renderStudyPlan(targetValue, days, plan){
 
   attachRowIconHandlers(out);
 }
-document.getElementById('studyPlanSearchBox').addEventListener('input', ()=>{
-  if(!lastStudyPlan) return;
-  renderStudyPlan(lastStudyPlan.target, lastStudyPlan.days, lastStudyPlan.plan);
-});
-document.getElementById('studyPlanUnsolvedToggle').addEventListener('click', function(){
-  studyPlanUnsolvedOnly = !studyPlanUnsolvedOnly;
-  this.classList.toggle('active', studyPlanUnsolvedOnly);
-  if(!lastStudyPlan) return;
-  renderStudyPlan(lastStudyPlan.target, lastStudyPlan.days, lastStudyPlan.plan);
-});
-document.getElementById('studyPlanResetBtn').addEventListener('click', ()=>{
-  document.getElementById('studyPlanSearchBox').value = '';
-  studyPlanUnsolvedOnly = false;
-  document.getElementById('studyPlanUnsolvedToggle').classList.remove('active');
-  openStudyPlanDays.clear();
-  if(!lastStudyPlan) return;
-  renderStudyPlan(lastStudyPlan.target, lastStudyPlan.days, lastStudyPlan.plan);
-});
 // Keeps the plan's own progress bar/counts in sync whenever something inside
 // it changes solved status (e.g. a premium problem passing all test cases
 // in the code editor) — same reasoning as the main list's renderSummary().
@@ -9906,6 +9898,9 @@ document.getElementById('planGenerateBtn').addEventListener('click', ()=>{
   lastStudyPlanSolvedSig = null;
   openStudyPlanDays.clear();
   renderStudyPlan(target, days, lastStudyPlan.plan);
+  selectedSelectionKeys.clear();
+  selectedSelectionKeys.add('studyplan:all');
+  renderSummary();
   document.getElementById('planDownloadBtn').style.display = 'inline-block';
   scrollResultsIntoView(document.getElementById('studyPlanHeading'));
 });
@@ -9946,19 +9941,25 @@ function updateFilterAvailability(){
   if(diffSel.value && !availDiffs.has(diffSel.value)) diffSel.value = '';
 }
 
-document.getElementById('searchBox').addEventListener('input', ()=>{ closeWorkspacePanels(); updateFilterAvailability(); openSections.clear(); renderSections(); renderSummary(); scrollResultsIntoView(); });
+document.getElementById('searchBox').addEventListener('input', ()=>{ closeWorkspacePanels(true); updateFilterAvailability(); openSections.clear(); renderSections(); refreshStudyPlanIfOpen(); renderSummary(); scrollResultsIntoView(); });
 document.getElementById('sectionFilter').addEventListener('change', ()=>{
-  closeWorkspacePanels();
+  closeWorkspacePanels(true);
   updateFilterAvailability();
   autoExpandSections();
   renderSections();
+  refreshStudyPlanIfOpen();
   renderSummary();
   scrollResultsIntoView();
 });
-document.getElementById('diffFilter').addEventListener('change', ()=>{ closeWorkspacePanels(); updateFilterAvailability(); autoExpandSections(); renderSections(); renderSummary(); scrollResultsIntoView(); });
-document.getElementById('companyFilter').addEventListener('change', ()=>{ closeWorkspacePanels(); updateFilterAvailability(); autoExpandSections(); renderSections(); renderSummary(); scrollResultsIntoView(); });
+document.getElementById('diffFilter').addEventListener('change', ()=>{ closeWorkspacePanels(true); updateFilterAvailability(); autoExpandSections(); renderSections(); refreshStudyPlanIfOpen(); renderSummary(); scrollResultsIntoView(); });
+document.getElementById('companyFilter').addEventListener('change', ()=>{ closeWorkspacePanels(true); updateFilterAvailability(); autoExpandSections(); renderSections(); refreshStudyPlanIfOpen(); renderSummary(); scrollResultsIntoView(); });
 document.getElementById('companySearchBox').addEventListener('input', ()=>renderCompaniesPanel());
-function deactivateAllExcept(exceptId){
+function clearStudyPlanSelection(){
+  Array.from(selectedSelectionKeys).forEach(k=>{
+    if(k === 'studyplan:all' || k.startsWith('studyplan:day:')) selectedSelectionKeys.delete(k);
+  });
+}
+function deactivateAllExcept(exceptId, keepStudyPlan){
   if(exceptId !== 'top150Toggle'){
     showTop150Only = false;
     document.getElementById('top150Toggle').classList.remove('active');
@@ -9994,10 +9995,11 @@ function deactivateAllExcept(exceptId){
     document.getElementById('companiesToggle').classList.remove('active');
     document.getElementById('companiesPanel').classList.remove('show');
   }
-  if(exceptId !== 'studyPlanToggle'){
+  if(exceptId !== 'studyPlanToggle' && !keepStudyPlan){
     showStudyPlanPanel = false;
     document.getElementById('studyPlanToggle').classList.remove('active');
     document.getElementById('studyPlanPanel').classList.remove('show');
+    clearStudyPlanSelection();
   }
   if(exceptId !== 'changelogToggle'){
     showChangelogPanel = false;
@@ -10011,7 +10013,7 @@ function deactivateAllExcept(exceptId){
   }
 }
 
-function closeWorkspacePanels(){
+function closeWorkspacePanels(keepStudyPlan){
   if(showReviewPanel){
     showReviewPanel = false;
     document.getElementById('reviewToggle').classList.remove('active');
@@ -10027,10 +10029,11 @@ function closeWorkspacePanels(){
     document.getElementById('companiesToggle').classList.remove('active');
     document.getElementById('companiesPanel').classList.remove('show');
   }
-  if(showStudyPlanPanel){
+  if(showStudyPlanPanel && !keepStudyPlan){
     showStudyPlanPanel = false;
     document.getElementById('studyPlanToggle').classList.remove('active');
     document.getElementById('studyPlanPanel').classList.remove('show');
+    clearStudyPlanSelection();
   }
   if(showMockPanel){
     showMockPanel = false;
@@ -10041,6 +10044,14 @@ function closeWorkspacePanels(){
     showChangelogPanel = false;
     document.getElementById('changelogToggle').classList.remove('active');
     document.getElementById('changelogPanel').classList.remove('show');
+  }
+}
+// Refreshes the study plan's own row filtering/progress after a main filter
+// control changes, so search/tag/section/difficulty/company/unsolved/sheet
+// toggles narrow the plan the same way they narrow the main topic list.
+function refreshStudyPlanIfOpen(){
+  if(showStudyPlanPanel && lastStudyPlan){
+    renderStudyPlan(lastStudyPlan.target, lastStudyPlan.days, lastStudyPlan.plan);
   }
 }
 
@@ -10063,7 +10074,15 @@ document.getElementById('studyPlanToggle').addEventListener('click', function(){
   showStudyPlanPanel = turningOn;
   this.classList.toggle('active', showStudyPlanPanel);
   document.getElementById('studyPlanPanel').classList.toggle('show', showStudyPlanPanel);
-  if(showStudyPlanPanel) populateStudyPlanCompanySelect();
+  if(showStudyPlanPanel){
+    populateStudyPlanCompanySelect();
+    if(lastStudyPlan){
+      openStudyPlanDays.clear();
+      renderStudyPlan(lastStudyPlan.target, lastStudyPlan.days, lastStudyPlan.plan);
+      selectedSelectionKeys.clear();
+      selectedSelectionKeys.add('studyplan:all');
+    }
+  }
   updateFilterAvailability();
   renderSections();
   renderSummary();
@@ -10072,10 +10091,11 @@ document.getElementById('studyPlanToggle').addEventListener('click', function(){
 document.getElementById('unsolvedToggle').addEventListener('click', function(){
   showUnsolvedOnly = !showUnsolvedOnly;
   this.classList.toggle('active', showUnsolvedOnly);
-  closeWorkspacePanels();
+  closeWorkspacePanels(true);
   updateFilterAvailability();
   autoExpandSections();
   renderSections();
+  refreshStudyPlanIfOpen();
   renderSummary();
   scrollResultsIntoView();
 });
@@ -10091,72 +10111,79 @@ function clearOtherFilters(){
 
 document.getElementById('top150Toggle').addEventListener('click', function(){
   const turningOn = !showTop150Only;
-  deactivateAllExcept(turningOn ? 'top150Toggle' : null);
+  deactivateAllExcept(turningOn ? 'top150Toggle' : null, true);
   showTop150Only = turningOn;
   this.classList.toggle('active', showTop150Only);
   if(showTop150Only) clearOtherFilters();
   updateFilterAvailability();
   autoExpandSections();
   renderSections();
+  refreshStudyPlanIfOpen();
   renderSummary();
   scrollResultsIntoView();
 });
 document.getElementById('neetToggle').addEventListener('click', function(){
   const turningOn = !showNeetOnly;
-  deactivateAllExcept(turningOn ? 'neetToggle' : null);
+  deactivateAllExcept(turningOn ? 'neetToggle' : null, true);
   showNeetOnly = turningOn;
   this.classList.toggle('active', showNeetOnly);
   if(showNeetOnly) clearOtherFilters();
   updateFilterAvailability();
   autoExpandSections();
   renderSections();
+  refreshStudyPlanIfOpen();
   renderSummary();
   scrollResultsIntoView();
 });
 document.getElementById('blindToggle').addEventListener('click', function(){
   const turningOn = !showBlindOnly;
-  deactivateAllExcept(turningOn ? 'blindToggle' : null);
+  deactivateAllExcept(turningOn ? 'blindToggle' : null, true);
   showBlindOnly = turningOn;
   this.classList.toggle('active', showBlindOnly);
   if(showBlindOnly) clearOtherFilters();
   updateFilterAvailability();
   autoExpandSections();
   renderSections();
+  refreshStudyPlanIfOpen();
   renderSummary();
   scrollResultsIntoView();
 });
 document.getElementById('babbarToggle').addEventListener('click', function(){
   const turningOn = !showBabbarOnly;
-  deactivateAllExcept(turningOn ? 'babbarToggle' : null);
+  deactivateAllExcept(turningOn ? 'babbarToggle' : null, true);
   showBabbarOnly = turningOn;
   this.classList.toggle('active', showBabbarOnly);
   if(showBabbarOnly) clearOtherFilters();
   updateFilterAvailability();
   autoExpandSections();
   renderSections();
+  refreshStudyPlanIfOpen();
   renderSummary();
   scrollResultsIntoView();
 });
 document.getElementById('a2zToggle').addEventListener('click', function(){
   const turningOn = !showA2ZOnly;
-  deactivateAllExcept(turningOn ? 'a2zToggle' : null);
+  deactivateAllExcept(turningOn ? 'a2zToggle' : null, true);
   showA2ZOnly = turningOn;
   this.classList.toggle('active', showA2ZOnly);
   if(showA2ZOnly) clearOtherFilters();
   updateFilterAvailability();
   autoExpandSections();
   renderSections();
+  refreshStudyPlanIfOpen();
   renderSummary();
   scrollResultsIntoView();
 });
-document.getElementById('tagFilter').addEventListener('input', ()=>{ closeWorkspacePanels(); updateFilterAvailability(); autoExpandSections(); renderSections(); renderSummary(); scrollResultsIntoView(); });
+document.getElementById('tagFilter').addEventListener('input', ()=>{ closeWorkspacePanels(true); updateFilterAvailability(); autoExpandSections(); renderSections(); refreshStudyPlanIfOpen(); renderSummary(); scrollResultsIntoView(); });
 document.getElementById('resetFiltersBtn').addEventListener('click', function(){
-  deactivateAllExcept(null);
+  deactivateAllExcept(null, true);
   clearOtherFilters();
   updateFilterAvailability();
   openSections.clear();
   selectedSelectionKeys.clear();
+  openStudyPlanDays.clear();
   renderSections();
+  refreshStudyPlanIfOpen();
   renderSummary();
   scrollResultsIntoView(document.getElementById('summaryCells'));
 });
