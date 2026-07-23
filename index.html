@@ -7610,12 +7610,15 @@ let selectedSelectionKeys = new Set();
 function registerSelectionPool(key, pool, label){ selectionRegistry[key] = pool; selectionLabels[key] = label; }
 function computeSectionStats(keys){
   const seen = new Set();
-  const pool = [];
+  let pool = [];
   keys.forEach(k=>{
     (selectionRegistry[k] || []).forEach(p=>{
       if(!seen.has(p.id)){ seen.add(p.id); pool.push(p); }
     });
   });
+  const q = document.getElementById('searchBox').value.trim().toLowerCase();
+  const activeFilter = q || document.getElementById('sectionFilter').value || document.getElementById('diffFilter').value || document.getElementById('companyFilter').value || document.getElementById('tagFilter').value.trim() || showUnsolvedOnly || showTop150Only || showA2ZOnly || showNeetOnly || showBlindOnly || showBabbarOnly;
+  if(activeFilter) pool = pool.filter(matchesFilters);
   const total = pool.length;
   const bydiff = {E:{s:0,t:0}, M:{s:0,t:0}, H:{s:0,t:0}};
   pool.forEach(p=>{
@@ -7645,7 +7648,20 @@ function renderSummary(){
   if(selected){
     const names = Array.from(selected).map(k=>selectionLabels[k] || k);
     const shown = names.length <= 2 ? names.join(', ') : `${names.length} selected`;
-    label = `📌 ${escapeHtml(shown)} · ${pct}% <button type="button" id="clearTopicSelectionBtn" style="background:none;border:none;color:var(--pine);cursor:pointer;font-size:11px;text-decoration:underline;padding:0;margin-left:6px;">clear</button>`;
+    const filterParts = [
+      showTop150Only ? 'Top 150 only' : '',
+      showA2ZOnly ? 'A2Z 210 only' : '',
+      showNeetOnly ? 'NeetCode 150 only' : '',
+      showBlindOnly ? 'Blind 75 only' : '',
+      showBabbarOnly ? 'Babbar 105 only' : '',
+      showUnsolvedOnly ? 'Unsolved only' : '',
+      document.getElementById('diffFilter').value ? DIFF_LABEL[document.getElementById('diffFilter').value] : '',
+      document.getElementById('companyFilter').value || '',
+      document.getElementById('tagFilter').value.trim() ? `tag: ${document.getElementById('tagFilter').value.trim()}` : '',
+      document.getElementById('searchBox').value.trim() ? `"${document.getElementById('searchBox').value.trim()}"` : '',
+    ].filter(Boolean);
+    const suffix = filterParts.length ? `, ${filterParts.join(', ')}` : '';
+    label = `📌 ${escapeHtml(shown)}${escapeHtml(suffix)} · ${pct}% <button type="button" id="clearTopicSelectionBtn" style="background:none;border:none;color:var(--pine);cursor:pointer;font-size:11px;text-decoration:underline;padding:0;margin-left:6px;">clear</button>`;
   } else {
     const scopeParts = [
       company, section, diff ? DIFF_LABEL[diff] : '',
