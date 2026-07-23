@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-23T14:22:55.023Z",
+  "updatedAt": "2026-07-23T19:36:49.970Z",
   "slugs": [
     "two-sum",
     "median-of-two-sorted-arrays",
@@ -73,6 +73,7 @@
     "k-closest-points-to-origin",
     "subarray-sums-divisible-by-k",
     "remove-outermost-parentheses",
+    "kth-missing-positive-number",
     "maximum-nesting-depth-of-the-parentheses",
     "sum-of-beauty-of-all-substrings",
     "find-a-peak-element-ii",
