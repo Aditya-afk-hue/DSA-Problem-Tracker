@@ -545,6 +545,9 @@
     max-width:none !important; width:min(1400px,96vw); height:88vh; max-height:88vh;
     display:flex; flex-direction:column; padding:0; overflow:hidden; border-radius:10px;
   }
+  /* Mock Interview's shell is embedded inline in the page (not a centered modal),
+     so it must size to its own panel's width instead of the viewport. */
+  .lc-shell-inline{ width:100% !important; max-width:100% !important; box-sizing:border-box; }
   .lc-topbar{
     display:flex; align-items:center; justify-content:space-between; gap:10px;flex-wrap:wrap;
     padding:10px 16px; border-bottom:1.5px solid var(--rule-soft); background:var(--card); flex-shrink:0;
@@ -1095,6 +1098,7 @@
       <div class="lc-topbar-actions">
         <span class="stamp-btn" id="solveSolvedBadge" style="display:none;position:static;width:auto;height:auto;padding:4px 10px;">✓ Solved</span>
         <button class="btn-secondary" id="solveRunBtn" type="button">▶ Run</button>
+        <button class="btn-primary" id="solveSubmitBtn" type="button">✓ Submit</button>
         <button class="modal-close" data-close="codeEditorModal">✕</button>
       </div>
     </div>
@@ -1129,7 +1133,9 @@
           </select>
         </div>
         <div class="lc-code-area">
-          <textarea id="solveCodeInput" spellcheck="false" placeholder="Write your solution here…" style="width:100%;font-family:'IBM Plex Mono',monospace;font-size:13px;padding:12px;background:var(--paper);color:var(--ink);box-sizing:border-box;line-height:1.5;"></textarea>
+          <div class="mock-editor-host" id="solveEditorHost" style="width:100%;border:none;border-radius:0;">
+            <textarea id="solveCodeInput" class="mock-editor" spellcheck="false" placeholder="Write your solution here…" style="width:100%;border:none;border-radius:0;"></textarea>
+          </div>
         </div>
         <div class="lc-resizer-y" id="solveResizerY"></div>
         <div class="lc-bottom-pane" id="solveBottomPane">
@@ -4412,6 +4418,7 @@ let showMockPanel = false;
 let mockSessions = [];
 let activeMock = null; 
 let mockCM = null; 
+let solveCM = null; 
 let pyodideLoadPromise = null; 
 let sqlJsLoadPromise = null; 
 let cheerpjLoadPromise = null;
@@ -8018,7 +8025,7 @@ function attachRowIconHandlers(root){
   root.querySelectorAll('[data-solve]').forEach(btn => {
     btn.addEventListener('click', (e)=>{
       e.stopPropagation();
-      openSolveInNewTab(parseInt(btn.getAttribute('data-solve'),10));
+      openCodeEditorModal(parseInt(btn.getAttribute('data-solve'),10));
     });
   });
   root.querySelectorAll('[data-flag]').forEach(btn => {
@@ -8400,8 +8407,7 @@ function applySolveHistory(index){
   if(index < 0 || index >= solveHistory.length) return;
   solveHistoryIndex = index;
   const value = solveHistory[index];
-  const ta = document.getElementById('solveCodeInput');
-  ta.value = value;
+  setSolveEditorValue(value);
   if(solveModalId!=null) setSolveCode(solveModalId, document.getElementById('solveLangSel').value, value);
 }
 function undoSolveCode(){
@@ -8443,8 +8449,9 @@ function openCodeEditorModal(id){
   document.getElementById('solveLangSel').value = lang;
   document.getElementById('solveCodeInput').dataset.lastLang = lang;
   const code = getSolveCode(id, lang);
-  document.getElementById('solveCodeInput').value = code;
+  setSolveEditorValue(code);
   resetSolveHistory(code);
+  initSolveCodeEditor(lang);
   document.getElementById('solveConsoleWrap').style.display = 'none';
   document.getElementById('solveConsoleOutput').textContent = '';
   document.getElementById('solveProblemSummary').style.display = 'none';
@@ -8469,9 +8476,10 @@ document.getElementById('solveLangSel').addEventListener('change', ()=>{
   const isSql = newLang === 'sql';
   try{ localStorage.setItem(SOLVE_LANG_KEY, newLang); }catch(e){}
   const code = getSolveCode(solveModalId, newLang);
-  document.getElementById('solveCodeInput').value = code;
+  setSolveEditorValue(code);
   document.getElementById('solveCodeInput').dataset.lastLang = newLang;
   resetSolveHistory(code);
+  initSolveCodeEditor(newLang);
   if(isSql || wasSql){
     resetSolveTestCases(); // SQL uses a completely different test-case/harness shape
   } else {
@@ -8491,6 +8499,7 @@ document.getElementById('solveCodeInput').addEventListener('keydown', (e)=>{
   if(e.key === 'z' && !e.shiftKey){ e.preventDefault(); undoSolveCode(); }
   else if(e.key === 'y' || (e.key === 'z' && e.shiftKey)){ e.preventDefault(); redoSolveCode(); }
 });
+document.getElementById('solveSubmitBtn').addEventListener('click', submitSolveTestCases);
 
 function buildExecutionPayload(langVal, rawUserCode, testCaseInputJson, harness){
   if(!harness || langVal === 'sql'){
@@ -8687,7 +8696,7 @@ function applySolveStarterCodeIfEmpty(){
   if(!isBlankish) return;
   const starter = lang === 'python' ? pyStarterCode(solveHarness) : lang === 'java' ? javaStarterCode(solveHarness) : lang === 'javascript' ? jsStarterCode(solveHarness) : null;
   if(!starter) return;
-  ta.value = starter;
+  setSolveEditorValue(starter);
   lastAutoStarter = starter;
   if(solveModalId!=null) setSolveCode(solveModalId, lang, starter);
   resetSolveHistory(starter);
@@ -8837,9 +8846,6 @@ function renderSolveTestCases(){
     </div>
     <div style="font-size:11.5px;color:var(--ink-faint);margin:4px 0 10px;">${langLabel === 'SQL' ? 'Input for each case seeds the table(s) as an object like <code>{"Employee": [{"id":1,"salary":100}, ...]}</code> — write your query against those table names; Submit runs it and compares the last result row to "Expected output".' : solveHarness ? `Each "input" is an array of arguments for <code>${escapeHtml(solveHarness.functionName)}(${solveHarness.params.map(p=>escapeHtml(p.name)).join(', ')})</code> — write just the method body in the editor above, Run/Submit call it for you and compare the return value to "Expected output".` : 'Your code doesn\'t have LeetCode\'s real function signature yet — generate test cases above to get an auto-filled starter, or read the input from the <code>INPUT</code> global yourself and print your final answer as the last line of output.'} Edit or remove any case that looks wrong.</div>
     ${rows}
-    <div class="mock-run-row">
-      <button class="btn-primary" id="solveSubmitBtn" type="button">✓ Submit (run all test cases)</button>
-    </div>
   `;
   box.querySelectorAll('.solve-tc-input').forEach(inp=>{
     inp.addEventListener('input', (e)=>{
@@ -8863,7 +8869,6 @@ function renderSolveTestCases(){
     renderSolveTestCases();
   });
   document.getElementById('solveRegenTcBtn').addEventListener('click', ()=>generateSolveTestCases(false));
-  document.getElementById('solveSubmitBtn').addEventListener('click', submitSolveTestCases);
 }
 async function submitSolveTestCases(){
   const langVal = document.getElementById('solveLangSel').value;
@@ -8874,7 +8879,7 @@ async function submitSolveTestCases(){
     return;
   }
   if(!rawCode.trim()){ showToast('Write some code first.'); return; }
-  submitBtn.disabled = true; submitBtn.textContent = 'Running test cases…';
+  submitBtn.disabled = true; submitBtn.textContent = 'Running…';
   for(let i=0; i<solveTestCases.length; i++){
     const tc = solveTestCases[i];
     try{
@@ -8894,7 +8899,7 @@ async function submitSolveTestCases(){
       tc.status = 'error'; tc.actual = (err && err.message) ? err.message : String(err);
     }
   }
-  submitBtn.disabled = false; submitBtn.textContent = '✓ Submit (run all test cases)';
+  submitBtn.disabled = false; submitBtn.textContent = '✓ Submit';
   renderSolveTestCases();
   const passed = solveTestCases.filter(t=>t.status==='pass').length;
   showToast(`${passed}/${solveTestCases.length} test cases passed`);
@@ -9179,20 +9184,36 @@ function cmModeFor(lang){
     default: return { file: null, mode: null }; 
   }
 }
-async function ensureCodeMirror(lang){
+// Same idea as cmModeFor() above, but keyed off the Solve modal's language
+// <select> values (lowercase, e.g. 'javascript'/'cpp'/'csharp') rather than
+// Mock Interview's display labels.
+function cmModeForSolveLang(langVal){
+  switch(langVal){
+    case 'javascript': return { file: CM_BASE + '/mode/javascript/javascript.min.js', mode: 'javascript' };
+    case 'typescript': return { file: CM_BASE + '/mode/javascript/javascript.min.js', mode: 'text/typescript' };
+    case 'python': return { file: CM_BASE + '/mode/python/python.min.js', mode: 'python' };
+    case 'java': return { file: CM_BASE + '/mode/clike/clike.min.js', mode: 'text/x-java' };
+    case 'cpp': return { file: CM_BASE + '/mode/clike/clike.min.js', mode: 'text/x-c++src' };
+    case 'c': return { file: CM_BASE + '/mode/clike/clike.min.js', mode: 'text/x-csrc' };
+    case 'csharp': return { file: CM_BASE + '/mode/clike/clike.min.js', mode: 'text/x-csharp' };
+    case 'go': return { file: CM_BASE + '/mode/go/go.min.js', mode: 'go' };
+    case 'sql': return { file: CM_BASE + '/mode/sql/sql.min.js', mode: 'text/x-sql' };
+    default: return { file: null, mode: null };
+  }
+}
+async function ensureCodeMirror(modeInfo){
   await Promise.all([
     loadCSS(CM_BASE + '/codemirror.min.css'),
     loadScript(CM_BASE + '/codemirror.min.js')
   ]);
-  const { file, mode } = cmModeFor(lang);
-  if(file) await loadScript(file);
-  return mode;
+  if(modeInfo.file) await loadScript(modeInfo.file);
+  return modeInfo.mode;
 }
 async function initMockCodeEditor(){
   const host = document.getElementById('mockEditorHost');
   if(!host || !activeMock) return;
   try{
-    const mode = await ensureCodeMirror(activeMock.lang);
+    const mode = await ensureCodeMirror(cmModeFor(activeMock.lang));
     if(!activeMock) return; 
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     if(isDark) await loadCSS(CM_BASE + '/theme/dracula.min.css');
@@ -9253,6 +9274,54 @@ function applyMockStarterCodeIfEmpty(){
 }
 function destroyMockCodeEditor(){
   mockCM = null; 
+}
+// Solve modal editor — same CodeMirror setup as Mock Interview's, but the
+// backing <textarea id="solveCodeInput"> is kept in the DOM (hidden) as the
+// single source of truth all the existing get/set/input-listener code
+// already reads and writes, so CodeMirror just mirrors into it on change
+// rather than requiring every call site to be rewritten.
+function setSolveEditorValue(value){
+  const ta = document.getElementById('solveCodeInput');
+  if(ta) ta.value = value;
+  if(solveCM && solveCM.getValue() !== value) solveCM.setValue(value);
+}
+async function initSolveCodeEditor(langVal){
+  const host = document.getElementById('solveEditorHost');
+  const ta = document.getElementById('solveCodeInput');
+  if(!host || !ta) return;
+  try{
+    const mode = await ensureCodeMirror(cmModeForSolveLang(langVal));
+    // Bail if the language changed again while CodeMirror/mode assets were loading
+    if(document.getElementById('solveLangSel').value !== langVal) return;
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    if(isDark) await loadCSS(CM_BASE + '/theme/dracula.min.css');
+    ta.style.display = 'none';
+    host.querySelectorAll('.CodeMirror').forEach(el=>el.remove());
+    solveCM = window.CodeMirror(host, {
+      value: ta.value || '',
+      mode: mode || 'text/plain',
+      lineNumbers: true,
+      indentUnit: 2,
+      tabSize: 2,
+      indentWithTabs: false,
+      viewportMargin: Infinity,
+      theme: isDark ? 'dracula' : 'default'
+    });
+    solveCM.on('change', ()=>{
+      const newVal = solveCM.getValue();
+      if(ta.value !== newVal){
+        ta.value = newVal;
+        ta.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    });
+    solveCM.setSize('100%', 'auto');
+  }catch(err){
+    solveCM = null;
+    ta.style.display = '';
+  }
+}
+function destroySolveCodeEditor(){
+  solveCM = null;
 }
 function runJSInWorker(code, rawInputJson, timeoutMs){
   timeoutMs = timeoutMs || 5000;
@@ -9838,7 +9907,7 @@ function renderMockActiveView(){
   const p = PROBLEMS.find(x=>x.id===activeMock.problemId);
   const url = `https://leetcode.com/problems/${p.slug}/`;
   document.getElementById('mockActiveView').innerHTML = `
-    <div class="lc-shell" id="mockLcShell" style="height:80vh;border:1.5px solid var(--rule);">
+    <div class="lc-shell lc-shell-inline" id="mockLcShell" style="height:min(80vh,760px);border:1.5px solid var(--rule);">
       <div class="lc-topbar">
         <div class="lc-topbar-title">🎤 <a href="${url}" target="_blank" rel="noopener" style="color:inherit;">${escapeHtml(p.title)}</a> <span class="diff-pill ${p.diff}">${p.diff}</span></div>
         <div class="lc-topbar-actions">
@@ -11527,18 +11596,19 @@ document.getElementById('themeToggle').addEventListener('click', ()=>{
       mockCM.setOption('theme', 'default');
     }
   }
+  if(solveCM){
+    if(next === 'dark'){
+      loadCSS(CM_BASE + '/theme/dracula.min.css').then(()=>{ if(solveCM) solveCM.setOption('theme', 'dracula'); });
+    } else {
+      solveCM.setOption('theme', 'default');
+    }
+  }
 });
 
 loadTheme();
 populateSectionFilter();
 populateCompanyFilter();
 syncHeaderProfileLink();
-function openSolveInNewTab(id){
-  const url = new URL(window.location.href);
-  url.hash = '';
-  url.searchParams.set('solve', id);
-  window.open(url.toString(), '_blank', 'noopener');
-}
 function handleSolveDeepLink(){
   let id = null;
   try{
