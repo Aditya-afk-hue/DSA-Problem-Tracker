@@ -1036,7 +1036,10 @@
   </div>
 
   <div class="panel" id="mockPanel">
-    <h2>🎤 Mock interview mode</h2>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <h2 style="margin:0;">🎤 Mock interview mode</h2>
+      <button class="btn-secondary" id="mockOpenNewTabBtn" type="button" style="padding:5px 11px;font-size:12px;">⧉ Open in new tab</button>
+    </div>
     <div class="panel-sub">A real timer, a real code editor, a random problem picked from your filters — practice under the same pressure as an actual interview loop. Everything here is local to this browser/account; nothing is graded or submitted anywhere.</div>
     <div id="mockSetupView"></div>
     <div id="mockActiveView" style="display:none;"></div>
@@ -1104,7 +1107,6 @@
           <div id="solveKeySection"></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
             <button class="btn-secondary" id="solveSummaryBtn" type="button" style="padding:4px 10px;font-size:11.5px;">🤖 AI problem summary</button>
-            <a class="btn-secondary" id="solveOpenLeetcodeBtn2" href="#" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;padding:4px 10px;font-size:11.5px;">Read the real question ↗</a>
             <a class="btn-secondary" id="solveOpenLeetcodeBtn" href="#" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;padding:4px 10px;font-size:11.5px;">Open on LeetCode ↗</a>
           </div>
           <div id="solveProblemSummary" style="display:none;font-size:13px;line-height:1.6;color:var(--ink-soft);background:var(--card);border:1px solid var(--rule-soft);border-radius:8px;padding:12px 14px;white-space:pre-wrap;"></div>
@@ -8433,7 +8435,6 @@ function openCodeEditorModal(id){
   document.getElementById('codeEditorModalSub').textContent = p.title + ' — ' + p.section;
   renderApiKeyWidget('solveKeySection');
   document.getElementById('solveOpenLeetcodeBtn').href = `https://leetcode.com/problems/${p.slug}/`;
-  document.getElementById('solveOpenLeetcodeBtn2').href = `https://leetcode.com/problems/${p.slug}/`;
   const isSolved = solved.has(id);
   const badge = document.getElementById('solveSolvedBadge');
   badge.style.display = isSolved ? 'inline-block' : 'none';
@@ -9598,9 +9599,6 @@ function renderMockTestCases(){
     </div>
     <div style="font-size:11.5px;color:var(--ink-faint);margin:4px 0 10px;">${activeMock.lang === 'SQL' ? 'Input for each case seeds the table(s) as an object like <code>{"Employee": [{"id":1,"salary":100}, ...]}</code> — write your query against those table names; Submit runs it and compares the last result row to "Expected output".' : activeMock.harness ? `Each "input" is an array of arguments for <code>${escapeHtml(activeMock.harness.functionName)}(${activeMock.harness.params.map(p=>escapeHtml(p.name)).join(', ')})</code> — write just the method body in the editor above, Run/Submit call it for you and compare the return value to "Expected output".` : 'Your code doesn\'t have LeetCode\'s real function signature yet — generate test cases above to get an auto-filled starter, or read the input from the <code>INPUT</code> global yourself and print your final answer as the last line of output.'} Edit or remove any case that looks wrong.</div>
     ${rows}
-    <div class="mock-run-row">
-      <button class="btn-primary" id="mockSubmitBtn" type="button">✓ Submit (run all test cases)</button>
-    </div>
   `;
   box.querySelectorAll('.mock-tc-input').forEach(inp=>{
     inp.addEventListener('input', (e)=>{
@@ -9624,7 +9622,6 @@ function renderMockTestCases(){
     renderMockTestCases();
   });
   document.getElementById('mockRegenTcBtn').addEventListener('click', ()=>generateMockTestCases(false));
-  document.getElementById('mockSubmitBtn').addEventListener('click', submitMockTestCases);
 }
 function normalizeForCompare(s){
   s = (s||'').trim();
@@ -9640,7 +9637,7 @@ async function submitMockTestCases(){
     return;
   }
   if(!code.trim()){ showToast('Write some code first.'); return; }
-  submitBtn.disabled = true; submitBtn.textContent = 'Running test cases…';
+  submitBtn.disabled = true; submitBtn.textContent = 'Running…';
   const langKey = mockLangToHarnessKey(lang);
   const harness = activeMock.harness;
   for(let i=0; i<activeMock.testCases.length; i++){
@@ -9662,7 +9659,7 @@ async function submitMockTestCases(){
       tc.status = 'error'; tc.actual = (err && err.message) ? err.message : String(err);
     }
   }
-  submitBtn.disabled = false; submitBtn.textContent = '✓ Submit (run all test cases)';
+  submitBtn.disabled = false; submitBtn.textContent = '✓ Submit';
   renderMockTestCases();
   const passed = activeMock.testCases.filter(t=>t.status==='pass').length;
   showToast(`${passed}/${activeMock.testCases.length} test cases passed`);
@@ -9847,6 +9844,7 @@ function renderMockActiveView(){
         <div class="lc-topbar-actions">
           <div class="mock-timer" id="mockTimerDisplay">${fmtClock(activeMock.remainingSec)}</div>
           <button class="btn-secondary" id="mockRunBtn" type="button">▶ Run</button>
+          <button class="btn-primary" id="mockSubmitBtn" type="button">✓ Submit</button>
         </div>
       </div>
       <div class="lc-split" id="mockSplit">
@@ -9946,6 +9944,7 @@ function renderMockActiveView(){
     document.getElementById('mockOutputPanel').style.display = 'block';
     await runMockCode();
   });
+  document.getElementById('mockSubmitBtn').addEventListener('click', submitMockTestCases);
   document.getElementById('mockPauseBtn').addEventListener('click', ()=>{
     activeMock.paused = !activeMock.paused;
     renderMockActiveView();
@@ -10591,6 +10590,12 @@ document.getElementById('mockToggle').addEventListener('click', function(){
   renderSections();
   renderSummary();
   scrollResultsIntoView();
+});
+document.getElementById('mockOpenNewTabBtn').addEventListener('click', ()=>{
+  const url = new URL(window.location.href);
+  url.hash = '';
+  url.searchParams.set('mock', '1');
+  window.open(url.toString(), '_blank', 'noopener');
 });
 
 
@@ -11548,7 +11553,21 @@ function handleSolveDeepLink(){
     }catch(e){}
   }
 }
-loadSolved().then(handleSolveDeepLink);
+function handleMockDeepLink(){
+  let wantsMock = false;
+  try{
+    wantsMock = new URLSearchParams(window.location.search).get('mock') === '1';
+  }catch(e){}
+  if(wantsMock){
+    document.getElementById('mockToggle').click();
+    try{
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.searchParams.delete('mock');
+      window.history.replaceState({}, '', cleanUrl.toString());
+    }catch(e){}
+  }
+}
+loadSolved().then(()=>{ handleSolveDeepLink(); handleMockDeepLink(); });
 loadMockSessions();
 document.getElementById('versionBadge').textContent = 'v' + APP_VERSION;
 refreshProStatus();
