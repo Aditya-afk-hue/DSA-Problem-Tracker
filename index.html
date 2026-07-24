@@ -368,6 +368,9 @@
   .premium-tag{
     font-size:10px;color:var(--ink-faint);flex-shrink:0;
   }
+  .rtitle.no-oj{
+    cursor:default;
+  }
   .open-link{
     grid-area:solve;justify-self:start;align-self:start;
     font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--pine);
@@ -965,7 +968,7 @@
     <div class="toggle-btn" id="resetFiltersBtn" title="Clear the search box, every dropdown, and every list-narrowing toggle below">↺ RESET FILTERS</div>
     <div class="toggle-btn" id="unsolvedToggle">SHOW UNSOLVED ONLY</div>
     <div class="toggle-btn" id="top150Toggle">⭐ TOP 150</div>
-    <div class="toggle-btn" id="a2zToggle">🅰️ STRIVER A2Z 210</div>
+    <div class="toggle-btn" id="a2zToggle">🅰️ STRIVER A2Z 466</div>
     <div class="toggle-btn" id="neetToggle">🧊 NEETCODE 150</div>
     <div class="toggle-btn" id="blindToggle">🎯 BLIND 75</div>
     <div class="toggle-btn" id="babbarToggle">📗 BABBAR 105</div>
@@ -1061,8 +1064,8 @@
     <b>📊 Analytics:</b> streak, time spent, solves-per-day, weakest topics by completion rate, and a solve-time trend — all computed from what's stored in this browser or your account (see "Where your progress lives" below).<br><br>
     <b>🎤 Mock Interview Mode:</b> pick a duration, difficulty, topic, and/or company, then get a randomly selected problem, a countdown timer, and a real code editor (any language — it's just a labeled text editor, not a compiler or judge). Self-grade when you finish or time runs out; every session is logged to Session History and feeds the Analytics tab's mock-interview stats.<br><br>
     <b>Where your progress lives:</b> this tracker stores everything — solved problems, notes, timers, mock-interview history — in your browser's local storage. It persists on this device/browser but won't follow you to another one automatically. Use <b>Export Backup</b> to save a JSON file and <b>Import Backup</b> to restore it on another device or browser.<br><br>
-    <b>🅰️ Striver A2Z 210</b> filters the list to just the original 210 problems from Striver's A2Z sheet (everything added later purely for Top 150 or company-tag coverage is hidden). <b>🧊 NeetCode 150</b>, <b>🎯 Blind 75</b>, and <b>📗 Babbar 105</b> filter down to just the problems matched to each of those respective lists.<br><br>
-    <b>🎓 Certificates</b> opens a hub of downloadable "Certificate of Achievement" images — verified practice records, not official or proctored credentials. An <b>Overall Progress</b> certificate is always available. <b>Striver A2Z (210)</b>, <b>LeetCode Top 150</b>, <b>NeetCode 150</b>, <b>Blind 75</b>, and <b>Babbar 105</b> certificates each unlock once every problem in that respective set is solved. A <b>company-track certificate</b> unlocks per company — once every problem tagged with a given company is solved, a 🎓 icon appears on that company's card in the 🏢 Companies panel; click it to generate a certificate naming that company and its tag. Every number on every certificate is computed live from your actual solved set, and each carries a reproducible SHA-256 verification ID plus a link to your public LeetCode profile so anyone can check the numbers themselves. Generating and downloading certificates requires <b>Pro</b> — solving problems and tracking progress stay free regardless of subscription status.<br><br>
+    <b>🅰️ Striver A2Z 466</b> filters the list to just the full 466 (deduplicated) problems from Striver's A2Z sheet (everything added later purely for Top 150 or company-tag coverage is hidden). <b>🧊 NeetCode 150</b>, <b>🎯 Blind 75</b>, and <b>📗 Babbar 105</b> filter down to just the problems matched to each of those respective lists.<br><br>
+    <b>🎓 Certificates</b> opens a hub of downloadable "Certificate of Achievement" images — verified practice records, not official or proctored credentials. An <b>Overall Progress</b> certificate is always available. <b>Striver A2Z (466)</b>, <b>LeetCode Top 150</b>, <b>NeetCode 150</b>, <b>Blind 75</b>, and <b>Babbar 105</b> certificates each unlock once every problem in that respective set is solved. A <b>company-track certificate</b> unlocks per company — once every problem tagged with a given company is solved, a 🎓 icon appears on that company's card in the 🏢 Companies panel; click it to generate a certificate naming that company and its tag. Every number on every certificate is computed live from your actual solved set, and each carries a reproducible SHA-256 verification ID plus a link to your public LeetCode profile so anyone can check the numbers themselves. Generating and downloading certificates requires <b>Pro</b> — solving problems and tracking progress stay free regardless of subscription status.<br><br>
     <b>📋 Study plans:</b> inside the Companies panel, "📋 Generate a study plan" turns any certification sheet (A2Z, Top 150, NeetCode 150, Blind 75, Babbar 105) or any company's tagged problems into a day-by-day checklist, Easy → Medium → Hard, with ties broken by how many of the 58 tracked companies also ask that problem (the closest free proxy for real per-problem frequency data without a paid dataset) — downloadable as Markdown.
   </div>
 
@@ -1325,7 +1328,7 @@
         <div style="font-size:13px;color:var(--ink-soft);margin-bottom:14px;">Solving problems and tracking progress is free forever, no matter what. Pro just unlocks generating and downloading certificates — something worth having in your resume or LinkedIn once you've actually put the work in.</div>
         <ul style="margin:0 0 16px;padding:0;list-style:none;display:grid;gap:8px;">
           <li style="font-size:13px;color:var(--ink);display:flex;gap:8px;"><span style="color:var(--pine);flex:0 0 auto;">✓</span><span><b>Overall Progress certificate</b> — a live, always-available snapshot of your practice across all 2,923 problems.</span></li>
-          <li style="font-size:13px;color:var(--ink);display:flex;gap:8px;"><span style="color:var(--pine);flex:0 0 auto;">✓</span><span><b>5 sheet-specific certificates</b> — Striver A2Z (210), LeetCode Top 150, NeetCode 150, Blind 75, and Babbar 105, each unlocking as you clear that full list.</span></li>
+          <li style="font-size:13px;color:var(--ink);display:flex;gap:8px;"><span style="color:var(--pine);flex:0 0 auto;">✓</span><span><b>5 sheet-specific certificates</b> — Striver A2Z (466), LeetCode Top 150, NeetCode 150, Blind 75, and Babbar 105, each unlocking as you clear that full list.</span></li>
           <li style="font-size:13px;color:var(--ink);display:flex;gap:8px;"><span style="color:var(--pine);flex:0 0 auto;">✓</span><span><b>Unlimited company-track certificates</b> — one per company, unlocking automatically as you clear every problem tagged to that company.</span></li>
           <li style="font-size:13px;color:var(--ink);display:flex;gap:8px;"><span style="color:var(--pine);flex:0 0 auto;">✓</span><span><b>Actually verifiable, not just a nice image</b> — every certificate carries a reproducible SHA-256 verification ID plus a link to your public LeetCode profile, so anyone (a recruiter, for instance) can check the numbers themselves.</span></li>
           <li style="font-size:13px;color:var(--ink);display:flex;gap:8px;"><span style="color:var(--pine);flex:0 0 auto;">✓</span><span><b>One-time payment</b> — ₹499, pay once, Pro stays active on this key forever. No subscription, nothing recurring.</span></li>
@@ -1385,7 +1388,7 @@
                 <div><label style="display:block;font-size:10px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;color:var(--ink-faint);margin-bottom:5px;">Track</label>
                   <select id="vfyTrack" style="width:100%;padding:8px 6px;border:1.5px solid var(--rule);background:var(--paper);border-radius:7px;font-size:13px;color:var(--ink);">
                     <option value="overall">Overall</option>
-                    <option value="a2z">A2Z-210</option>
+                    <option value="a2z">A2Z-466</option>
                     <option value="top150">Top 150</option>
                     <option value="neet150">NeetCode 150</option>
                     <option value="blind75">Blind 75</option>
@@ -4347,8 +4350,282 @@ const DATA = [
 [2920,"Zero Array Transformation IV","zero-array-transformation-iv","M","Dynamic Programming",0,0,0,3489,["Google"],0,0,0],
 [2921,"Zigzag Grid Traversal With Skip","zigzag-grid-traversal-with-skip","E","Arrays — Easy",0,0,0,3417,["Google","TCS"],0,0,0],
 [2922,"Zigzag Iterator","zigzag-iterator","M","Stack and Queues",0,0,0,281,["Amazon","Google"],0,0,0],
-[2923,"Zuma Game","zuma-game","H","Dynamic Programming",0,0,0,488,["Amazon","Google","Zoho"],0,0,0]
+[2923,"Zuma Game","zuma-game","H","Dynamic Programming",0,0,0,488,["Amazon","Google","Zoho"],0,0,0],
+[2924,"Input Output","","E","Learn the basics \u2014 Things to Know in C++/Java/Python or any language",0,0,0,0,[],0,0,0,"input-output"],
+[2925,"Cpp Basics","","E","Learn the basics \u2014 Things to Know in C++/Java/Python or any language",0,0,0,0,[],0,0,0,"cpp-basics"],
+[2926,"If ElseIf","","E","Learn the basics \u2014 Things to Know in C++/Java/Python or any language",0,0,0,0,[],0,0,0,"if-elseif"],
+[2927,"Switch Case","","E","Learn the basics \u2014 Things to Know in C++/Java/Python or any language",0,0,0,0,[],0,0,0,"switch-case"],
+[2928,"What are arrays, strings?","","E","Learn the basics \u2014 Things to Know in C++/Java/Python or any language",0,0,0,0,[],0,0,0,"what-are-arrays-strings"],
+[2929,"For loops","","E","Learn the basics \u2014 Things to Know in C++/Java/Python or any language",0,0,0,0,[],0,0,0,"for-loops"],
+[2930,"While loops","","E","Learn the basics \u2014 Things to Know in C++/Java/Python or any language",0,0,0,0,[],0,0,0,"while-loops"],
+[2931,"Functions (Pass by Reference and Value)","","E","Learn the basics \u2014 Things to Know in C++/Java/Python or any language",0,0,0,0,[],0,0,0,"functions"],
+[2932,"Theory with examples","","E","Learn the basics \u2014 Things to Know in C++/Java/Python or any language",0,0,0,0,[],0,0,0,"theory-with-examples"],
+[2933,"Easy and Medium","","E","Learn the basics \u2014 Build-up Logical Thinking",0,0,0,0,[],0,0,0,"easy-and-medium"],
+[2934,"Hard","","E","Learn the basics \u2014 Build-up Logical Thinking",0,0,0,0,[],0,0,0,"hard"],
+[2935,"STL","","E","Learn STL/Java-Collections or similar thing in your language",0,0,0,0,[],0,0,0,"stl"],
+[2936,"Java Collections","","E","Learn STL/Java-Collections or similar thing in your language",0,0,0,0,[],0,0,0,"java-collections"],
+[2937,"Count all Digits of a Number","","E","Know Basic Maths",0,0,0,0,[],0,0,0,"count-all-digits-of-a-number"],
+[2938,"Reverse a number","","E","Know Basic Maths",0,0,0,0,[],0,0,0,"reverse-a-number"],
+[2939,"GCD of Two Numbers","","E","Know Basic Maths",0,0,0,0,[],0,0,0,"gcd-of-two-numbers"],
+[2940,"Check if the Number is Armstrong","","E","Know Basic Maths",0,0,0,0,[],0,0,0,"check-if-the-number-is-armstrong"],
+[2941,"Print all Divisors","","E","Know Basic Maths",0,0,0,0,[],0,0,0,"print-all-divisors"],
+[2942,"Check for Prime Number","","E","Know Basic Maths",0,0,0,0,[],0,0,0,"check-for-prime-number"],
+[2943,"Understand recursion by print something N times","","E","Learn Basic Recursion",0,0,0,0,[],0,0,0,"understand-recursion-by-print-something-n-times"],
+[2944,"Print name N times using recursion","","E","Learn Basic Recursion",0,0,0,0,[],0,0,0,"print-name-n-times-using-recursion"],
+[2945,"Print 1 to N using Recursion","","E","Learn Basic Recursion",0,0,0,0,[],0,0,0,"print-1-to-n-using-recursion"],
+[2946,"Print N to 1 using Recursion","","E","Learn Basic Recursion",0,0,0,0,[],0,0,0,"print-n-to-1-using-recursion"],
+[2947,"Sum of First N Numbers","","E","Learn Basic Recursion",0,0,0,0,[],0,0,0,"sum-of-first-n-numbers"],
+[2948,"Factorial of a given number","","E","Learn Basic Recursion",0,0,0,0,[],0,0,0,"factorial-of-a-given-number"],
+[2949,"Reverse an array","","E","Learn Basic Recursion",0,0,0,0,[],0,0,0,"reverse-an-array"],
+[2950,"Check if String is Palindrome or Not","","E","Learn Basic Recursion",0,0,0,0,[],0,0,0,"check-if-string-is-palindrome-or-not"],
+[2951,"Basic Hashing","","E","Learn Basic Hashing",0,0,0,0,[],0,0,0,"basic-hashing"],
+[2952,"Counting Frequencies of Array Elements","","E","Learn Basic Hashing",0,0,0,0,[],0,0,0,"counting-frequencies-of-array-elements"],
+[2953,"Highest Occurring Element in an Array","","E","Learn Basic Hashing",0,0,0,0,[],0,0,0,"highest-occurring-element-in-an-array"],
+[2954,"Selection Sort","","E","Learn Important Sorting Techniques \u2014 Sorting-I",0,0,0,0,[],0,0,0,"selection-sort"],
+[2955,"Bubble Sort","","E","Learn Important Sorting Techniques \u2014 Sorting-I",0,0,0,0,[],0,0,0,"bubble-sort"],
+[2956,"Insertion Sorting","","E","Learn Important Sorting Techniques \u2014 Sorting-I",0,0,0,0,[],0,0,0,"insertion-sorting"],
+[2957,"Merge Sorting","","M","Learn Important Sorting Techniques \u2014 Sorting-II",0,0,0,0,[],0,0,0,"merge-sorting"],
+[2958,"Recursive Bubble Sort","","E","Learn Important Sorting Techniques \u2014 Sorting-II",0,0,0,0,[],0,0,0,"recursive-bubble-sort"],
+[2959,"Recursive Insertion Sort","","E","Learn Important Sorting Techniques \u2014 Sorting-II",0,0,0,0,[],0,0,0,"recursive-insertion-sort"],
+[2960,"Quick Sorting","","E","Learn Important Sorting Techniques \u2014 Sorting-II",0,0,0,0,[],0,0,0,"quick-sorting"],
+[2961,"Largest Element","","E","Solve Problems on Arrays \u2014 Easy",0,0,0,0,[],0,0,0,"largest-element"],
+[2962,"Second Largest Element","","E","Solve Problems on Arrays \u2014 Easy",0,0,0,0,[],0,0,0,"second-largest-element"],
+[2963,"Linear Search","","E","Solve Problems on Arrays \u2014 Easy",0,0,0,0,[],0,0,0,"linear-search"],
+[2964,"Union of two sorted arrays","","E","Solve Problems on Arrays \u2014 Easy",0,0,0,0,[],0,0,0,"union-of-two-sorted-arrays"],
+[2965,"Longest subarray with given sum K(positives)","","M","Solve Problems on Arrays \u2014 Easy",0,0,0,0,[],0,0,0,"longest-subarray-with-given-sum-k"],
+[2966,"Longest subarray with sum K","","M","Solve Problems on Arrays \u2014 Easy",0,0,0,0,[],0,0,0,"longest-subarray-with-sum-k"],
+[2967,"Print subarray with maximum subarray sum (extended version of above problem)","","M","Solve Problems on Arrays \u2014 Medium",0,0,0,0,[],0,0,0,"print-subarray-with-maximum-subarray-sum"],
+[2968,"Stock Buy and Sell","","M","Solve Problems on Arrays \u2014 Medium",0,0,0,0,[],0,0,0,"stock-buy-and-sell"],
+[2969,"Leaders in an Array","","M","Solve Problems on Arrays \u2014 Medium",0,0,0,0,[],0,0,0,"leaders-in-an-array"],
+[2970,"Pascal's Triangle I","","E","Solve Problems on Arrays \u2014 Hard",0,0,0,0,[],0,0,0,"pascal's-triangle-i"],
+[2973,"Largest Subarray with Sum 0","","M","Solve Problems on Arrays \u2014 Hard",0,0,0,0,[],0,0,0,"largest-subarray-with-sum-0"],
+[2974,"Count subarrays with given xor K","","H","Solve Problems on Arrays \u2014 Hard",0,0,0,0,[],0,0,0,"count-subarrays-with-given-xor-k"],
+[2975,"Merge Overlapping Subintervals","","M","Solve Problems on Arrays \u2014 Hard",0,0,0,0,[],0,0,0,"merge-overlapping-subintervals"],
+[2976,"Merge two sorted arrays without extra space","","M","Solve Problems on Arrays \u2014 Hard",0,0,0,0,[],0,0,0,"merge-two-sorted-arrays-without-extra-space"],
+[2977,"Find the repeating and missing number","","H","Solve Problems on Arrays \u2014 Hard",0,0,0,0,[],0,0,0,"find-the-repeating-and-missing-number"],
+[2978,"Count Inversions","","H","Solve Problems on Arrays \u2014 Hard",0,0,0,0,[],0,0,0,"count-inversions"],
+[2979,"Maximum Product Subarray in an Array","","H","Solve Problems on Arrays \u2014 Hard",0,0,0,0,[],0,0,0,"maximum-product-subarray-in-an-array"],
+[2980,"Lower Bound","","E","Binary Search \u2014 BS on 1D Arrays",0,0,0,0,[],0,0,0,"lower-bound"],
+[2981,"Upper Bound","","E","Binary Search \u2014 BS on 1D Arrays",0,0,0,0,[],0,0,0,"upper-bound"],
+[2982,"Floor and Ceil in Sorted Array","","E","Binary Search \u2014 BS on 1D Arrays",0,0,0,0,[],0,0,0,"floor-and-ceil-in-sorted-array"],
+[2983,"First and last occurrence","","E","Binary Search \u2014 BS on 1D Arrays",0,0,0,0,[],0,0,0,"first-and-last-occurrence"],
+[2984,"Count Occurrences in a Sorted Array","","E","Binary Search \u2014 BS on 1D Arrays",0,0,0,0,[],0,0,0,"count-occurrences-in-a-sorted-array"],
+[2986,"Find out how many times the array is rotated","","E","Binary Search \u2014 BS on 1D Arrays",0,0,0,0,[],0,0,0,"find-out-how-many-times-the-array-is-rotated"],
+[2987,"Find square root of a number","","M","Binary Search \u2014 BS on Answers",0,0,0,0,[],0,0,0,"find-square-root-of-a-number"],
+[2988,"Find Nth root of a number","","M","Binary Search \u2014 BS on Answers",0,0,0,0,[],0,0,0,"find-nth-root-of-a-number"],
+[2989,"Minimum days to make M bouquets","","M","Binary Search \u2014 BS on Answers",0,0,0,0,[],0,0,0,"minimum-days-to-make-m-bouquets"],
+[2990,"Find the smallest divisor","","M","Binary Search \u2014 BS on Answers",0,0,0,0,[],0,0,0,"find-the-smallest-divisor"],
+[2991,"Aggressive Cows","","H","Binary Search \u2014 BS on Answers",0,0,0,0,[],0,0,0,"aggressive-cows"],
+[2992,"Book Allocation Problem","","H","Binary Search \u2014 BS on Answers",0,0,0,0,[],0,0,0,"book-allocation-problem"],
+[2993,"Painter's Partition","","M","Binary Search \u2014 BS on Answers",0,0,0,0,[],0,0,0,"painter's-partition"],
+[2994,"Kth element of 2 sorted arrays","","M","Binary Search \u2014 BS on Answers",0,0,0,0,[],0,0,0,"kth-element-of-2-sorted-arrays"],
+[2995,"Find row with maximum 1's","","E","Binary Search \u2014 BS on 2D Arrays",0,0,0,0,[],0,0,0,"find-row-with-maximum-1's"],
+[2996,"Search in 2D matrix - II","","H","Binary Search \u2014 BS on 2D Arrays",0,0,0,0,[],0,0,0,"search-in-2d-matrix-ii"],
+[2997,"Find Peak Element - II","","M","Binary Search \u2014 BS on 2D Arrays",0,0,0,0,[],0,0,0,"find-peak-element-ii"],
+[2998,"Matrix Median","","H","Binary Search \u2014 BS on 2D Arrays",0,0,0,0,[],0,0,0,"matrix-median"],
+[2999,"Reverse words in a given string / Palindrome Check","","M","Strings \u2014 Basic and Easy String Problems",0,0,0,0,[],0,0,0,"reverse-words-in-a-given-string-palindrome-check"],
+[3000,"Largest Odd Number in a String","","E","Strings \u2014 Basic and Easy String Problems",0,0,0,0,[],0,0,0,"largest-odd-number-in-a-string"],
+[3001,"Count Number of Substrings","","E","Strings \u2014 Medium String Problems",0,0,0,0,[],0,0,0,"count-number-of-substrings"],
+[3002,"Reverse every word in a string","","M","Strings \u2014 Medium String Problems",0,0,0,0,[],0,0,0,"reverse-every-word-in-a-string"],
+[3003,"Introduction to Singly LinkedList","","E","Learn LinkedList \u2014 Learn 1D LinkedList",0,0,0,0,[],0,0,0,"introduction-to-singly-linkedlist"],
+[3004,"Insertion at the head of Linked List","","E","Learn LinkedList \u2014 Learn 1D LinkedList",0,0,0,0,[],0,0,0,"insertion-at-the-head-of-linked-list"],
+[3005,"Deletion of the head of LL","","E","Learn LinkedList \u2014 Learn 1D LinkedList",0,0,0,0,[],0,0,0,"deletion-of-the-head-of-ll"],
+[3006,"Find the length of the Linked List","","E","Learn LinkedList \u2014 Learn 1D LinkedList",0,0,0,0,[],0,0,0,"find-the-length-of-the-linked-list"],
+[3007,"Search in Linked List","","M","Learn LinkedList \u2014 Learn 1D LinkedList",0,0,0,0,[],0,0,0,"search-in-linked-list"],
+[3008,"Introduction to Doubly LL","","E","Learn LinkedList \u2014 Learn Doubly LinkedList",0,0,0,0,[],0,0,0,"introduction-to-doubly-ll"],
+[3009,"Insert node before head in Doubly Linked List","","E","Learn LinkedList \u2014 Learn Doubly LinkedList",0,0,0,0,[],0,0,0,"insert-node-before-head-in-doubly-linked-list"],
+[3010,"Delete head of Doubly Linked List","","E","Learn LinkedList \u2014 Learn Doubly LinkedList",0,0,0,0,[],0,0,0,"delete-head-of-doubly-linked-list"],
+[3011,"Reverse a Doubly Linked List","","M","Learn LinkedList \u2014 Learn Doubly LinkedList",0,0,0,0,[],0,0,0,"reverse-a-doubly-linked-list"],
+[3012,"Reverse a LL","","M","Learn LinkedList \u2014 Medium Problems of LL",0,0,0,0,[],0,0,0,"reverse-a-ll"],
+[3013,"Length of loop in LL","","M","Learn LinkedList \u2014 Medium Problems of LL",0,0,0,0,[],0,0,0,"length-of-loop-in-ll"],
+[3014,"Check if LL is palindrome or not","","M","Learn LinkedList \u2014 Medium Problems of LL",0,0,0,0,[],0,0,0,"check-if-ll-is-palindrome-or-not"],
+[3015,"Segregate odd and even nodes in Linked List","","M","Learn LinkedList \u2014 Medium Problems of LL",0,0,0,0,[],0,0,0,"segregate-odd-and-even-nodes-in-linked-list"],
+[3016,"Remove Nth node from the back of the LL","","M","Learn LinkedList \u2014 Medium Problems of LL",0,0,0,0,[],0,0,0,"remove-nth-node-from-the-back-of-the-ll"],
+[3017,"Delete the middle node in LL","","M","Learn LinkedList \u2014 Medium Problems of LL",0,0,0,0,[],0,0,0,"delete-the-middle-node-in-ll"],
+[3018,"Sort LL","","H","Learn LinkedList \u2014 Medium Problems of LL",0,0,0,0,[],0,0,0,"sort-ll"],
+[3019,"Find the intersection point of Y LL","","M","Learn LinkedList \u2014 Medium Problems of LL",0,0,0,0,[],0,0,0,"find-the-intersection-point-of-y-ll"],
+[3020,"Add two numbers in Linked List","","M","Learn LinkedList \u2014 Medium Problems of LL",0,0,0,0,[],0,0,0,"add-two-numbers-in-linked-list"],
+[3021,"Delete all occurrences of a key in DLL","","H","Learn LinkedList \u2014 Medium Problems of DLL",0,0,0,0,[],0,0,0,"delete-all-occurrences-of-a-key-in-dll"],
+[3022,"Find Pairs with Given Sum in Doubly Linked List","","M","Learn LinkedList \u2014 Medium Problems of DLL",0,0,0,0,[],0,0,0,"find-pairs-with-given-sum-in-doubly-linked-list"],
+[3023,"Remove duplicates from sorted DLL","","H","Learn LinkedList \u2014 Medium Problems of DLL",0,0,0,0,[],0,0,0,"remove-duplicates-from-sorted-dll"],
+[3024,"Reverse LL in group of given size K","","H","Learn LinkedList \u2014 Hard Problems of LL",0,0,0,0,[],0,0,0,"reverse-ll-in-group-of-given-size-k"],
+[3025,"Rotate a LL","","H","Learn LinkedList \u2014 Hard Problems of LL",0,0,0,0,[],0,0,0,"rotate-a-ll"],
+[3026,"Clone a LL with random and next pointer","","H","Learn LinkedList \u2014 Hard Problems of LL",0,0,0,0,[],0,0,0,"clone-a-ll-with-random-and-next-pointer"],
+[3027,"Recursive Implementation of atoi()","","M","Recursion \u2014 Get a Strong Hold",0,0,0,0,[],0,0,0,"recursive-implementation-of-atoi"],
+[3028,"Sort a stack using recursion","","M","Recursion \u2014 Get a Strong Hold",0,0,0,0,[],0,0,0,"sort-a-stack-using-recursion"],
+[3029,"Reverse a Stack","","M","Recursion \u2014 Get a Strong Hold",0,0,0,0,[],0,0,0,"reverse-a-stack"],
+[3030,"Generate Binary Strings Without Consecutive 1s","","M","Recursion \u2014 Subsequences Pattern",0,0,0,0,[],0,0,0,"generate-binary-strings-without-consecutive-1s"],
+[3031,"Learn All Patterns of Subsequences (Theory)","","E","Recursion \u2014 Subsequences Pattern",0,0,0,0,[],0,0,0,"learn-all-patterns-of-subsequences"],
+[3032,"Count all subsequences with sum K","","E","Recursion \u2014 Subsequences Pattern",0,0,0,0,[],0,0,0,"count-all-subsequences-with-sum-k"],
+[3033,"Check if there exists a subsequence with sum K","","E","Recursion \u2014 Subsequences Pattern",0,0,0,0,[],0,0,0,"check-if-there-exists-a-subsequence-with-sum-k"],
+[3036,"Rat in a Maze","","H","Recursion \u2014 Trying out all Combos / Hard",0,0,0,0,[],0,0,0,"rat-in-a-maze"],
+[3037,"M Coloring Problem","","H","Recursion \u2014 Trying out all Combos / Hard",0,0,0,0,[],0,0,0,"m-coloring-problem"],
+[3038,"Introduction to Bits and Tricks","","E","Bit Manipulation \u2014 Learn Bit Manipulation",0,0,0,0,[],0,0,0,"introduction-to-bits-and-tricks"],
+[3039,"Check if the i-th bit is Set or Not","","E","Bit Manipulation \u2014 Learn Bit Manipulation",0,0,0,0,[],0,0,0,"check-if-the-i-th-bit-is-set-or-not"],
+[3040,"Check if a Number is Odd or Not","","E","Bit Manipulation \u2014 Learn Bit Manipulation",0,0,0,0,[],0,0,0,"check-if-a-number-is-odd-or-not"],
+[3041,"Check if a Number is Power of 2 or Not","","E","Bit Manipulation \u2014 Learn Bit Manipulation",0,0,0,0,[],0,0,0,"check-if-a-number-is-power-of-2-or-not"],
+[3042,"Count the Number of Set Bits","","E","Bit Manipulation \u2014 Learn Bit Manipulation",0,0,0,0,[],0,0,0,"count-the-number-of-set-bits"],
+[3043,"Set/Unset the rightmost unset bit","","E","Bit Manipulation \u2014 Learn Bit Manipulation",0,0,0,0,[],0,0,0,"set-unset-the-rightmost-unset-bit"],
+[3044,"Swap Two Numbers","","E","Bit Manipulation \u2014 Learn Bit Manipulation",0,0,0,0,[],0,0,0,"swap-two-numbers"],
+[3045,"Single Number - I","","M","Bit Manipulation \u2014 Interview Problems",0,0,0,0,[],0,0,0,"single-number-i"],
+[3046,"Power Set Bit Manipulation","","M","Bit Manipulation \u2014 Interview Problems",0,0,0,0,[],0,0,0,"power-set-bit-manipulation"],
+[3047,"Print Prime Factors of a Number","","H","Bit Manipulation \u2014 Advanced Maths",0,0,0,0,[],0,0,0,"print-prime-factors-of-a-number"],
+[3048,"Divisors of a Number","","E","Bit Manipulation \u2014 Advanced Maths",0,0,0,0,[],0,0,0,"divisors-of-a-number"],
+[3049,"Count primes in range L to R","","H","Bit Manipulation \u2014 Advanced Maths",0,0,0,0,[],0,0,0,"count-primes-in-range-l-to-r"],
+[3050,"Prime factorisation of a Number","","H","Bit Manipulation \u2014 Advanced Maths",0,0,0,0,[],0,0,0,"prime-factorisation-of-a-number"],
+[3051,"Implement Stack using Arrays","","E","Stack and Queues \u2014 Learning",0,0,0,0,[],0,0,0,"implement-stack-using-arrays"],
+[3052,"Implement Queue using Arrays","","E","Stack and Queues \u2014 Learning",0,0,0,0,[],0,0,0,"implement-queue-using-arrays"],
+[3053,"Implement stack using Linkedlist","","E","Stack and Queues \u2014 Learning",0,0,0,0,[],0,0,0,"implement-stack-using-linkedlist"],
+[3054,"Implement queue using Linkedlist","","E","Stack and Queues \u2014 Learning",0,0,0,0,[],0,0,0,"implement-queue-using-linkedlist"],
+[3055,"Balanced Paranthesis","","E","Stack and Queues \u2014 Learning",0,0,0,0,[],0,0,0,"balanced-paranthesis"],
+[3056,"Infix to Postfix Conversion","","M","Stack and Queues \u2014 Prefix, Infix, PostFix Conversion Problems",0,0,0,0,[],0,0,0,"infix-to-postfix-conversion"],
+[3057,"Prefix to Infix Conversion","","M","Stack and Queues \u2014 Prefix, Infix, PostFix Conversion Problems",0,0,0,0,[],0,0,0,"prefix-to-infix-conversion"],
+[3058,"Prefix to Postfix Conversion","","M","Stack and Queues \u2014 Prefix, Infix, PostFix Conversion Problems",0,0,0,0,[],0,0,0,"prefix-to-postfix-conversion"],
+[3059,"Postfix to Prefix Conversion","","M","Stack and Queues \u2014 Prefix, Infix, PostFix Conversion Problems",0,0,0,0,[],0,0,0,"postfix-to-prefix-conversion"],
+[3060,"Postfix to Infix Conversion","","E","Stack and Queues \u2014 Prefix, Infix, PostFix Conversion Problems",0,0,0,0,[],0,0,0,"postfix-to-infix-conversion"],
+[3061,"Infix to Prefix Conversion","","M","Stack and Queues \u2014 Prefix, Infix, PostFix Conversion Problems",0,0,0,0,[],0,0,0,"infix-to-prefix-conversion"],
+[3062,"Next Greater Element","","M","Stack and Queues \u2014 Monotonic Stack/Queue Problems [VVV. Imp]",0,0,0,0,[],0,0,0,"next-greater-element"],
+[3063,"Next Smaller Element","","M","Stack and Queues \u2014 Monotonic Stack/Queue Problems [VVV. Imp]",0,0,0,0,[],0,0,0,"next-smaller-element"],
+[3064,"Number of Greater Elements to the Right","","E","Stack and Queues \u2014 Monotonic Stack/Queue Problems [VVV. Imp]",0,0,0,0,[],0,0,0,"number-of-greater-elements-to-the-right"],
+[3065,"Maximum Rectangles","","H","Stack and Queues \u2014 Monotonic Stack/Queue Problems [VVV. Imp]",0,0,0,0,[],0,0,0,"maximum-rectangles"],
+[3066,"Stock span problem","","H","Stack and Queues \u2014 Implementation Problems",0,0,0,0,[],0,0,0,"stock-span-problem"],
+[3067,"Celebrity Problem","","H","Stack and Queues \u2014 Implementation Problems",0,0,0,0,[],0,0,0,"celebrity-problem"],
+[3069,"Heaps (Theory Video)","","E","Heaps \u2014 Learning",0,0,0,0,[],0,0,0,"heaps"],
+[3070,"Implement Min Heap","","M","Heaps \u2014 Learning",0,0,0,0,[],0,0,0,"implement-min-heap"],
+[3071,"Check if an array represents a min heap","","M","Heaps \u2014 Learning",0,0,0,0,[],0,0,0,"check-if-an-array-represents-a-min-heap"],
+[3072,"Convert Min Heap to Max Heap","","M","Heaps \u2014 Learning",0,0,0,0,[],0,0,0,"convert-min-heap-to-max-heap"],
+[3073,"Kth smallest element in an array [use priority queue]","","M","Heaps \u2014 Medium Problems",0,0,0,0,[],0,0,0,"kth-smallest-element-in-an-array-use-priority-queue"],
+[3074,"Sort K sorted array","","E","Heaps \u2014 Medium Problems",0,0,0,0,[],0,0,0,"sort-k-sorted-array"],
+[3075,"Replace Elements by Their Rank","","E","Heaps \u2014 Medium Problems",0,0,0,0,[],0,0,0,"replace-elements-by-their-rank"],
+[3076,"Maximum Sum Combination","","H","Heaps \u2014 Hard Problems",0,0,0,0,[],0,0,0,"maximum-sum-combination"],
+[3077,"Fractional Knapsack","","M","Greedy Algorithms \u2014 Easy Problems",0,0,0,0,[],0,0,0,"fractional-knapsack"],
+[3078,"Valid Paranthesis Checker","","H","Greedy Algorithms \u2014 Easy Problems",0,0,0,0,[],0,0,0,"valid-paranthesis-checker"],
+[3079,"N meetings in one room","","M","Greedy Algorithms \u2014 Medium/Hard",0,0,0,0,[],0,0,0,"n-meetings-in-one-room"],
+[3081,"Minimum number of platforms required for a railway","","M","Greedy Algorithms \u2014 Medium/Hard",0,0,0,0,[],0,0,0,"minimum-number-of-platforms-required-for-a-railway"],
+[3082,"Job sequencing Problem","","M","Greedy Algorithms \u2014 Medium/Hard",0,0,0,0,[],0,0,0,"job-sequencing-problem"],
+[3083,"Shortest Job First","","M","Greedy Algorithms \u2014 Medium/Hard",0,0,0,0,[],0,0,0,"shortest-job-first"],
+[3084,"Program for Least Recently Used (LRU) Page Replacement Algorithm","","M","Greedy Algorithms \u2014 Medium/Hard",0,0,0,0,[],0,0,0,"program-for-least-recently-used-page-replacement-algorithm"],
+[3085,"Introduction to Trees","","E","Binary Trees \u2014 Traversals",0,0,0,0,[],0,0,0,"introduction-to-trees"],
+[3086,"Binary Tree Representation in Java","","E","Binary Trees \u2014 Traversals",0,0,0,0,[],0,0,0,"binary-tree-representation-in-java"],
+[3087,"Pre, Post, Inorder in one traversal","","E","Binary Trees \u2014 Traversals",0,0,0,0,[],0,0,0,"pre-post-inorder-in-one-traversal"],
+[3088,"Preorder Traversal","","E","Binary Trees \u2014 Traversals",0,0,0,0,[],0,0,0,"preorder-traversal"],
+[3089,"Inorder Traversal of Binary Tree","","E","Binary Trees \u2014 Traversals",0,0,0,0,[],0,0,0,"inorder-traversal-of-binary-tree"],
+[3090,"Postorder Traversal","","E","Binary Trees \u2014 Traversals",0,0,0,0,[],0,0,0,"postorder-traversal"],
+[3091,"Level Order Traversal","","E","Binary Trees \u2014 Traversals",0,0,0,0,[],0,0,0,"level-order-traversal"],
+[3092,"Iterative Preorder Traversal of Binary Tree","","E","Binary Trees \u2014 Traversals",0,0,0,0,[],0,0,0,"iterative-preorder-traversal-of-binary-tree"],
+[3093,"Iterative Inorder Traversal of Binary Tree","","E","Binary Trees \u2014 Traversals",0,0,0,0,[],0,0,0,"iterative-inorder-traversal-of-binary-tree"],
+[3094,"Post-order Traversal of Binary Tree using 2 stack","","E","Binary Trees \u2014 Traversals",0,0,0,0,[],0,0,0,"post-order-traversal-of-binary-tree-using-2-stack"],
+[3095,"Post-order Traversal of Binary Tree using 1 stack","","E","Binary Trees \u2014 Traversals",0,0,0,0,[],0,0,0,"post-order-traversal-of-binary-tree-using-1-stack"],
+[3096,"Preorder, Inorder, and Postorder Traversal in one Traversal","","E","Binary Trees \u2014 Traversals",0,0,0,0,[],0,0,0,"preorder-inorder-and-postorder-traversal-in-one-traversal"],
+[3097,"Maximum Depth in BT","","M","Binary Trees \u2014 Medium Problems",0,0,0,0,[],0,0,0,"maximum-depth-in-bt"],
+[3098,"Check for balanced binary tree","","M","Binary Trees \u2014 Medium Problems",0,0,0,0,[],0,0,0,"check-for-balanced-binary-tree"],
+[3099,"Maximum path sum","","M","Binary Trees \u2014 Medium Problems",0,0,0,0,[],0,0,0,"maximum-path-sum"],
+[3100,"Check if two trees are identical or not","","M","Binary Trees \u2014 Medium Problems",0,0,0,0,[],0,0,0,"check-if-two-trees-are-identical-or-not"],
+[3101,"Zig Zag or Spiral Traversal","","M","Binary Trees \u2014 Medium Problems",0,0,0,0,[],0,0,0,"zig-zag-or-spiral-traversal"],
+[3102,"Boundary Traversal","","M","Binary Trees \u2014 Medium Problems",0,0,0,0,[],0,0,0,"boundary-traversal"],
+[3103,"Vertical Order Traversal","","M","Binary Trees \u2014 Medium Problems",0,0,0,0,[],0,0,0,"vertical-order-traversal"],
+[3104,"Top View of BT","","M","Binary Trees \u2014 Medium Problems",0,0,0,0,[],0,0,0,"top-view-of-bt"],
+[3105,"Bottom view of BT","","M","Binary Trees \u2014 Medium Problems",0,0,0,0,[],0,0,0,"bottom-view-of-bt"],
+[3106,"Right/Left View of Binary Tree","","M","Binary Trees \u2014 Medium Problems",0,0,0,0,[],0,0,0,"right-left-view-of-binary-tree"],
+[3107,"Symmetric Binary Tree","","M","Binary Trees \u2014 Medium Problems",0,0,0,0,[],0,0,0,"symmetric-binary-tree"],
+[3108,"Children Sum Property in Binary Tree","","M","Binary Trees \u2014 Hard Problems",0,0,0,0,[],0,0,0,"children-sum-property-in-binary-tree"],
+[3109,"Minimum time taken to burn the BT from a given Node","","H","Binary Trees \u2014 Hard Problems",0,0,0,0,[],0,0,0,"minimum-time-taken-to-burn-the-bt-from-a-given-node"],
+[3110,"Morris Preorder Traversal of a Binary Tree","","H","Binary Trees \u2014 Hard Problems",0,0,0,0,[],0,0,0,"morris-preorder-traversal-of-a-binary-tree"],
+[3111,"Morris Inorder Traversal of a Binary Tree","","H","Binary Trees \u2014 Hard Problems",0,0,0,0,[],0,0,0,"morris-inorder-traversal-of-a-binary-tree"],
+[3112,"Introduction to BST","","E","Binary Search Trees \u2014 Concepts",0,0,0,0,[],0,0,0,"introduction-to-bst"],
+[3113,"Find Min/Max in BST","","E","Binary Search Trees \u2014 Concepts",0,0,0,0,[],0,0,0,"find-min-max-in-bst"],
+[3114,"Floor and Ceil in a BST","","E","Binary Search Trees \u2014 Practice Problems",0,0,0,0,[],0,0,0,"floor-and-ceil-in-a-bst"],
+[3115,"Floor in a Binary Search Tree","","E","Binary Search Trees \u2014 Practice Problems",0,0,0,0,[],0,0,0,"floor-in-a-binary-search-tree"],
+[3116,"Merge 2 BST's","","H","Binary Search Trees \u2014 Practice Problems",0,0,0,0,[],0,0,0,"merge-2-bst's"],
+[3117,"Two Sum In BST | Check if there exists a pair with Sum K","","H","Binary Search Trees \u2014 Practice Problems",0,0,0,0,[],0,0,0,"two-sum-in-bst"],
+[3118,"Correct BST with two nodes swapped","","H","Binary Search Trees \u2014 Practice Problems",0,0,0,0,[],0,0,0,"correct-bst-with-two-nodes-swapped"],
+[3119,"Largest BST in Binary Tree","","H","Binary Search Trees \u2014 Practice Problems",0,0,0,0,[],0,0,0,"largest-bst-in-binary-tree"],
+[3120,"Introduction to Graph","","E","Graphs \u2014 Learning",0,0,0,0,[],0,0,0,"introduction-to-graph"],
+[3121,"Graph Representation | C++","","E","Graphs \u2014 Learning",0,0,0,0,[],0,0,0,"graph-representation"],
+[3122,"Graph Representation | Java","","E","Graphs \u2014 Learning",0,0,0,0,[],0,0,0,"graph-representation"],
+[3123,"Connected Components","","M","Graphs \u2014 Learning",0,0,0,0,[],0,0,0,"connected-components"],
+[3124,"Traversal Techniques","","M","Graphs \u2014 Learning",0,0,0,0,[],0,0,0,"traversal-techniques"],
+[3125,"DFS","","M","Graphs \u2014 Learning",0,0,0,0,[],0,0,0,"dfs"],
+[3126,"Connected Components Problem in Matrix","","M","Graphs \u2014 Problems on BFS/DFS",0,0,0,0,[],0,0,0,"connected-components-problem-in-matrix"],
+[3127,"Flood fill algorithm","","M","Graphs \u2014 Problems on BFS/DFS",0,0,0,0,[],0,0,0,"flood-fill-algorithm"],
+[3128,"Cycle Detection in Undirected Graph (bfs)","","H","Graphs \u2014 Problems on BFS/DFS",0,0,0,0,[],0,0,0,"cycle-detection-in-undirected-graph"],
+[3129,"Distance of nearest cell having one","","M","Graphs \u2014 Problems on BFS/DFS",0,0,0,0,[],0,0,0,"distance-of-nearest-cell-having-one"],
+[3130,"Cycle Detection in Directed Graph (DFS)","","H","Graphs \u2014 Problems on BFS/DFS",0,0,0,0,[],0,0,0,"cycle-detection-in-directed-graph"],
+[3131,"Topo Sort","","H","Graphs \u2014 Topo Sort and Problems",0,0,0,0,[],0,0,0,"topo-sort"],
+[3132,"Topological sort or Kahn's algorithm","","H","Graphs \u2014 Topo Sort and Problems",0,0,0,0,[],0,0,0,"topological-sort-or-kahn's-algorithm"],
+[3134,"Shortest path in undirected graph with unit weights","","H","Graphs \u2014 Shortest Path Algorithms and Problems",0,0,0,0,[],0,0,0,"shortest-path-in-undirected-graph-with-unit-weights"],
+[3135,"Shortest path in DAG","","H","Graphs \u2014 Shortest Path Algorithms and Problems",0,0,0,0,[],0,0,0,"shortest-path-in-dag"],
+[3136,"Djisktra's Algorithm","","H","Graphs \u2014 Shortest Path Algorithms and Problems",0,0,0,0,[],0,0,0,"djisktra's-algorithm"],
+[3137,"Why priority Queue is used in Djisktra's Algorithm","","H","Graphs \u2014 Shortest Path Algorithms and Problems",0,0,0,0,[],0,0,0,"why-priority-queue-is-used-in-djisktra's-algorithm"],
+[3138,"Shortest Distance in a Binary Maze","","H","Graphs \u2014 Shortest Path Algorithms and Problems",0,0,0,0,[],0,0,0,"shortest-distance-in-a-binary-maze"],
+[3139,"Cheapest flight within K stops","","H","Graphs \u2014 Shortest Path Algorithms and Problems",0,0,0,0,[],0,0,0,"cheapest-flight-within-k-stops"],
+[3140,"Minimum multiplications to reach end","","H","Graphs \u2014 Shortest Path Algorithms and Problems",0,0,0,0,[],0,0,0,"minimum-multiplications-to-reach-end"],
+[3141,"Bellman Ford Algorithm","","H","Graphs \u2014 Shortest Path Algorithms and Problems",0,0,0,0,[],0,0,0,"bellman-ford-algorithm"],
+[3142,"Floyd warshall algorithm","","H","Graphs \u2014 Shortest Path Algorithms and Problems",0,0,0,0,[],0,0,0,"floyd-warshall-algorithm"],
+[3143,"MST theory","","E","Graphs \u2014 MinimumSpanningTree/Disjoint Set and Problems",0,0,0,0,[],0,0,0,"mst-theory"],
+[3144,"Prim's Algorithm","","H","Graphs \u2014 MinimumSpanningTree/Disjoint Set and Problems",0,0,0,0,[],0,0,0,"prim's-algorithm"],
+[3145,"Disjoint Set","","H","Graphs \u2014 MinimumSpanningTree/Disjoint Set and Problems",0,0,0,0,[],0,0,0,"disjoint-set"],
+[3146,"Find the MST weight","","H","Graphs \u2014 MinimumSpanningTree/Disjoint Set and Problems",0,0,0,0,[],0,0,0,"find-the-mst-weight"],
+[3148,"Articulation point in graph","","H","Graphs \u2014 Other Algorithms",0,0,0,0,[],0,0,0,"articulation-point-in-graph"],
+[3149,"Kosaraju's algorithm","","H","Graphs \u2014 Other Algorithms",0,0,0,0,[],0,0,0,"kosaraju's-algorithm"],
+[3150,"Introduction to DP","","E","Dynamic Programming \u2014 Introduction to DP",0,0,0,0,[],0,0,0,"introduction-to-dp"],
+[3151,"Frog jump with K distances","","M","Dynamic Programming \u2014 1D DP",0,0,0,0,[],0,0,0,"frog-jump-with-k-distances"],
+[3152,"Maximum sum of non adjacent elements","","M","Dynamic Programming \u2014 1D DP",0,0,0,0,[],0,0,0,"maximum-sum-of-non-adjacent-elements"],
+[3153,"Ninja's training","","M","Dynamic Programming \u2014 2D/3D DP and DP on Grids",0,0,0,0,[],0,0,0,"ninja's-training"],
+[3154,"Grid Unique Paths : DP on Grids (DP8)","","M","Dynamic Programming \u2014 2D/3D DP and DP on Grids",0,0,0,0,[],0,0,0,"grid-unique-paths-dp-on-grids"],
+[3156,"Ninja and his Friends","","M","Dynamic Programming \u2014 2D/3D DP and DP on Grids",0,0,0,0,[],0,0,0,"ninja-and-his-friends"],
+[3157,"Subset sum equal to target (DP- 14)","","H","Dynamic Programming \u2014 DP on Subsequences",0,0,0,0,[],0,0,0,"subset-sum-equal-to-target"],
+[3158,"Partition a set into two subsets with minimum absolute sum difference","","H","Dynamic Programming \u2014 DP on Subsequences",0,0,0,0,[],0,0,0,"partition-a-set-into-two-subsets-with-minimum-absolute-sum-difference"],
+[3159,"Count subsets with sum K","","H","Dynamic Programming \u2014 DP on Subsequences",0,0,0,0,[],0,0,0,"count-subsets-with-sum-k"],
+[3160,"Count partitions with given difference","","H","Dynamic Programming \u2014 DP on Subsequences",0,0,0,0,[],0,0,0,"count-partitions-with-given-difference"],
+[3161,"Minimum Coins (DP - 20)","","H","Dynamic Programming \u2014 DP on Subsequences",0,0,0,0,[],0,0,0,"minimum-coins"],
+[3162,"Coin Change 2 (DP - 22)","","H","Dynamic Programming \u2014 DP on Subsequences",0,0,0,0,[],0,0,0,"coin-change-2"],
+[3163,"Rod Cutting Problem | (DP - 24)","","H","Dynamic Programming \u2014 DP on Subsequences",0,0,0,0,[],0,0,0,"rod-cutting-problem"],
+[3164,"Print Longest Common Subsequence | (DP - 26)","","H","Dynamic Programming \u2014 DP on Strings",0,0,0,0,[],0,0,0,"print-longest-common-subsequence"],
+[3165,"Longest common substring","","H","Dynamic Programming \u2014 DP on Strings",0,0,0,0,[],0,0,0,"longest-common-substring"],
+[3166,"Minimum insertions to make string palindrome | DP-29","","H","Dynamic Programming \u2014 DP on Strings",0,0,0,0,[],0,0,0,"minimum-insertions-to-make-string-palindrome"],
+[3167,"Minimum insertions or deletions to convert string A to B","","H","Dynamic Programming \u2014 DP on Strings",0,0,0,0,[],0,0,0,"minimum-insertions-or-deletions-to-convert-string-a-to-b"],
+[3170,"Print Longest Increasing Subsequence","","M","Dynamic Programming \u2014 DP on LIS",0,0,0,0,[],0,0,0,"print-longest-increasing-subsequence"],
+[3171,"Longest Bitonic Subsequence","","M","Dynamic Programming \u2014 DP on LIS",0,0,0,0,[],0,0,0,"longest-bitonic-subsequence"],
+[3172,"Matrix chain multiplication","","H","Dynamic Programming \u2014 MCM DP | Partition DP",0,0,0,0,[],0,0,0,"matrix-chain-multiplication"],
+[3173,"Matrix Chain Multiplication | Bottom-Up|(DP-49)","","H","Dynamic Programming \u2014 MCM DP | Partition DP",0,0,0,0,[],0,0,0,"matrix-chain-multiplication"],
+[3174,"Minimum cost to cut the stick","","H","Dynamic Programming \u2014 MCM DP | Partition DP",0,0,0,0,[],0,0,0,"minimum-cost-to-cut-the-stick"],
+[3176,"Trie Implementation and Operations","","H","Tries \u2014 Theory",0,0,0,0,[],0,0,0,"trie-implementation-and-operations"],
+[3177,"Trie Implementation and Advanced Operations","","H","Tries \u2014 Problems",0,0,0,0,[],0,0,0,"trie-implementation-and-advanced-operations"],
+[3179,"Bit PreRequisites for TRIE Problems","","E","Tries \u2014 Problems",0,0,0,0,[],0,0,0,"bit-prerequisites-for-trie-problems"],
+[3180,"Minimum number of bracket reversals to make an expression balanced","","H","Strings \u2014 Hard Problems",0,0,0,0,[],0,0,0,"minimum-number-of-bracket-reversals-to-make-an-expression-balanced"],
+[3181,"Hashing In Strings | Theory","","E","Strings \u2014 Hard Problems",0,0,0,0,[],0,0,0,"hashing-in-strings"],
+[3182,"Z function","","H","Strings \u2014 Hard Problems",0,0,0,0,[],0,0,0,"z-function"],
+[3183,"KMP Algorithm or LPS array","","H","Strings \u2014 Hard Problems",0,0,0,0,[],0,0,0,"kmp-algorithm-or-lps-array"],
+[3184,"Pattern 1","","E","Learn the Basics \u2014 Patterns",0,0,0,0,[],0,0,0,""],
+[3185,"Pattern 2","","E","Learn the Basics \u2014 Patterns",0,0,0,0,[],0,0,0,""],
+[3186,"Pattern 3","","E","Learn the Basics \u2014 Patterns",0,0,0,0,[],0,0,0,""],
+[3187,"Pattern 4","","E","Learn the Basics \u2014 Patterns",0,0,0,0,[],0,0,0,""],
+[3188,"Pattern 5","","E","Learn the Basics \u2014 Patterns",0,0,0,0,[],0,0,0,""],
+[3189,"Pattern 6","","E","Learn the Basics \u2014 Patterns",0,0,0,0,[],0,0,0,""],
+[3190,"Pattern 7","","E","Learn the Basics \u2014 Patterns",0,0,0,0,[],0,0,0,""],
+[3191,"Pattern 8","","E","Learn the Basics \u2014 Patterns",0,0,0,0,[],0,0,0,""],
+[3192,"Pattern 9","","E","Learn the Basics \u2014 Patterns",0,0,0,0,[],0,0,0,""],
+[3193,"Pattern 10","","E","Learn the Basics \u2014 Patterns",0,0,0,0,[],0,0,0,""],
+[3194,"Pattern 11","","E","Learn the Basics \u2014 Patterns",0,0,0,0,[],0,0,0,""],
+[3195,"Pattern 12","","E","Learn the Basics \u2014 Patterns",0,0,0,0,[],0,0,0,""],
+[3196,"Pattern 13","","E","Learn the Basics \u2014 Patterns",0,0,0,0,[],0,0,0,""],
+[3197,"Pattern 14","","E","Learn the Basics \u2014 Patterns",0,0,0,0,[],0,0,0,""],
+[3198,"Pattern 15","","E","Learn the Basics \u2014 Patterns",0,0,0,0,[],0,0,0,""],
+[3199,"Pattern 16","","E","Learn the Basics \u2014 Patterns",0,0,0,0,[],0,0,0,""],
+[3200,"Pattern 17","","E","Learn the Basics \u2014 Patterns",0,0,0,0,[],0,0,0,""],
+[3201,"Pattern 18","","E","Learn the Basics \u2014 Patterns",0,0,0,0,[],0,0,0,""],
+[3202,"Pattern 19","","E","Learn the Basics \u2014 Patterns",0,0,0,0,[],0,0,0,""],
+[3203,"Pattern 20","","E","Learn the Basics \u2014 Patterns",0,0,0,0,[],0,0,0,""],
+[3204,"Pattern 21","","E","Learn the Basics \u2014 Patterns",0,0,0,0,[],0,0,0,""],
+[3205,"Pattern 22","","E","Learn the Basics \u2014 Patterns",0,0,0,0,[],0,0,0,""]
 ];
+
+// Every problem id confirmed (by title, against a fresh copy of Striver's
+// live A2Z sheet) to actually be one of the sheet's problems — this is now
+// the full sheet, not just the original curated subset, and includes ids
+// outside the old 1-279/onlyCompany-below-280 heuristic entirely.
+const FORCE_A2Z_IDS = new Set([2,3,4,6,7,8,9,10,11,13,14,15,16,17,18,19,20,21,22,23,25,26,27,28,29,31,32,34,35,36,37,38,39,41,42,43,44,45,48,49,50,51,53,54,55,56,57,58,59,60,61,62,66,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,89,91,92,93,94,95,96,97,98,99,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,131,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,155,156,157,158,159,160,161,162,163,164,165,167,168,169,170,171,172,173,174,175,177,178,179,180,181,183,184,186,187,188,189,190,191,192,193,194,195,196,197,198,200,201,202,203,204,206,207,208,209,272,276,358,442,516,653,701,797,1110,1265,1302,1305,1361,1486,1495,1797,1814,1824,2166,2310,2410,2455,2467,2915,2924,2925,2926,2927,2928,2929,2930,2931,2932,2933,2934,2935,2936,2937,2938,2939,2940,2941,2942,2943,2944,2945,2946,2947,2948,2949,2950,2951,2952,2953,2954,2955,2956,2957,2958,2959,2960,2961,2962,2963,2964,2965,2966,2967,2968,2969,2970,2973,2974,2975,2976,2977,2978,2979,2980,2981,2982,2983,2984,2986,2987,2988,2989,2990,2991,2992,2993,2994,2995,2996,2997,2998,2999,3000,3001,3002,3003,3004,3005,3006,3007,3008,3009,3010,3011,3012,3013,3014,3015,3016,3017,3018,3019,3020,3021,3022,3023,3024,3025,3026,3027,3028,3029,3030,3031,3032,3033,3036,3037,3038,3039,3040,3041,3042,3043,3044,3045,3046,3047,3048,3049,3050,3051,3052,3053,3054,3055,3056,3057,3058,3059,3060,3061,3062,3063,3064,3065,3066,3067,3069,3070,3071,3072,3073,3074,3075,3076,3077,3078,3079,3081,3082,3083,3084,3085,3086,3087,3088,3089,3090,3091,3092,3093,3094,3095,3096,3097,3098,3099,3100,3101,3102,3103,3104,3105,3106,3107,3108,3109,3110,3111,3112,3113,3114,3115,3116,3117,3118,3119,3120,3121,3122,3123,3124,3125,3126,3127,3128,3129,3130,3131,3132,3134,3135,3136,3137,3138,3139,3140,3141,3142,3143,3144,3145,3146,3148,3149,3150,3151,3152,3153,3154,3156,3157,3158,3159,3160,3161,3162,3163,3164,3165,3166,3167,3170,3171,3172,3173,3174,3176,3177,3179,3180,3181,3182,3183,3184,3185,3186,3187,3188,3189,3190,3191,3192,3193,3194,3195,3196,3197,3198,3199,3200,3201,3202,3203,3204,3205]);
 
 const PROBLEMS = DATA.map(r => {
   const onlyTop150 = !!r[7];
@@ -4356,7 +4633,25 @@ const PROBLEMS = DATA.map(r => {
   return {
     id:r[0], title:r[1], slug:r[2], diff:r[3], section:r[4], premium: !!r[5], top150: !!r[6], onlyTop150, lc:r[8], companies: r[9]||[],
     onlyCompany,
-    a2z: !onlyTop150 && !onlyCompany, 
+    // a2z membership now comes solely from the fresh title-match against the
+    // live sheet (FORCE_A2Z_IDS) — not the old id-range heuristic. That old
+    // heuristic was left OR'd in briefly and it dragged in ~36 problems that
+    // couldn't be independently re-confirmed against the sheet text, which
+    // inflated the total past the sheet's real ~466 unique problems (474
+    // sheet slots, several of which intentionally point at the same
+    // LeetCode problem twice, e.g. Pow(x,n) shows up in two chapters).
+    a2z: FORCE_A2Z_IDS.has(r[0]),
+    // No LeetCode slug = this A2Z problem isn't hosted on LeetCode at all
+    // (theory videos, pattern-printing drills, GfG-only implementations,
+    // etc). Treated like a premium problem: there's no OJ to sync from, so
+    // solving is verified by this tracker's own test cases instead.
+    noOJ: !r[2],
+    // Best-effort TakeUForward+ practice-page slug (same naming convention
+    // the site itself uses, apostrophes included) for the ~246 real A2Z
+    // problems that have no LeetCode page. Generic pattern-printing drills
+    // (r[13] empty) have no single discrete problem page, so no link.
+    tufSlug: r[13] || '',
+    practiceUrl: r[13] ? `https://takeuforward.org/plus/dsa/problems/${r[13]}?source=strivers-a2z-dsa-track` : null,
     neet150: !!r[10],   
     blind75: !!r[11],   
     babbar450: !!r[12]  
@@ -4427,8 +4722,16 @@ const _resourceLoadCache = {};
 
 const REVIEW_INTERVALS_DAYS = [3, 7, 14, 30, 90];
 
-const APP_VERSION = '1.6.0';
+const APP_VERSION = '1.7.0';
 const CHANGELOG = [
+  {
+    version: '1.7.0',
+    date: '2026-07-24',
+    items: [
+      '🅰️ Striver A2Z sheet expanded from the original 210-problem subset to the full, deduplicated 466-problem sheet (re-synced against the live sheet\'s current chapter list; 474 sheet slots collapse to 466 unique problems since a few, like Pow(x,n), are intentionally repeated across two chapters). New problems that aren\'t hosted on LeetCode — theory topics, pattern-printing drills, GfG-only implementations — are marked "🧩 No OJ" and can be marked solved by passing this tracker\'s own test cases, the same carve-out premium LeetCode problems already use.',
+      'Certificates, filters, the ledger, and the study-plan/export tools were all updated to reflect the new 466 total.'
+    ]
+  },
   {
     version: '1.6.0',
     date: '2026-07-11',
@@ -7129,7 +7432,7 @@ async function sha256Hex(str){
 }
 
 function certTrackLabel(spec){
-  if(spec.kind === 'a2z') return 'A2Z-210';
+  if(spec.kind === 'a2z') return 'A2Z-466';
   if(spec.kind === 'top150') return 'TOP150';
   if(spec.kind === 'neet150') return 'NEET150';
   if(spec.kind === 'blind75') return 'BLIND75';
@@ -7165,7 +7468,7 @@ function certCopy(spec, stats){
       eyebrow: 'VERIFIED PRACTICE RECORD',
       title: 'Certificate of Completion',
       preamble: 'in recognition of completing every problem in',
-      strap: "STRIVER'S A2Z DSA SHEET · 210 PROBLEMS",
+      strap: "STRIVER'S A2Z DSA SHEET · 466 PROBLEMS",
       body1: `has solved all ${totalSolved} of ${total} problems on Striver's A2Z DSA sheet — ${bydiff.E.s} Easy, ${bydiff.M.s} Medium, ${bydiff.H.s} Hard —`,
       body2: 'demonstrating complete, structured coverage of the beginner-to-advanced DSA curriculum.',
       ringLabel: 'A2Z COMPLETION'
@@ -7238,7 +7541,7 @@ function certCopy(spec, stats){
 }
 
 function certFilename(spec){
-  if(spec.kind === 'a2z') return 'dsa-a2z-210-certificate.png';
+  if(spec.kind === 'a2z') return 'dsa-a2z-466-certificate.png';
   if(spec.kind === 'top150') return 'dsa-top150-certificate.png';
   if(spec.kind === 'neet150') return 'dsa-neetcode150-certificate.png';
   if(spec.kind === 'blind75') return 'dsa-blind75-certificate.png';
@@ -7422,7 +7725,7 @@ function renderCertHub(){
 
   const specs = [
     {kind:'overall', label:'Overall Progress', icon:'📜', note:'Always available — a live snapshot of your practice across all 2,923 problems.'},
-    {kind:'a2z', label:"Striver A2Z Sheet (210)", icon:'🅰️', note:'Unlocks once all 210 original A2Z sheet problems are solved.'},
+    {kind:'a2z', label:"Striver A2Z Sheet (466)", icon:'🅰️', note:'Unlocks once all 466 A2Z sheet problems are solved.'},
     {kind:'top150', label:'LeetCode Top 150', icon:'⭐', note:"Unlocks once every problem on LeetCode's official Top Interview 150 is solved."},
     {kind:'neet150', label:'NeetCode 150', icon:'🧊', note:'Unlocks once every problem on the NeetCode 150 list is solved.'},
     {kind:'blind75', label:'Blind 75', icon:'🎯', note:'Unlocks once every problem on the Blind 75 list is solved.'},
@@ -7522,7 +7825,7 @@ function renderCertVerifyBox(){
       const year = new Date(m.issuedAt).getFullYear();
       const month = new Date(m.issuedAt).getMonth()+1;
       const certName = m.trackLabel === 'OVERALL' ? 'DSA Practice Certificate — Overall Progress'
-        : m.trackLabel === 'A2Z-210' ? "DSA Certificate — Striver's A2Z (210/210)"
+        : m.trackLabel === 'A2Z-466' ? "DSA Certificate — Striver's A2Z (466/466)"
         : m.trackLabel === 'TOP150' ? 'DSA Certificate — LeetCode Top Interview 150'
         : `DSA Certificate — ${currentCertSpec.company || m.trackLabel} Company Track`;
       const params = new URLSearchParams({
@@ -7857,7 +8160,7 @@ function renderSummary(){
     const shown = names.length <= 2 ? names.join(', ') : `${names.length} selected`;
     const filterParts = [
       showTop150Only ? 'Top 150 only' : '',
-      showA2ZOnly ? 'A2Z 210 only' : '',
+      showA2ZOnly ? 'A2Z 466 only' : '',
       showNeetOnly ? 'NeetCode 150 only' : '',
       showBlindOnly ? 'Blind 75 only' : '',
       showBabbarOnly ? 'Babbar 105 only' : '',
@@ -7873,7 +8176,7 @@ function renderSummary(){
     const scopeParts = [
       company, section, diff ? DIFF_LABEL[diff] : '',
       showTop150Only ? 'Top 150 only' : '',
-      showA2ZOnly ? 'A2Z 210 only' : '',
+      showA2ZOnly ? 'A2Z 466 only' : '',
       showNeetOnly ? 'NeetCode 150 only' : '',
       showBlindOnly ? 'Blind 75 only' : '',
       showBabbarOnly ? 'Babbar 105 only' : '',
@@ -7888,7 +8191,7 @@ function renderSummary(){
     <div class="ledger-cell easy"><div class="num">${bydiff.E.s}/${bydiff.E.t}</div><div class="lbl">Easy</div></div>
     <div class="ledger-cell medium"><div class="num">${bydiff.M.s}/${bydiff.M.t}</div><div class="lbl">Medium</div></div>
     <div class="ledger-cell hard"><div class="num">${bydiff.H.s}/${bydiff.H.t}</div><div class="lbl">Hard</div></div>
-    <div class="ledger-cell"><div class="num">${a2zSolved}<span style="font-size:14px;color:var(--ink-faint)">/${a2zTotal}</span></div><div class="lbl">🅰️ Striver A2Z 210</div></div>
+    <div class="ledger-cell"><div class="num">${a2zSolved}<span style="font-size:14px;color:var(--ink-faint)">/${a2zTotal}</span></div><div class="lbl">🅰️ Striver A2Z 466</div></div>
     <div class="ledger-cell"><div class="num">${top150Solved}<span style="font-size:14px;color:var(--ink-faint)">/${top150Total}</span></div><div class="lbl">⭐ Top 150</div></div>
     <div class="ledger-cell"><div class="num">${neetSolved}<span style="font-size:14px;color:var(--ink-faint)">/${neetTotal}</span></div><div class="lbl">🧊 NeetCode 150</div></div>
     <div class="ledger-cell"><div class="num">${blindSolved}<span style="font-size:14px;color:var(--ink-faint)">/${blindTotal}</span></div><div class="lbl">🎯 Blind 75</div></div>
@@ -7989,20 +8292,26 @@ function buildRowEl(p){
   const companyPills = comps.length ? `<div class="row-companypills">${shownComps.map(c=>`<span class="row-companypill">${companyLogo(c)} ${escapeHtml(c)}</span>`).join('')}${extraCompCount>0 ? `<button type="button" class="row-companypill more" data-more-companies="${escapeHtml(extraComps.join('|'))}">+${extraCompCount}</button>` : ''}</div>` : '';
   const badgeParts = [
     tagPills,
-    p.a2z ? '<span class="top150-tag a2z-tag" title="Part of the original Striver A2Z 210 sheet">🅰️ A2Z</span>' : '',
+    p.a2z ? '<span class="top150-tag a2z-tag" title="Part of the full, deduplicated Striver A2Z 466 sheet">🅰️ A2Z</span>' : '',
     (p.top150 || p.onlyTop150) ? '<span class="top150-tag" title="Part of LeetCode\'s official Top Interview 150">⭐ Top 150</span>' : '',
     p.onlyCompany ? '<span class="top150-tag company-new" title="Not part of the original Striver A2Z sheet — added because it\'s frequently asked by companies hiring in India">🏢 Company</span>' : '',
     p.neet150 ? '<span class="top150-tag neet-tag" title="On NeetCode\'s 150 list">🧊 NeetCode 150</span>' : '',
     p.blind75 ? '<span class="top150-tag blind-tag" title="On the Blind 75 list">🎯 Blind 75</span>' : '',
     p.babbar450 ? '<span class="top150-tag babbar-tag" title="Matched to a problem on Love Babbar\'s 450 DSA sheet">📗 Babbar 105</span>' : '',
-    p.premium ? '<span class="premium-tag">🔒 Premium</span>' : ''
+    p.premium ? '<span class="premium-tag">🔒 Premium</span>' : '',
+    p.noOJ ? '<span class="premium-tag no-oj-tag" title="Not hosted on LeetCode — part of the A2Z sheet as a theory topic, pattern drill, or GfG-only implementation. Solved by passing this tracker\'s own test cases (or marking done for non-coding topics), same as a premium problem.">🧩 No OJ</span>' : ''
   ].filter(Boolean).join('');
   const badges = badgeParts ? `<div class="row-badges">${badgeParts}</div>` : '';
   const row = document.createElement('div');
   row.className = 'row' + (isSolved ? ' solved' : '') + (p.onlyTop150 ? ' only-top150' : '') + (p.onlyCompany ? ' only-company' : '');
+  const titleHtml = p.noOJ
+    ? (p.practiceUrl
+        ? `<a class="rtitle no-oj" href="${p.practiceUrl}" target="_blank" rel="noopener">${p.title}</a>`
+        : `<span class="rtitle no-oj">${p.title}</span>`)
+    : `<a class="rtitle" href="https://leetcode.com/problems/${p.slug}/" target="_blank" rel="noopener">${p.title}</a>`;
   row.innerHTML = `
-    <span class="rid">${p.lc ? "#"+p.lc : "🏢"}</span>
-    <a class="rtitle" href="https://leetcode.com/problems/${p.slug}/" target="_blank" rel="noopener">${p.title}</a>
+    <span class="rid">${p.lc ? "#"+p.lc : (p.noOJ ? "🧩" : "🏢")}</span>
+    ${titleHtml}
     ${companyPills}
     ${badges}
     <span class="diff-pill ${p.diff}">${p.diff}</span>
@@ -8016,6 +8325,10 @@ function buildRowEl(p){
   `;
   row.addEventListener('click', (e)=>{
     if(e.target.closest('a, button, .company-more-dropdown')) return;
+    if(p.noOJ){
+      if(p.practiceUrl) window.open(p.practiceUrl, '_blank', 'noopener');
+      return;
+    }
     window.open(`https://leetcode.com/problems/${p.slug}/`, '_blank', 'noopener');
   });
   return row;
@@ -8440,7 +8753,20 @@ function openCodeEditorModal(id){
   const p = PROBLEMS.find(x=>x.id===id);
   document.getElementById('codeEditorModalSub').textContent = p.title + ' — ' + p.section;
   renderApiKeyWidget('solveKeySection');
-  document.getElementById('solveOpenLeetcodeBtn').href = `https://leetcode.com/problems/${p.slug}/`;
+  const lcBtn = document.getElementById('solveOpenLeetcodeBtn');
+  if(p.noOJ){
+    if(p.practiceUrl){
+      lcBtn.style.display = 'inline-flex';
+      lcBtn.href = p.practiceUrl;
+      lcBtn.textContent = 'Open on TakeUForward ↗';
+    } else {
+      lcBtn.style.display = 'none';
+    }
+  } else {
+    lcBtn.textContent = 'Open on LeetCode ↗';
+    lcBtn.style.display = 'inline-flex';
+    lcBtn.href = `https://leetcode.com/problems/${p.slug}/`;
+  }
   const isSolved = solved.has(id);
   const badge = document.getElementById('solveSolvedBadge');
   badge.style.display = isSolved ? 'inline-block' : 'none';
@@ -8528,19 +8854,46 @@ document.getElementById('solveRunBtn').addEventListener('click', async ()=>{
   runBtn.disabled = true;
   runBtn.textContent = langVal === 'python' && !pyodideLoadPromise ? 'Loading Python runtime…' : (langVal === 'sql' && !sqlJsLoadPromise ? 'Loading SQL runtime…' : (langVal === 'java' && !cheerpjLoadPromise ? 'Loading Java runtime (can take a while first time)…' : 'Running…'));
   out.textContent = 'Running…';
-  const sampleInput = (solveHarness && solveTestCases.length) ? solveTestCases[0].input : null;
-  const { code, inputJson } = buildExecutionPayload(langVal, code_raw, sampleInput, solveHarness);
+  // Run always checks the visible sample cases (at least the first
+  // MIN_RUN_TEST_CASES, or every case there is if fewer exist) — Submit is
+  // the one that grades against the full ≥20-case set.
+  const sampleCases = solveTestCases.filter(tc=>tc.sample).slice(0, MIN_RUN_TEST_CASES);
+  const casesToRun = sampleCases.length ? sampleCases : solveTestCases.slice(0, MIN_RUN_TEST_CASES);
   try{
-    const result = langVal === 'javascript' ? await runJSInWorker(code, inputJson)
-      : langVal === 'sql' ? await runSQLCode(code, inputJson)
-      : langVal === 'java' ? await runJavaCode(code, inputJson)
-      : await runPythonCode(code, inputJson);
-    const lines = [];
-    if(solveHarness && sampleInput) lines.push(`Ran ${solveHarness.functionName}(...) against test case 1 — input: ${sampleInput}`, '');
-    if(result.logs && result.logs.length) lines.push(...result.logs);
-    if(result.error) lines.push('⚠ ' + result.error);
-    if(!lines.length) lines.push('(ran with no output — use print()/console.log to see values)');
-    out.textContent = lines.join('\n');
+    if(solveHarness && casesToRun.length){
+      const lines = [];
+      let passCount = 0;
+      for(let i=0;i<casesToRun.length;i++){
+        const tc = casesToRun[i];
+        const { code, inputJson } = buildExecutionPayload(langVal, code_raw, tc.input, solveHarness);
+        const result = langVal === 'javascript' ? await runJSInWorker(code, inputJson)
+          : langVal === 'sql' ? await runSQLCode(code, inputJson)
+          : langVal === 'java' ? await runJavaCode(code, inputJson)
+          : await runPythonCode(code, inputJson);
+        if(!result.ok){
+          lines.push(`Case ${i+1} — input: ${tc.input}`, `  ⚠ Error — ${result.error || 'unknown error'}`, '');
+        } else {
+          const lastLine = (result.logs || []).filter(l=>l.trim()).pop() || '';
+          const ok = normalizeForCompare(lastLine) === normalizeForCompare(tc.expected);
+          if(ok) passCount++;
+          lines.push(`Case ${i+1} — input: ${tc.input}`, `  Expected: ${tc.expected}`, `  Got: ${lastLine || '(no output)'}${ok ? '  ✓ Pass' : '  ✕ Fail'}`, '');
+        }
+      }
+      lines.push(`${passCount}/${casesToRun.length} sample case${casesToRun.length===1?'':'s'} passed — Submit checks the full ${solveTestCases.length || MIN_SUBMIT_TEST_CASES}-case set before this counts as solved.`);
+      out.textContent = lines.join('\n');
+    } else {
+      const sampleInput = (solveHarness && solveTestCases.length) ? solveTestCases[0].input : null;
+      const { code, inputJson } = buildExecutionPayload(langVal, code_raw, sampleInput, solveHarness);
+      const result = langVal === 'javascript' ? await runJSInWorker(code, inputJson)
+        : langVal === 'sql' ? await runSQLCode(code, inputJson)
+        : langVal === 'java' ? await runJavaCode(code, inputJson)
+        : await runPythonCode(code, inputJson);
+      const lines = [];
+      if(result.logs && result.logs.length) lines.push(...result.logs);
+      if(result.error) lines.push('⚠ ' + result.error);
+      if(!lines.length) lines.push('(ran with no output — use print()/console.log to see values, or generate test cases above for a proper pass/fail Run)');
+      out.textContent = lines.join('\n');
+    }
   }catch(err){
     out.textContent = '⚠ ' + ((err && err.message) ? err.message : String(err));
   }finally{
@@ -8591,6 +8944,23 @@ document.getElementById('solveSummaryBtn').addEventListener('click', ()=>generat
 
 let solveHarness = null; // {functionName, params:[{name,type}], returnType} — null for SQL or if ungenerated
 const JAVA_TYPE_VOCAB = ['int','long','double','boolean','String','char','int[]','long[]','double[]','String[]','char[]','int[][]'];
+// Minimum bar this tracker holds every problem to: Run gives quick feedback
+// against a handful of visible sample cases, Submit (and the premium/no-OJ
+// "mark solved" carve-out) requires a much larger, edge-case-inclusive set —
+// closer to what a real LeetCode judge would actually check.
+const MIN_RUN_TEST_CASES = 3;
+const MIN_SUBMIT_TEST_CASES = 20;
+function dedupeTestCases(arr){
+  const seen = new Set();
+  const out = [];
+  for(const tc of arr){
+    const key = JSON.stringify(tc.input);
+    if(seen.has(key)) continue;
+    seen.add(key);
+    out.push(tc);
+  }
+  return out;
+}
 async function generateSolveTestCases(auto){
   const p = PROBLEMS.find(x=>x.id===solveModalId);
   if(!p) return;
@@ -8606,20 +8976,22 @@ async function generateSolveTestCases(auto){
       headers:{ 'Content-Type':'application/json' },
       body: JSON.stringify({
         contents:[{ role:'user', parts:[{ text: isSql ?
-          `Generate 3 small example test cases for the LeetCode SQL problem "${p.title}" (topic: ${p.section}, difficulty: ${p.diff==='E'?'Easy':p.diff==='M'?'Medium':'Hard'}). ` +
-          `Use well-known example inputs/outputs for this specific problem if you know them; otherwise construct small, plausible cases consistent with its usual constraints. ` +
+          `Generate 20 UNIQUE example test cases (no two with the same seed data) for the LeetCode SQL problem "${p.title}" (topic: ${p.section}, difficulty: ${p.diff==='E'?'Easy':p.diff==='M'?'Medium':'Hard'}). ` +
+          `Put the 3 clearest, most representative cases FIRST — those are shown to the person as visible samples. The remaining ~17 are used for grading only and must be varied, and should cover realistic edge cases: an empty table, a table with only one row, duplicate/tied values, NULLs where the schema allows them, and any boundary condition specific to this problem. ` +
+          `Use well-known example inputs/outputs for this specific problem if you know them for the first cases; otherwise construct small, plausible cases consistent with its usual constraints. ` +
           `"input" must be a JSON object of {"TableName": [{"col1": val, "col2": val}, ...], ...} representing the seed rows for each table the query needs — use the real table/column names LeetCode uses for this problem if known. ` +
-          `Respond with ONLY a raw JSON array, no markdown fences, no prose — each element exactly: {"input": <as described>, "expected": "<exact plain-text string the last result row should equal>"}.`
+          `Respond with ONLY a raw JSON array of exactly 20 elements, no markdown fences, no prose — each element exactly: {"input": <as described>, "expected": "<exact plain-text string the last result row should equal>"}.`
           :
-          `For the LeetCode problem "${p.title}" (topic: ${p.section}, difficulty: ${p.diff==='E'?'Easy':p.diff==='M'?'Medium':'Hard'}), give me its real (or a plausible, conventional) function signature plus 3 small example test cases. Use well-known example inputs/outputs for this specific problem if you know them. ` +
+          `For the LeetCode problem "${p.title}" (topic: ${p.section}, difficulty: ${p.diff==='E'?'Easy':p.diff==='M'?'Medium':'Hard'}), give me its real (or a plausible, conventional) function signature plus 20 UNIQUE test cases (no two with identical input). ` +
+          `Put the 3 clearest, most representative cases FIRST — those are shown to the person as visible samples (use well-known example inputs/outputs for this specific problem if you know them). The remaining ~17 are used for grading only and must be varied, and MUST include realistic edge cases appropriate to this problem's constraints — things like: the smallest valid input size (empty/length 1), the largest input the constraints allow, all-identical elements, already-sorted vs reverse-sorted, negative numbers/zero if applicable, and any other boundary this specific problem is known to trip people up on. ` +
           `Respond with ONLY a raw JSON object, no markdown fences, no prose, exactly this shape:\n` +
           `{"functionName": "<camelCase method name, e.g. maxSubArrayLen>", ` +
           `"params": [{"name":"<param name>","type":"<one of: ${JAVA_TYPE_VOCAB.join(', ')}>"}, ...in order...], ` +
           `"returnType": "<one of: ${JAVA_TYPE_VOCAB.join(', ')}>", ` +
-          `"testCases": [{"input": [<param 1 value>, <param 2 value>, ...], "expected": "<exact plain value the return should equal — a bare number/word, or compact JSON like [1,2,3] for arrays, true/false for booleans>"}, ...3 of these...]}\n` +
+          `"testCases": [{"input": [<param 1 value>, <param 2 value>, ...], "expected": "<exact plain value the return should equal — a bare number/word, or compact JSON like [1,2,3] for arrays, true/false for booleans>"}, ...exactly 20 of these, unique...]}\n` +
           `"input" must always be a JSON array with exactly one element per parameter, in the same order as "params". Only use types from the given vocabulary (use int[] for any integer list/array regardless of what LeetCode calls it, int[][] for a 2D grid, etc — pick the closest match).`
         }]}],
-        generationConfig:{ maxOutputTokens:700, thinkingConfig:{ thinkingLevel:'minimal' } }
+        generationConfig:{ maxOutputTokens:3000, thinkingConfig:{ thinkingLevel:'minimal' } }
       })
     });
     if(!resp.ok){
@@ -8637,12 +9009,15 @@ async function generateSolveTestCases(auto){
       solveHarness = null;
       const arr = parsed;
       if(!Array.isArray(arr) || !arr.length) throw new Error('Model returned no test cases');
-      solveTestCases = arr.slice(0,5).map(tc => ({
-        id: 'st' + Date.now() + Math.floor(Math.random()*1000),
+      solveTestCases = dedupeTestCases(arr).map((tc,i) => ({
+        id: 'st' + Date.now() + Math.floor(Math.random()*1000) + i,
         input: typeof tc.input === 'string' ? tc.input : JSON.stringify(tc.input),
         expected: typeof tc.expected === 'string' ? tc.expected : JSON.stringify(tc.expected),
-        status: 'idle', actual: ''
+        status: 'idle', actual: '', sample: i < 3
       }));
+      if(solveTestCases.length < MIN_SUBMIT_TEST_CASES){
+        showToast(`⚠ Model only returned ${solveTestCases.length} unique test cases (wanted ${MIN_SUBMIT_TEST_CASES}+) — Submit will still run all of them, or hit Regenerate to try for more.`);
+      }
     } else {
       if(!parsed.functionName || !Array.isArray(parsed.params) || !Array.isArray(parsed.testCases) || !parsed.testCases.length){
         throw new Error('Model returned an incomplete signature');
@@ -8650,12 +9025,15 @@ async function generateSolveTestCases(auto){
       parsed.params.forEach(pm=>{ if(!JAVA_TYPE_VOCAB.includes(pm.type)) pm.type = 'String'; });
       if(!JAVA_TYPE_VOCAB.includes(parsed.returnType)) parsed.returnType = 'String';
       solveHarness = { functionName: parsed.functionName, params: parsed.params, returnType: parsed.returnType };
-      solveTestCases = parsed.testCases.slice(0,5).map(tc => ({
-        id: 'st' + Date.now() + Math.floor(Math.random()*1000),
+      solveTestCases = dedupeTestCases(parsed.testCases).map((tc,i) => ({
+        id: 'st' + Date.now() + Math.floor(Math.random()*1000) + i,
         input: JSON.stringify(Array.isArray(tc.input) ? tc.input : [tc.input]),
         expected: typeof tc.expected === 'string' ? tc.expected : JSON.stringify(tc.expected),
-        status: 'idle', actual: ''
+        status: 'idle', actual: '', sample: i < 3
       }));
+      if(solveTestCases.length < MIN_SUBMIT_TEST_CASES){
+        showToast(`⚠ Model only returned ${solveTestCases.length} unique test cases (wanted ${MIN_SUBMIT_TEST_CASES}+) — Submit will still run all of them, or hit Regenerate to try for more.`);
+      }
       applySolveStarterCodeIfEmpty();
     }
     solveTestCasesGenerated = true;
@@ -8757,7 +9135,7 @@ function javaHarnessUtilSource(){
         int depth = 0; boolean inStr = false; StringBuilder cur = new StringBuilder();
         for(int i=0;i<s.length();i++){
             char c = s.charAt(i);
-            if(c=='"' && (i==0 || s.charAt(i-1)!='\\\\')) inStr = !inStr;
+            if(c=='"' && (i==0 || s.charAt(i-1)!='\\\')) inStr = !inStr;
             if(!inStr){
                 if(c=='['||c=='{') depth++;
                 if(c==']'||c=='}') depth--;
@@ -8821,7 +9199,9 @@ function renderSolveTestCases(){
     });
     return;
   }
-  const rows = solveTestCases.map((tc, i)=>`
+  const sampleRows = solveTestCases.filter(tc=>tc.sample);
+  const hiddenRows = solveTestCases.filter(tc=>!tc.sample);
+  const rowHtml = (tc, i)=>`
     <div class="mock-tc-row" data-idx="${i}">
       <div class="mock-tc-fields">
         <div><label>Input (JSON, becomes <code>INPUT</code>)</label>
@@ -8835,10 +9215,20 @@ function renderSolveTestCases(){
       }</div>
       <button class="mock-tc-remove" data-idx="${i}" type="button" title="Remove test case">✕</button>
     </div>
-  `).join('');
+  `;
+  // data-idx must map back to the real index in solveTestCases, not the
+  // position within its sample/hidden sub-list.
+  const rows = solveTestCases.filter(tc=>tc.sample).map(tc=>rowHtml(tc, solveTestCases.indexOf(tc))).join('');
+  const hiddenRowsHtml = hiddenRows.map(tc=>rowHtml(tc, solveTestCases.indexOf(tc))).join('');
+  const hiddenSection = hiddenRows.length ? `
+    <details style="margin-top:12px;">
+      <summary style="cursor:pointer;font-size:12px;color:var(--ink-faint);margin-bottom:8px;">🔒 ${hiddenRows.length} more submit-only case${hiddenRows.length===1?'':'s'} (graded on Submit, hidden by default — same idea as LeetCode's hidden test cases)</summary>
+      ${hiddenRowsHtml}
+    </details>
+  ` : '';
   box.innerHTML = `
     <div class="mock-tc-head">
-      <span class="mock-output-label" style="margin:0;">Test cases ${solveTestCasesGenerated ? '<span class=\"ai-tag\" style=\"margin-left:6px;\">AI-generated — check these</span>' : ''}</span>
+      <span class="mock-output-label" style="margin:0;">Test cases (${sampleRows.length} sample${hiddenRows.length ? ` + ${hiddenRows.length} submit-only` : ''}) ${solveTestCasesGenerated ? '<span class=\"ai-tag\" style=\"margin-left:6px;\">AI-generated — check these</span>' : ''}</span>
       <div style="display:flex;gap:8px;">
         <button class="btn-secondary" id="solveRegenTcBtn" type="button" style="padding:4px 10px;font-size:11.5px;">🔄 Regenerate</button>
         <button class="btn-secondary" id="solveAddTcBtn" type="button" style="padding:4px 10px;font-size:11.5px;">+ Add test case</button>
@@ -8846,6 +9236,7 @@ function renderSolveTestCases(){
     </div>
     <div style="font-size:11.5px;color:var(--ink-faint);margin:4px 0 10px;">${langLabel === 'SQL' ? 'Input for each case seeds the table(s) as an object like <code>{"Employee": [{"id":1,"salary":100}, ...]}</code> — write your query against those table names; Submit runs it and compares the last result row to "Expected output".' : solveHarness ? `Each "input" is an array of arguments for <code>${escapeHtml(solveHarness.functionName)}(${solveHarness.params.map(p=>escapeHtml(p.name)).join(', ')})</code> — write just the method body in the editor above, Run/Submit call it for you and compare the return value to "Expected output".` : 'Your code doesn\'t have LeetCode\'s real function signature yet — generate test cases above to get an auto-filled starter, or read the input from the <code>INPUT</code> global yourself and print your final answer as the last line of output.'} Edit or remove any case that looks wrong.</div>
     ${rows}
+    ${hiddenSection}
   `;
   box.querySelectorAll('.solve-tc-input').forEach(inp=>{
     inp.addEventListener('input', (e)=>{
@@ -8912,14 +9303,17 @@ async function submitSolveTestCases(){
     document.getElementById('solveCheerBanner').innerHTML = '';
   }
 
-  // Premium-only carve-out: premium LeetCode problems can't be attempted at
-  // all without a paid LeetCode subscription, so the normal "solved" path
-  // (real LeetCode + GitHub Actions sync) may simply never be reachable for
-  // them. If every AI-generated test case passes, mark it solved here — but
+  // Premium/no-OJ carve-out: premium LeetCode problems can't be attempted at
+  // all without a paid LeetCode subscription, and no-OJ A2Z problems (theory
+  // topics, pattern drills, GfG-only implementations) aren't on LeetCode at
+  // all — so the normal "solved" path (real LeetCode + GitHub Actions sync)
+  // may simply never be reachable for either. If every case in a properly
+  // sized set (>= MIN_SUBMIT_TEST_CASES, so a handful of easy AI-generated
+  // cases can't trivially "pass") passes, mark it solved here — but
   // deliberately NOT added to syncedIds, so certificates' "sync-verified"
   // math still only ever counts real LeetCode-confirmed solves, not this.
   const p = PROBLEMS.find(x=>x.id===solveModalId);
-  if(p && p.premium && solveTestCases.length > 0 && passed === solveTestCases.length && !solved.has(p.id)){
+  if(p && (p.premium || p.noOJ) && solveTestCases.length >= MIN_SUBMIT_TEST_CASES && passed === solveTestCases.length && !solved.has(p.id)){
     solved.add(p.id);
     const m = getMeta(p.id);
     m.solvedAt = Date.now();
@@ -8932,7 +9326,11 @@ async function submitSolveTestCases(){
     document.getElementById('solveSolvedBadge').style.display = 'inline-block';
     renderSections();
     renderSummary();
-    showToast('🔒 Premium problem marked solved — verified by this tracker\'s test cases (not a LeetCode sync, since premium problems need a paid LeetCode account to attempt there).');
+    showToast(p.premium
+      ? '🔒 Premium problem marked solved — verified by this tracker\'s test cases (not a LeetCode sync, since premium problems need a paid LeetCode account to attempt there).'
+      : '🧩 No-OJ A2Z problem marked solved — verified by this tracker\'s test cases (not a LeetCode sync, since this problem isn\'t hosted on LeetCode).');
+  } else if(p && (p.premium || p.noOJ) && solveTestCases.length > 0 && solveTestCases.length < MIN_SUBMIT_TEST_CASES && passed === solveTestCases.length && !solved.has(p.id)){
+    showToast(`All ${passed} available case${passed===1?'':'s'} passed, but this tracker requires ≥${MIN_SUBMIT_TEST_CASES} unique cases before marking a ${p.premium?'premium':'no-OJ'} problem solved — hit 🔄 Regenerate for more, or add a few manually.`);
   }
 }
 
@@ -9514,20 +9912,46 @@ async function runMockCode(){
   out.textContent = 'Running…';
   const langKey = mockLangToHarnessKey(lang);
   const harness = activeMock ? activeMock.harness : null;
-  const sampleInput = (harness && activeMock.testCases && activeMock.testCases.length) ? activeMock.testCases[0].input : null;
-  const { code: wrappedCode, inputJson } = buildExecutionPayload(langKey, code, sampleInput, harness);
+  const allCases = (activeMock && activeMock.testCases) ? activeMock.testCases : [];
+  const sampleCases = allCases.filter(tc=>tc.sample).slice(0, MIN_RUN_TEST_CASES);
+  const casesToRun = sampleCases.length ? sampleCases : allCases.slice(0, MIN_RUN_TEST_CASES);
   try{
-    const result = lang === 'JavaScript' ? await runJSInWorker(wrappedCode, inputJson)
-      : lang === 'SQL' ? await runSQLCode(wrappedCode, inputJson)
-      : lang === 'Java' ? await runJavaCode(wrappedCode, inputJson)
-      : await runPythonCode(wrappedCode, inputJson);
-    const lines = [];
-    if(harness && sampleInput) lines.push(`Ran ${harness.functionName}(...) against test case 1 — input: ${sampleInput}`, '');
-    if(result.logs && result.logs.length) lines.push(...result.logs);
-    if(result.error) lines.push('⚠ ' + result.error);
-    if(!lines.length) lines.push('(ran with no output — use print()/console.log to see values)');
-    out.textContent = lines.join('\n');
-    out.classList.toggle('err', !result.ok);
+    if(harness && casesToRun.length){
+      const lines = [];
+      let passCount = 0;
+      for(let i=0;i<casesToRun.length;i++){
+        const tc = casesToRun[i];
+        const { code: wrappedCode, inputJson } = buildExecutionPayload(langKey, code, tc.input, harness);
+        const result = lang === 'JavaScript' ? await runJSInWorker(wrappedCode, inputJson)
+          : lang === 'SQL' ? await runSQLCode(wrappedCode, inputJson)
+          : lang === 'Java' ? await runJavaCode(wrappedCode, inputJson)
+          : await runPythonCode(wrappedCode, inputJson);
+        if(!result.ok){
+          lines.push(`Case ${i+1} — input: ${tc.input}`, `  ⚠ Error — ${result.error || 'unknown error'}`, '');
+        } else {
+          const lastLine = (result.logs || []).filter(l=>l.trim()).pop() || '';
+          const ok = normalizeForCompare(lastLine) === normalizeForCompare(tc.expected);
+          if(ok) passCount++;
+          lines.push(`Case ${i+1} — input: ${tc.input}`, `  Expected: ${tc.expected}`, `  Got: ${lastLine || '(no output)'}${ok ? '  ✓ Pass' : '  ✕ Fail'}`, '');
+        }
+      }
+      lines.push(`${passCount}/${casesToRun.length} sample case${casesToRun.length===1?'':'s'} passed — Submit checks the full ${allCases.length || MIN_SUBMIT_TEST_CASES}-case set before this counts as solved.`);
+      out.textContent = lines.join('\n');
+      out.classList.toggle('err', passCount < casesToRun.length);
+    } else {
+      const sampleInput = (harness && allCases.length) ? allCases[0].input : null;
+      const { code: wrappedCode, inputJson } = buildExecutionPayload(langKey, code, sampleInput, harness);
+      const result = lang === 'JavaScript' ? await runJSInWorker(wrappedCode, inputJson)
+        : lang === 'SQL' ? await runSQLCode(wrappedCode, inputJson)
+        : lang === 'Java' ? await runJavaCode(wrappedCode, inputJson)
+        : await runPythonCode(wrappedCode, inputJson);
+      const lines = [];
+      if(result.logs && result.logs.length) lines.push(...result.logs);
+      if(result.error) lines.push('⚠ ' + result.error);
+      if(!lines.length) lines.push('(ran with no output — use print()/console.log to see values, or generate test cases above for a proper pass/fail Run)');
+      out.textContent = lines.join('\n');
+      out.classList.toggle('err', !result.ok);
+    }
   }catch(err){
     out.classList.add('err');
     out.textContent = '⚠ ' + ((err && err.message) ? err.message : String(err));
@@ -9537,7 +9961,7 @@ async function runMockCode(){
   }
 }
 function newMockTestCase(){
-  return { id: 't' + Date.now() + Math.floor(Math.random()*1000), input: '', expected: '', status: 'idle', actual: '' };
+  return { id: 't' + Date.now() + Math.floor(Math.random()*1000), input: '', expected: '', status: 'idle', actual: '', sample: true };
 }
 async function generateMockTestCases(auto){
   if(!activeMock) return;
@@ -9554,20 +9978,22 @@ async function generateMockTestCases(auto){
       headers:{ 'Content-Type':'application/json' },
       body: JSON.stringify({
         contents:[{ role:'user', parts:[{ text: isSql ?
-          `Generate 3 small example test cases for the LeetCode SQL problem "${p.title}" (topic: ${p.section}, difficulty: ${p.diff==='E'?'Easy':p.diff==='M'?'Medium':'Hard'}). ` +
-          `Use well-known example inputs/outputs for this specific problem if you know them; otherwise construct small, plausible cases consistent with its usual constraints. ` +
+          `Generate 20 UNIQUE example test cases (no two with the same seed data) for the LeetCode SQL problem "${p.title}" (topic: ${p.section}, difficulty: ${p.diff==='E'?'Easy':p.diff==='M'?'Medium':'Hard'}). ` +
+          `Put the 3 clearest, most representative cases FIRST — those are shown to the person as visible samples. The remaining ~17 are used for grading only and must be varied, and should cover realistic edge cases: an empty table, a table with only one row, duplicate/tied values, NULLs where the schema allows them, and any boundary condition specific to this problem. ` +
+          `Use well-known example inputs/outputs for this specific problem if you know them for the first cases; otherwise construct small, plausible cases consistent with its usual constraints. ` +
           `"input" must be a JSON object of {"TableName": [{"col1": val, "col2": val}, ...], ...} representing the seed rows for each table the query needs — use the real table/column names LeetCode uses for this problem if known. ` +
-          `Respond with ONLY a raw JSON array, no markdown fences, no prose — each element exactly: {"input": <as described>, "expected": "<exact plain-text string the last result row should equal>"}.`
+          `Respond with ONLY a raw JSON array of exactly 20 elements, no markdown fences, no prose — each element exactly: {"input": <as described>, "expected": "<exact plain-text string the last result row should equal>"}.`
           :
-          `For the LeetCode problem "${p.title}" (topic: ${p.section}, difficulty: ${p.diff==='E'?'Easy':p.diff==='M'?'Medium':'Hard'}), give me its real (or a plausible, conventional) function signature plus 3 small example test cases. Use well-known example inputs/outputs for this specific problem if you know them. ` +
+          `For the LeetCode problem "${p.title}" (topic: ${p.section}, difficulty: ${p.diff==='E'?'Easy':p.diff==='M'?'Medium':'Hard'}), give me its real (or a plausible, conventional) function signature plus 20 UNIQUE test cases (no two with identical input). ` +
+          `Put the 3 clearest, most representative cases FIRST — those are shown to the person as visible samples (use well-known example inputs/outputs for this specific problem if you know them). The remaining ~17 are used for grading only and must be varied, and MUST include realistic edge cases appropriate to this problem's constraints — smallest valid input, largest the constraints allow, all-identical elements, already-sorted vs reverse-sorted, negative numbers/zero if applicable, and any other boundary this specific problem is known to trip people up on. ` +
           `Respond with ONLY a raw JSON object, no markdown fences, no prose, exactly this shape:\n` +
           `{"functionName": "<camelCase method name, e.g. maxSubArrayLen>", ` +
           `"params": [{"name":"<param name>","type":"<one of: ${JAVA_TYPE_VOCAB.join(', ')}>"}, ...in order...], ` +
           `"returnType": "<one of: ${JAVA_TYPE_VOCAB.join(', ')}>", ` +
-          `"testCases": [{"input": [<param 1 value>, <param 2 value>, ...], "expected": "<exact plain value the return should equal — a bare number/word, or compact JSON like [1,2,3] for arrays, true/false for booleans>"}, ...3 of these...]}\n` +
+          `"testCases": [{"input": [<param 1 value>, <param 2 value>, ...], "expected": "<exact plain value the return should equal — a bare number/word, or compact JSON like [1,2,3] for arrays, true/false for booleans>"}, ...exactly 20 of these, unique...]}\n` +
           `"input" must always be a JSON array with exactly one element per parameter, in the same order as "params". Only use types from the given vocabulary.`
         }]}],
-        generationConfig:{ maxOutputTokens:700, thinkingConfig:{ thinkingLevel:'minimal' } }
+        generationConfig:{ maxOutputTokens:3000, thinkingConfig:{ thinkingLevel:'minimal' } }
       })
     });
     if(!resp.ok){
@@ -9585,12 +10011,15 @@ async function generateMockTestCases(auto){
       activeMock.harness = null;
       const arr = parsed;
       if(!Array.isArray(arr) || !arr.length) throw new Error('Model returned no test cases');
-      activeMock.testCases = arr.slice(0,5).map(tc => ({
-        id: 't' + Date.now() + Math.floor(Math.random()*1000),
+      activeMock.testCases = dedupeTestCases(arr).map((tc,i) => ({
+        id: 't' + Date.now() + Math.floor(Math.random()*1000) + i,
         input: typeof tc.input === 'string' ? tc.input : JSON.stringify(tc.input),
         expected: typeof tc.expected === 'string' ? tc.expected : JSON.stringify(tc.expected),
-        status: 'idle', actual: ''
+        status: 'idle', actual: '', sample: i < 3
       }));
+      if(activeMock.testCases.length < MIN_SUBMIT_TEST_CASES){
+        showToast(`⚠ Model only returned ${activeMock.testCases.length} unique test cases (wanted ${MIN_SUBMIT_TEST_CASES}+) — Submit will still run all of them, or hit Regenerate to try for more.`);
+      }
     } else {
       if(!parsed.functionName || !Array.isArray(parsed.params) || !Array.isArray(parsed.testCases) || !parsed.testCases.length){
         throw new Error('Model returned an incomplete signature');
@@ -9598,12 +10027,15 @@ async function generateMockTestCases(auto){
       parsed.params.forEach(pm=>{ if(!JAVA_TYPE_VOCAB.includes(pm.type)) pm.type = 'String'; });
       if(!JAVA_TYPE_VOCAB.includes(parsed.returnType)) parsed.returnType = 'String';
       activeMock.harness = { functionName: parsed.functionName, params: parsed.params, returnType: parsed.returnType };
-      activeMock.testCases = parsed.testCases.slice(0,5).map(tc => ({
-        id: 't' + Date.now() + Math.floor(Math.random()*1000),
+      activeMock.testCases = dedupeTestCases(parsed.testCases).map((tc,i) => ({
+        id: 't' + Date.now() + Math.floor(Math.random()*1000) + i,
         input: JSON.stringify(Array.isArray(tc.input) ? tc.input : [tc.input]),
         expected: typeof tc.expected === 'string' ? tc.expected : JSON.stringify(tc.expected),
-        status: 'idle', actual: ''
+        status: 'idle', actual: '', sample: i < 3
       }));
+      if(activeMock.testCases.length < MIN_SUBMIT_TEST_CASES){
+        showToast(`⚠ Model only returned ${activeMock.testCases.length} unique test cases (wanted ${MIN_SUBMIT_TEST_CASES}+) — Submit will still run all of them, or hit Regenerate to try for more.`);
+      }
       applyMockStarterCodeIfEmpty();
     }
     activeMock.testCasesGenerated = true;
@@ -9643,7 +10075,7 @@ function renderMockTestCases(){
     return;
   }
 
-  const rows = activeMock.testCases.map((tc, i)=>`
+  const rowHtmlMock = (tc, i)=>`
     <div class="mock-tc-row" data-idx="${i}">
       <div class="mock-tc-fields">
         <div><label>Input (JSON, becomes <code>INPUT</code>)</label>
@@ -9657,10 +10089,19 @@ function renderMockTestCases(){
       }</div>
       <button class="mock-tc-remove" data-idx="${i}" type="button" title="Remove test case">✕</button>
     </div>
-  `).join('');
+  `;
+  const sampleRowsMock = activeMock.testCases.filter(tc=>tc.sample);
+  const hiddenRowsMock = activeMock.testCases.filter(tc=>!tc.sample);
+  const rows = sampleRowsMock.map(tc=>rowHtmlMock(tc, activeMock.testCases.indexOf(tc))).join('');
+  const hiddenSectionMock = hiddenRowsMock.length ? `
+    <details style="margin-top:12px;">
+      <summary style="cursor:pointer;font-size:12px;color:var(--ink-faint);margin-bottom:8px;">🔒 ${hiddenRowsMock.length} more submit-only case${hiddenRowsMock.length===1?'':'s'} (graded on Submit, hidden by default — same idea as LeetCode's hidden test cases)</summary>
+      ${hiddenRowsMock.map(tc=>rowHtmlMock(tc, activeMock.testCases.indexOf(tc))).join('')}
+    </details>
+  ` : '';
   box.innerHTML = `
     <div class="mock-tc-head">
-      <span class="mock-output-label" style="margin:0;">Test cases ${activeMock.testCasesGenerated ? '<span class=\"ai-tag\" style=\"margin-left:6px;\">AI-generated — check these</span>' : ''}</span>
+      <span class="mock-output-label" style="margin:0;">Test cases (${sampleRowsMock.length} sample${hiddenRowsMock.length ? ` + ${hiddenRowsMock.length} submit-only` : ''}) ${activeMock.testCasesGenerated ? '<span class=\"ai-tag\" style=\"margin-left:6px;\">AI-generated — check these</span>' : ''}</span>
       <div style="display:flex;gap:8px;">
         <button class="btn-secondary" id="mockRegenTcBtn" type="button" style="padding:4px 10px;font-size:11.5px;">🔄 Regenerate</button>
         <button class="btn-secondary" id="mockAddTcBtn" type="button" style="padding:4px 10px;font-size:11.5px;">+ Add test case</button>
@@ -9668,6 +10109,7 @@ function renderMockTestCases(){
     </div>
     <div style="font-size:11.5px;color:var(--ink-faint);margin:4px 0 10px;">${activeMock.lang === 'SQL' ? 'Input for each case seeds the table(s) as an object like <code>{"Employee": [{"id":1,"salary":100}, ...]}</code> — write your query against those table names; Submit runs it and compares the last result row to "Expected output".' : activeMock.harness ? `Each "input" is an array of arguments for <code>${escapeHtml(activeMock.harness.functionName)}(${activeMock.harness.params.map(p=>escapeHtml(p.name)).join(', ')})</code> — write just the method body in the editor above, Run/Submit call it for you and compare the return value to "Expected output".` : 'Your code doesn\'t have LeetCode\'s real function signature yet — generate test cases above to get an auto-filled starter, or read the input from the <code>INPUT</code> global yourself and print your final answer as the last line of output.'} Edit or remove any case that looks wrong.</div>
     ${rows}
+    ${hiddenSectionMock}
   `;
   box.querySelectorAll('.mock-tc-input').forEach(inp=>{
     inp.addEventListener('input', (e)=>{
@@ -9741,12 +10183,13 @@ async function submitMockTestCases(){
     document.getElementById('mockCheerBanner').innerHTML = '';
   }
 
-  // Same premium carve-out as the Solve editor: mark solved (tagged as
-  // test-verified, not sync-verified) when a premium problem passes every
-  // AI-generated case, since LeetCode sync can't confirm premium solves for
-  // accounts without Premium.
+  // Same premium/no-OJ carve-out as the Solve editor: mark solved (tagged as
+  // test-verified, not sync-verified) when a premium or no-OJ problem passes
+  // a properly sized case set (>= MIN_SUBMIT_TEST_CASES), since LeetCode
+  // sync can't confirm solves for accounts without Premium, or for problems
+  // LeetCode doesn't host at all.
   const p = PROBLEMS.find(x=>x.id===activeMock.problemId);
-  if(p && p.premium && activeMock.testCases.length > 0 && passed === activeMock.testCases.length && !solved.has(p.id)){
+  if(p && (p.premium || p.noOJ) && activeMock.testCases.length >= MIN_SUBMIT_TEST_CASES && passed === activeMock.testCases.length && !solved.has(p.id)){
     solved.add(p.id);
     const m = getMeta(p.id);
     m.solvedAt = Date.now();
@@ -9758,7 +10201,11 @@ async function submitMockTestCases(){
     saveMeta();
     renderSections();
     renderSummary();
-    showToast('🔒 Premium problem marked solved — verified by this tracker\'s test cases (not a LeetCode sync, since premium problems need a paid LeetCode account to attempt there).');
+    showToast(p.premium
+      ? '🔒 Premium problem marked solved — verified by this tracker\'s test cases (not a LeetCode sync, since premium problems need a paid LeetCode account to attempt there).'
+      : '🧩 No-OJ A2Z problem marked solved — verified by this tracker\'s test cases (not a LeetCode sync, since this problem isn\'t hosted on LeetCode).');
+  } else if(p && (p.premium || p.noOJ) && activeMock.testCases.length > 0 && activeMock.testCases.length < MIN_SUBMIT_TEST_CASES && passed === activeMock.testCases.length && !solved.has(p.id)){
+    showToast(`All ${passed} available case${passed===1?'':'s'} passed, but this tracker requires ≥${MIN_SUBMIT_TEST_CASES} unique cases before marking a ${p.premium?'premium':'no-OJ'} problem solved — hit 🔄 Regenerate for more, or add a few manually.`);
   }
 }
 async function generateMockProblemSummary(auto){
@@ -9906,10 +10353,13 @@ function startMockTimer(){
 function renderMockActiveView(){
   const p = PROBLEMS.find(x=>x.id===activeMock.problemId);
   const url = `https://leetcode.com/problems/${p.slug}/`;
+  const mockTitleHtml = p.noOJ
+    ? (p.practiceUrl ? `<a href="${p.practiceUrl}" target="_blank" rel="noopener" style="color:inherit;">${escapeHtml(p.title)}</a>` : escapeHtml(p.title))
+    : `<a href="${url}" target="_blank" rel="noopener" style="color:inherit;">${escapeHtml(p.title)}</a>`;
   document.getElementById('mockActiveView').innerHTML = `
     <div class="lc-shell lc-shell-inline" id="mockLcShell" style="height:min(80vh,760px);border:1.5px solid var(--rule);">
       <div class="lc-topbar">
-        <div class="lc-topbar-title">🎤 <a href="${url}" target="_blank" rel="noopener" style="color:inherit;">${escapeHtml(p.title)}</a> <span class="diff-pill ${p.diff}">${p.diff}</span></div>
+        <div class="lc-topbar-title">🎤 ${mockTitleHtml} <span class="diff-pill ${p.diff}">${p.diff}</span></div>
         <div class="lc-topbar-actions">
           <div class="mock-timer" id="mockTimerDisplay">${fmtClock(activeMock.remainingSec)}</div>
           <button class="btn-secondary" id="mockRunBtn" type="button">▶ Run</button>
@@ -10165,7 +10615,7 @@ function populateStudyPlanCompanySelect(){
   const sel = document.getElementById('planCompanySel');
   if(!sel || sel.dataset.filled) return;
   const sheetOptions = [
-    {value:'sheet:a2z', label:'Striver A2Z (210)'},
+    {value:'sheet:a2z', label:'Striver A2Z (466)'},
     {value:'sheet:top150', label:'LeetCode Top 150'},
     {value:'sheet:neet150', label:'NeetCode 150'},
     {value:'sheet:blind75', label:'Blind 75'},
@@ -10179,7 +10629,7 @@ function studyPlanTargetInfo(value){
   const [kind, ...rest] = value.split(':');
   const arg = rest.join(':');
   if(kind === 'sheet'){
-    const labels = {a2z:'Striver A2Z (210)', top150:'LeetCode Top 150', neet150:'NeetCode 150', blind75:'Blind 75', babbar450:'Babbar 105'};
+    const labels = {a2z:'Striver A2Z (466)', top150:'LeetCode Top 150', neet150:'NeetCode 150', blind75:'Blind 75', babbar450:'Babbar 105'};
     return { pool: certPool({kind:arg}), label: labels[arg] || arg };
   }
   return { pool: certPool({kind:'company', company:arg}), label: arg };
@@ -10330,7 +10780,9 @@ document.getElementById('planDownloadBtn').addEventListener('click', ()=>{
   plan.forEach(d=>{
     md += `## Day ${d.day}\n\n`;
     d.problems.forEach(p=>{
-      md += `- [ ] [${p.title}](https://leetcode.com/problems/${p.slug}/) (${p.diff})\n`;
+      md += p.noOJ
+        ? (p.practiceUrl ? `- [ ] [${p.title}](${p.practiceUrl}) — not on LeetCode (${p.diff})\n` : `- [ ] ${p.title} — not on LeetCode (${p.diff})\n`)
+        : `- [ ] [${p.title}](https://leetcode.com/problems/${p.slug}/) (${p.diff})\n`;
     });
     md += `\n`;
   });
@@ -11102,7 +11554,7 @@ document.getElementById('vfyManualBtn').addEventListener('click', async ()=>{
   try{
     const track = document.getElementById('vfyTrack').value;
     const company = document.getElementById('vfyCompany').value.trim();
-    const trackLabel = track === 'a2z' ? 'A2Z-210'
+    const trackLabel = track === 'a2z' ? 'A2Z-466'
       : track === 'top150' ? 'TOP150'
       : track === 'neet150' ? 'NEET150'
       : track === 'blind75' ? 'BLIND75'
