@@ -9060,10 +9060,13 @@ async function runSQLCode(code, rawInputJson){
 // in the browser. CheerpJ's own runtime only ships the standard library
 // (java.*), not the compiler — javac genuinely isn't part of it. So this
 // repo hosts a real, redistributable OpenJDK 8 tools.jar (GPLv2+Classpath
-// Exception licensed, from Ubuntu's openjdk-8-jdk package) at the repo
-// root, and points CheerpJ's classpath at it. Without tools.jar present at
-// the site root, Java compilation will fail with "could not find or load
-// main class com.sun.tools.javac.Main". First run downloads the JDK image
+// Exception licensed, from Ubuntu's openjdk-8-jdk package) alongside this
+// index.html, and points CheerpJ's classpath at it (via TOOLS_JAR_PATH,
+// computed below from the page's own URL so this also works on GitHub
+// *project* pages like <user>.github.io/repo-name/, not just on
+// <user>.github.io root sites). Without tools.jar reachable there over
+// http/https — not opened via file:// — Java compilation will fail with
+// "could not find or load main class com.sun.tools.javac.Main". First run downloads the JDK image
 // (tens of MB) and is slow; later runs are fast. Unlike JS/Python/SQL, this
 // can only run ONE Java program per page load — CheerpJ doesn't support
 // being reset, so each run after the first reuses the same JVM instance
@@ -9074,6 +9077,14 @@ function ensureCheerpJ(){
     .then(()=> cheerpjInit());
   return cheerpjLoadPromise;
 }
+// CheerpJ's /app/ mount point is an absolute path from the domain root, not
+// from the folder this page happens to live in. That's fine on a
+// "<user>.github.io" site (root == domain root) but breaks on a GitHub
+// *project* page like "<user>.github.io/repo-name/", where the real site
+// root is one level down. Compute that real base path from the current URL
+// so /app/tools.jar resolves correctly either way.
+const SITE_BASE = location.pathname.replace(/[^/]*$/, ''); // e.g. "/DSA-Problem-Tracker/" or "/"
+const TOOLS_JAR_PATH = `/app${SITE_BASE}tools.jar`;
 async function runJavaCode(code, rawInputJson){
   await ensureCheerpJ();
   cheerpjBootCounter++;
@@ -9094,12 +9105,12 @@ async function runJavaCode(code, rawInputJson){
   console.log = (...a)=>{ logs.push(a.map(String).join(' ')); };
   console.error = (...a)=>{ logs.push(a.map(String).join(' ')); };
   try{
-    const compileExit = await cheerpjRunMain('com.sun.tools.javac.Main', '/app/tools.jar', srcPath, '-d', '/files/');
+    const compileExit = await cheerpjRunMain('com.sun.tools.javac.Main', TOOLS_JAR_PATH, srcPath, '-d', '/files/');
     if(compileExit !== 0){
       return { ok:false, logs, error: 'Compile error — see output above.' };
     }
     const runArgs = rawInputJson ? [rawInputJson] : [];
-    await cheerpjRunMain(className, '/app/tools.jar:/files/', ...runArgs);
+    await cheerpjRunMain(className, `${TOOLS_JAR_PATH}:/files/`, ...runArgs);
     return { ok:true, logs, error:null };
   }catch(err){
     return { ok:false, logs, error: 'CheerpJ error: ' + ((err && err.message) ? err.message : String(err)) };
