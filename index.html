@@ -9632,7 +9632,7 @@ function javaHarnessUtilSource(){
         int depth = 0; boolean inStr = false; StringBuilder cur = new StringBuilder();
         for(int i=0;i<s.length();i++){
             char c = s.charAt(i);
-            if(c=='"' && (i==0 || s.charAt(i-1)!='\\\')) inStr = !inStr;
+            if(c=='"' && (i==0 || s.charAt(i-1)!='\\\\')) inStr = !inStr;
             if(!inStr){
                 if(c=='['||c=='{') depth++;
                 if(c==']'||c=='}') depth--;
