@@ -9296,6 +9296,22 @@ function buildExecutionPayload(langVal, rawUserCode, testCaseInputJson, harness)
   if(langVal === 'java') return { code: javaHarnessFull(rawUserCode, harness), inputJson: testCaseInputJson };
   return { code: rawUserCode, inputJson: testCaseInputJson };
 }
+// result.error alone (e.g. "Compile error — see output above.") was never
+// actually accompanied by anything "above" it — the real javac/JVM
+// stdout+stderr lives in result.logs but every call site below used to
+// throw it away. These two helpers surface it: a multi-line version for the
+// plain-text Run console, and a single-line version for the compact
+// per-test-case status chip.
+function formatRunError(result){
+  const logsText = (result.logs || []).filter(l=>l.trim()).join('\n');
+  if(!logsText) return result.error || 'unknown error';
+  return `${result.error || 'unknown error'}\n    ${logsText.split('\n').join('\n    ')}`;
+}
+function formatShortError(result){
+  const logsText = (result.logs || []).filter(l=>l.trim()).join(' | ');
+  if(!logsText) return result.error || 'unknown error';
+  return `${result.error || 'unknown error'} — ${logsText}`;
+}
 document.getElementById('solveRunBtn').addEventListener('click', async ()=>{
   const langVal = document.getElementById('solveLangSel').value;
   const code_raw = document.getElementById('solveCodeInput').value;
@@ -9331,7 +9347,7 @@ document.getElementById('solveRunBtn').addEventListener('click', async ()=>{
           : langVal === 'java' ? await runJavaCode(code, inputJson)
           : await runPythonCode(code, inputJson);
         if(!result.ok){
-          lines.push(`Case ${i+1} — input: ${tc.input}`, `  ⚠ Error — ${result.error || 'unknown error'}`, '');
+          lines.push(`Case ${i+1} — input: ${tc.input}`, `  ⚠ Error — ${formatRunError(result)}`, '');
         } else {
           const lastLine = (result.logs || []).filter(l=>l.trim()).pop() || '';
           const ok = normalizeForCompare(lastLine) === normalizeForCompare(tc.expected);
@@ -9761,7 +9777,7 @@ async function submitSolveTestCases(){
         : langVal === 'java' ? await runJavaCode(code, inputJson)
         : await runPythonCode(code, inputJson);
       if(!result.ok){
-        tc.status = 'error'; tc.actual = result.error || 'unknown error';
+        tc.status = 'error'; tc.actual = formatShortError(result);
       } else {
         const lastLine = (result.logs || []).filter(l=>l.trim()).pop() || '';
         tc.actual = lastLine;
@@ -10409,7 +10425,7 @@ async function runMockCode(){
           : lang === 'Java' ? await runJavaCode(wrappedCode, inputJson)
           : await runPythonCode(wrappedCode, inputJson);
         if(!result.ok){
-          lines.push(`Case ${i+1} — input: ${tc.input}`, `  ⚠ Error — ${result.error || 'unknown error'}`, '');
+          lines.push(`Case ${i+1} — input: ${tc.input}`, `  ⚠ Error — ${formatRunError(result)}`, '');
         } else {
           const lastLine = (result.logs || []).filter(l=>l.trim()).pop() || '';
           const ok = normalizeForCompare(lastLine) === normalizeForCompare(tc.expected);
@@ -10642,7 +10658,7 @@ async function submitMockTestCases(){
         : lang === 'Java' ? await runJavaCode(wrappedCode, inputJson)
         : await runPythonCode(wrappedCode, inputJson);
       if(!result.ok){
-        tc.status = 'error'; tc.actual = result.error || 'unknown error';
+        tc.status = 'error'; tc.actual = formatShortError(result);
       } else {
         const lastLine = (result.logs || []).filter(l=>l.trim()).pop() || '';
         tc.actual = lastLine;
