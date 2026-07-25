@@ -972,8 +972,8 @@
     -webkit-appearance:none;appearance:none;cursor:pointer;}
   .mock-editor-lang-select:hover{border-color:var(--pine);}
   .mock-editor-lang-select:focus{outline:none;border-color:var(--pine);}
-  .mock-editor-host{border:1.5px solid var(--rule);border-radius:10px;overflow:hidden;min-height:320px;}
-  .mock-editor-host .CodeMirror{height:auto;min-height:320px;font-family:'IBM Plex Mono',monospace;font-size:13px;
+  .mock-editor-host{border:1.5px solid var(--rule);border-radius:10px;overflow:hidden;min-height:320px;height:100%;}
+  .mock-editor-host .CodeMirror{height:100%;font-family:'IBM Plex Mono',monospace;font-size:13px;
     line-height:1.55;}
   .mock-run-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;}
   .mock-output-panel{margin-top:10px;border:1.5px solid var(--rule-soft);border-radius:10px;
@@ -9446,7 +9446,7 @@ const JAVA_TYPE_VOCAB = ['int','long','double','boolean','String','char','int[]'
 // "mark solved" carve-out) requires a much larger, edge-case-inclusive set —
 // closer to what a real LeetCode judge would actually check.
 const MIN_RUN_TEST_CASES = 3;
-const MIN_SUBMIT_TEST_CASES = 20;
+const MIN_SUBMIT_TEST_CASES = 10;
 function dedupeTestCases(arr){
   const seen = new Set();
   const out = [];
@@ -9473,19 +9473,19 @@ async function generateSolveTestCases(auto){
       headers:{ 'Content-Type':'application/json' },
       body: JSON.stringify({
         contents:[{ role:'user', parts:[{ text: isSql ?
-          `Generate 20 UNIQUE example test cases (no two with the same seed data) for the LeetCode SQL problem "${p.title}" (topic: ${p.section}, difficulty: ${p.diff==='E'?'Easy':p.diff==='M'?'Medium':'Hard'}). ` +
-          `Put the 3 clearest, most representative cases FIRST — those are shown to the person as visible samples. The remaining ~17 are used for grading only and must be varied, and should cover realistic edge cases: an empty table, a table with only one row, duplicate/tied values, NULLs where the schema allows them, and any boundary condition specific to this problem. ` +
+          `Generate ${MIN_SUBMIT_TEST_CASES} UNIQUE example test cases (no two with the same seed data) for the LeetCode SQL problem "${p.title}" (topic: ${p.section}, difficulty: ${p.diff==='E'?'Easy':p.diff==='M'?'Medium':'Hard'}). ` +
+          `Put the 3 clearest, most representative cases FIRST — those are shown to the person as visible samples. The remaining ~${MIN_SUBMIT_TEST_CASES - MIN_RUN_TEST_CASES} are used for grading only and must be varied, and should cover realistic edge cases: an empty table, a table with only one row, duplicate/tied values, NULLs where the schema allows them, and any boundary condition specific to this problem. ` +
           `Use well-known example inputs/outputs for this specific problem if you know them for the first cases; otherwise construct small, plausible cases consistent with its usual constraints. ` +
           `"input" must be a JSON object of {"TableName": [{"col1": val, "col2": val}, ...], ...} representing the seed rows for each table the query needs — use the real table/column names LeetCode uses for this problem if known. ` +
-          `Respond with ONLY a raw JSON array of exactly 20 elements, no markdown fences, no prose — each element exactly: {"input": <as described>, "expected": "<exact plain-text string the last result row should equal>"}.`
+          `Respond with ONLY a raw JSON array of exactly ${MIN_SUBMIT_TEST_CASES} elements, no markdown fences, no prose — each element exactly: {"input": <as described>, "expected": "<exact plain-text string the last result row should equal>"}.`
           :
-          `For the LeetCode problem "${p.title}" (topic: ${p.section}, difficulty: ${p.diff==='E'?'Easy':p.diff==='M'?'Medium':'Hard'}), give me its real (or a plausible, conventional) function signature plus 20 UNIQUE test cases (no two with identical input). ` +
-          `Put the 3 clearest, most representative cases FIRST — those are shown to the person as visible samples (use well-known example inputs/outputs for this specific problem if you know them). The remaining ~17 are used for grading only and must be varied, and MUST include realistic edge cases appropriate to this problem's constraints — things like: the smallest valid input size (empty/length 1), the largest input the constraints allow, all-identical elements, already-sorted vs reverse-sorted, negative numbers/zero if applicable, and any other boundary this specific problem is known to trip people up on. ` +
+          `For the LeetCode problem "${p.title}" (topic: ${p.section}, difficulty: ${p.diff==='E'?'Easy':p.diff==='M'?'Medium':'Hard'}), give me its real (or a plausible, conventional) function signature plus ${MIN_SUBMIT_TEST_CASES} UNIQUE test cases (no two with identical input). ` +
+          `Put the 3 clearest, most representative cases FIRST — those are shown to the person as visible samples (use well-known example inputs/outputs for this specific problem if you know them). The remaining ~${MIN_SUBMIT_TEST_CASES - MIN_RUN_TEST_CASES} are used for grading only and must be varied, and MUST include realistic edge cases appropriate to this problem's constraints — things like: the smallest valid input size (empty/length 1), the largest input the constraints allow, all-identical elements, already-sorted vs reverse-sorted, negative numbers/zero if applicable, and any other boundary this specific problem is known to trip people up on. ` +
           `Respond with ONLY a raw JSON object, no markdown fences, no prose, exactly this shape:\n` +
           `{"functionName": "<camelCase method name, e.g. maxSubArrayLen>", ` +
           `"params": [{"name":"<param name>","type":"<one of: ${JAVA_TYPE_VOCAB.join(', ')}>"}, ...in order...], ` +
           `"returnType": "<one of: ${JAVA_TYPE_VOCAB.join(', ')}>", ` +
-          `"testCases": [{"input": [<param 1 value>, <param 2 value>, ...], "expected": "<exact plain value the return should equal — a bare number/word, or compact JSON like [1,2,3] for arrays, true/false for booleans>"}, ...exactly 20 of these, unique...]}\n` +
+          `"testCases": [{"input": [<param 1 value>, <param 2 value>, ...], "expected": "<exact plain value the return should equal — a bare number/word, or compact JSON like [1,2,3] for arrays, true/false for booleans>"}, ...exactly ${MIN_SUBMIT_TEST_CASES} of these, unique...]}\n` +
           `"input" must always be a JSON array with exactly one element per parameter, in the same order as "params". Only use types from the given vocabulary (use int[] for any integer list/array regardless of what LeetCode calls it, int[][] for a 2D grid, etc — pick the closest match).`
         }]}],
         generationConfig:{ maxOutputTokens:3000, thinkingConfig:{ thinkingLevel:'minimal' } }
@@ -10122,11 +10122,10 @@ async function initMockCodeEditor(){
       indentUnit: 2,
       tabSize: 2,
       indentWithTabs: false,
-      viewportMargin: Infinity,
       theme: isDark ? 'dracula' : 'default'
     });
     mockCM.on('change', ()=>{ if(activeMock) activeMock.code = mockCM.getValue(); });
-    mockCM.setSize('100%', 'auto');
+    mockCM.setSize('100%', '100%');
     applyMockStarterCodeIfEmpty();
   }catch(err){
     host.innerHTML = `<div style="padding:12px;font-size:12px;color:var(--ink-faint);">Couldn't load the syntax-highlighted editor (offline?) — using plain text instead.</div>`;
@@ -10200,7 +10199,6 @@ async function initSolveCodeEditor(langVal){
       indentUnit: 2,
       tabSize: 2,
       indentWithTabs: false,
-      viewportMargin: Infinity,
       theme: isDark ? 'dracula' : 'default'
     });
     solveCM.on('change', ()=>{
@@ -10210,7 +10208,7 @@ async function initSolveCodeEditor(langVal){
         ta.dispatchEvent(new Event('input', { bubbles: true }));
       }
     });
-    solveCM.setSize('100%', 'auto');
+    solveCM.setSize('100%', '100%');
   }catch(err){
     solveCM = null;
     ta.style.display = '';
@@ -10476,19 +10474,19 @@ async function generateMockTestCases(auto){
       headers:{ 'Content-Type':'application/json' },
       body: JSON.stringify({
         contents:[{ role:'user', parts:[{ text: isSql ?
-          `Generate 20 UNIQUE example test cases (no two with the same seed data) for the LeetCode SQL problem "${p.title}" (topic: ${p.section}, difficulty: ${p.diff==='E'?'Easy':p.diff==='M'?'Medium':'Hard'}). ` +
-          `Put the 3 clearest, most representative cases FIRST — those are shown to the person as visible samples. The remaining ~17 are used for grading only and must be varied, and should cover realistic edge cases: an empty table, a table with only one row, duplicate/tied values, NULLs where the schema allows them, and any boundary condition specific to this problem. ` +
+          `Generate ${MIN_SUBMIT_TEST_CASES} UNIQUE example test cases (no two with the same seed data) for the LeetCode SQL problem "${p.title}" (topic: ${p.section}, difficulty: ${p.diff==='E'?'Easy':p.diff==='M'?'Medium':'Hard'}). ` +
+          `Put the 3 clearest, most representative cases FIRST — those are shown to the person as visible samples. The remaining ~${MIN_SUBMIT_TEST_CASES - MIN_RUN_TEST_CASES} are used for grading only and must be varied, and should cover realistic edge cases: an empty table, a table with only one row, duplicate/tied values, NULLs where the schema allows them, and any boundary condition specific to this problem. ` +
           `Use well-known example inputs/outputs for this specific problem if you know them for the first cases; otherwise construct small, plausible cases consistent with its usual constraints. ` +
           `"input" must be a JSON object of {"TableName": [{"col1": val, "col2": val}, ...], ...} representing the seed rows for each table the query needs — use the real table/column names LeetCode uses for this problem if known. ` +
-          `Respond with ONLY a raw JSON array of exactly 20 elements, no markdown fences, no prose — each element exactly: {"input": <as described>, "expected": "<exact plain-text string the last result row should equal>"}.`
+          `Respond with ONLY a raw JSON array of exactly ${MIN_SUBMIT_TEST_CASES} elements, no markdown fences, no prose — each element exactly: {"input": <as described>, "expected": "<exact plain-text string the last result row should equal>"}.`
           :
-          `For the LeetCode problem "${p.title}" (topic: ${p.section}, difficulty: ${p.diff==='E'?'Easy':p.diff==='M'?'Medium':'Hard'}), give me its real (or a plausible, conventional) function signature plus 20 UNIQUE test cases (no two with identical input). ` +
-          `Put the 3 clearest, most representative cases FIRST — those are shown to the person as visible samples (use well-known example inputs/outputs for this specific problem if you know them). The remaining ~17 are used for grading only and must be varied, and MUST include realistic edge cases appropriate to this problem's constraints — smallest valid input, largest the constraints allow, all-identical elements, already-sorted vs reverse-sorted, negative numbers/zero if applicable, and any other boundary this specific problem is known to trip people up on. ` +
+          `For the LeetCode problem "${p.title}" (topic: ${p.section}, difficulty: ${p.diff==='E'?'Easy':p.diff==='M'?'Medium':'Hard'}), give me its real (or a plausible, conventional) function signature plus ${MIN_SUBMIT_TEST_CASES} UNIQUE test cases (no two with identical input). ` +
+          `Put the 3 clearest, most representative cases FIRST — those are shown to the person as visible samples (use well-known example inputs/outputs for this specific problem if you know them). The remaining ~${MIN_SUBMIT_TEST_CASES - MIN_RUN_TEST_CASES} are used for grading only and must be varied, and MUST include realistic edge cases appropriate to this problem's constraints — smallest valid input, largest the constraints allow, all-identical elements, already-sorted vs reverse-sorted, negative numbers/zero if applicable, and any other boundary this specific problem is known to trip people up on. ` +
           `Respond with ONLY a raw JSON object, no markdown fences, no prose, exactly this shape:\n` +
           `{"functionName": "<camelCase method name, e.g. maxSubArrayLen>", ` +
           `"params": [{"name":"<param name>","type":"<one of: ${JAVA_TYPE_VOCAB.join(', ')}>"}, ...in order...], ` +
           `"returnType": "<one of: ${JAVA_TYPE_VOCAB.join(', ')}>", ` +
-          `"testCases": [{"input": [<param 1 value>, <param 2 value>, ...], "expected": "<exact plain value the return should equal — a bare number/word, or compact JSON like [1,2,3] for arrays, true/false for booleans>"}, ...exactly 20 of these, unique...]}\n` +
+          `"testCases": [{"input": [<param 1 value>, <param 2 value>, ...], "expected": "<exact plain value the return should equal — a bare number/word, or compact JSON like [1,2,3] for arrays, true/false for booleans>"}, ...exactly ${MIN_SUBMIT_TEST_CASES} of these, unique...]}\n` +
           `"input" must always be a JSON array with exactly one element per parameter, in the same order as "params". Only use types from the given vocabulary.`
         }]}],
         generationConfig:{ maxOutputTokens:3000, thinkingConfig:{ thinkingLevel:'minimal' } }
