@@ -1,0 +1,9 @@
+name = "dsa-tracker-license-backend"
+main = "worker.js"
+compatibility_date = "2024-11-01"
+
+# After running `wrangler kv namespace create LICENSES`, paste the returned
+# id below (replace REPLACE_WITH_YOUR_KV_NAMESPACE_ID).
+kv_namespaces = [
+  { binding = "LICENSES", id = "c71806d12e3943359258d9a75e111735" }
+]
