@@ -1206,6 +1206,7 @@
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
             <button class="btn-secondary" id="solveSummaryBtn" type="button" style="padding:4px 10px;font-size:11.5px;">🤖 AI problem summary</button>
             <button class="btn-secondary" id="solveHintBtn" type="button" style="padding:4px 10px;font-size:11.5px;">💡 Get a hint</button>
+            <button class="btn-secondary" id="solveConceptBtn" type="button" style="padding:4px 10px;font-size:11.5px;">🧠 Core Concept</button>
             <button class="btn-secondary" id="solveVisualizeBtn" type="button" style="padding:4px 10px;font-size:11.5px;">🖼 Visualize</button>
             <button class="btn-secondary" id="solveCodeBtn" type="button" style="padding:4px 10px;font-size:11.5px;">💻 Get code</button>
             <button class="btn-secondary" id="solveReviewBtn" type="button" style="padding:4px 10px;font-size:11.5px;">🤖 Review code</button>
@@ -1280,6 +1281,25 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="conceptModal">
+  <div class="modal-box" style="max-width:880px;">
+    <button class="modal-close" data-close="conceptModal">✕</button>
+    <h3>🧠 Core concept</h3>
+    <div class="modal-sub" id="conceptModalSub">The underlying pattern this problem is really testing — explained in depth, with a diagram, separate from this specific problem's solution.</div>
+    <div id="conceptKeySection"></div>
+    <div class="modal-actions" style="justify-content:flex-start;margin:10px 0 4px;gap:8px;flex-wrap:wrap;">
+      <button class="btn-primary" id="conceptGetBtn">Explain the concept</button>
+    </div>
+    <div id="conceptOutputSection" style="display:none;">
+      <div id="conceptVisualBox" style="display:none;margin-bottom:12px;"></div>
+      <div class="hint-output" id="conceptOutput"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" data-close="conceptModal">Close</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="codeGenModal">
   <div class="modal-box" style="max-width:880px;">
     <button class="modal-close" data-close="codeGenModal">✕</button>
@@ -1334,6 +1354,9 @@
     <div id="reviewKeySection"></div>
     <div id="reviewSection">
       <div id="reviewOutputSection">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:6px;">
+          <button type="button" class="btn-secondary" id="reviewClearBtn" style="display:none;padding:3px 10px;font-size:11px;" title="Clear this problem's saved review chat history">🗑 Clear chat history</button>
+        </div>
         <div class="hint-output" id="reviewOutput" style="display:none;"></div>
       </div>
       <label for="reviewChatInput">Paste your code and/or ask a question</label>
@@ -5157,6 +5180,69 @@ async function fetchVisualizationSvg(p, key){
   if(/^NONE$/i.test(text)) return null;
   return sanitizeSvgOrNull(text);
 }
+// Same idea as fetchVisualizationSvg above, but diagrams the GENERAL
+// pattern/data-structure this problem's technique relies on (e.g. a generic
+// two-pointer sweep, a generic binary-search narrowing) rather than one
+// concrete example input for this specific problem — used by the Core
+// Concept modal, which is about the reusable idea, not this one problem.
+async function fetchConceptSvg(p, key){
+  const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=' + encodeURIComponent(key), {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json' },
+    body: JSON.stringify({
+      contents:[{ role:'user', parts:[{ text:
+        `The LeetCode problem "${p.title}" (topic: ${p.section}) is solved using some general algorithmic pattern or data structure (e.g. two pointers, sliding window, binary search, a monotonic stack, BFS/DFS on a graph, a heap, dynamic programming on a table, a trie, union-find). Decide whether a small generic diagram of THAT PATTERN ITSELF (not this specific problem's input) would help someone recognize and remember it. ` +
+        `If the underlying idea is essentially pure math/formula manipulation with no useful spatial shape, reply with exactly the single word NONE and nothing else. ` +
+        `Otherwise reply with ONLY a single self-contained <svg viewBox="0 0 480 240" xmlns="http://www.w3.org/2000/svg">...</svg> element and nothing else — no prose, no markdown code fences. Illustrate the GENERAL mechanics of the pattern with a small generic example array/tree/graph (not necessarily this problem's own example), label moving parts (pointers, window edges, indices) with <text>. Use plain <rect>/<circle>/<line>/<path>/<text> elements with inline fill/stroke attributes readable on both light and dark backgrounds (mid-tone palette, not pure black or pure white). No <script>, no external references, no event-handler attributes.`
+      }]}],
+      generationConfig:{ maxOutputTokens:900, thinkingConfig:{ thinkingLevel:'minimal' } }
+    })
+  });
+  if(!resp.ok){
+    const errText = await resp.text();
+    throw new Error('API error ' + resp.status + ': ' + errText.slice(0,300));
+  }
+  const data = await resp.json();
+  const candidate = data.candidates && data.candidates[0];
+  const parts = (candidate && candidate.content && candidate.content.parts) || [];
+  const text = parts.map(b=>b.text||'').join('\n').trim();
+  if(/^NONE$/i.test(text)) return null;
+  return sanitizeSvgOrNull(text);
+}
+async function fetchConceptText(p, key){
+  const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=' + encodeURIComponent(key), {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json' },
+    body: JSON.stringify({
+      contents:[{ role:'user', parts:[{ text:
+        `Someone is looking at the LeetCode problem "${p.title}" (topic: ${p.section}, difficulty: ${p.diff==='E'?'Easy':p.diff==='M'?'Medium':'Hard'}) and wants to deeply understand the general algorithmic pattern or data structure it's built on — not just how to solve this one problem, but the reusable idea itself, so they recognize it next time it shows up in a different disguise. ` +
+        `Write in short, plain sentences. Avoid unexplained jargon — define any technical term the first time you use it. Do NOT write this problem's actual solution code. ` +
+        `${MATH_NOTATION_RULE} Write complexity as plain text like "O(n)" or "O(log n)" — never LaTeX or math markup. Never use markdown bold/italic/headers. ` +
+        `Reply in exactly this format, plain text:\n\n` +
+        `CONCEPT NAME: <the name of the general pattern/technique/data structure, e.g. "Two Pointers" or "Binary Search on the Answer">\n\n` +
+        `ANALOGY: <one short, concrete everyday-life comparison that captures the core idea, independent of this specific problem>\n\n` +
+        `WHY IT WORKS: <2-4 sentences on the underlying insight that makes this pattern valid — what invariant or property it relies on>\n\n` +
+        `HOW TO RECOGNIZE IT: <2-4 sentences / bullet-like short lines on the signals in a problem statement that suggest this pattern — e.g. specific keywords, constraints, or shapes of the input>\n\n` +
+        `GENERAL TEMPLATE:\n1. <first general step, described in plain English, not tied to this problem's variable names>\n2. <next step>\n(3-6 steps total, generic enough to reuse on a different problem using the same pattern)\n\n` +
+        `WORKED MINI-EXAMPLE: <a short, concrete walkthrough of the pattern on a SMALL GENERIC example, distinct from this problem's own examples if possible, so it can be understood standalone>\n\n` +
+        `COMMON VARIATIONS: <2-4 short lines naming other well-known problems or twists that use this same underlying pattern>\n\n` +
+        `COMPLEXITY: <typical time/space complexity of this pattern in general, and why>`
+      }]}],
+      generationConfig:{ maxOutputTokens:1600, thinkingConfig:{ thinkingLevel:'minimal' } }
+    })
+  });
+  if(!resp.ok){
+    const errText = await resp.text();
+    throw new Error('API error ' + resp.status + ': ' + errText.slice(0,300));
+  }
+  const data = await resp.json();
+  const candidate = data.candidates && data.candidates[0];
+  const parts = (candidate && candidate.content && candidate.content.parts) || [];
+  const text = parts.map(b=>b.text||'').join('\n').trim();
+  if(text) return text;
+  const reason = (candidate && candidate.finishReason) || (data.promptFeedback && data.promptFeedback.blockReason) || 'unknown';
+  throw new Error('No explanation text came back (reason: ' + reason + ')');
+}
 // Shared by the Solve editor and Mock Interview panel's "🖼 Visualize"
 // button — fetches, sanitizes, and renders the diagram (or a plain note
 // when the model decides no diagram would help this particular problem).
@@ -8342,7 +8428,16 @@ window.addEventListener('mousemove', (e)=>{
   }
 });
 window.addEventListener('mouseup', ()=>{
-  if(lcDrag){ lcDrag.el.classList.remove('dragging'); lcDrag = null; }
+  if(lcDrag){
+    lcDrag.el.classList.remove('dragging');
+    lcDrag = null;
+    scheduleCmRefresh(solveCM);
+    scheduleCmRefresh(mockCM);
+  }
+});
+window.addEventListener('resize', ()=>{
+  scheduleCmRefresh(solveCM);
+  scheduleCmRefresh(mockCM);
 });
 
 const LC_CHEER_MESSAGES = [
@@ -8685,11 +8780,7 @@ function buildRowEl(p){
   `;
   row.addEventListener('click', (e)=>{
     if(e.target.closest('a, button, .company-more-dropdown')) return;
-    if(p.noOJ){
-      if(p.practiceUrl) window.open(p.practiceUrl, '_blank', 'noopener');
-      return;
-    }
-    window.open(`https://leetcode.com/problems/${p.slug}/`, '_blank', 'noopener');
+    openCodeEditorModal(p.id);
   });
   return row;
 }
@@ -8698,7 +8789,14 @@ function attachRowIconHandlers(root){
   root.querySelectorAll('[data-solve]').forEach(btn => {
     btn.addEventListener('click', (e)=>{
       e.stopPropagation();
-      openCodeEditorModal(parseInt(btn.getAttribute('data-solve'),10));
+      const id = parseInt(btn.getAttribute('data-solve'),10);
+      const prob = PROBLEMS.find(x=>x.id===id);
+      if(!prob) return;
+      if(prob.noOJ){
+        if(prob.practiceUrl) window.open(prob.practiceUrl, '_blank', 'noopener');
+        return;
+      }
+      window.open(`https://leetcode.com/problems/${prob.slug}/`, '_blank', 'noopener');
     });
   });
   root.querySelectorAll('[data-flag]').forEach(btn => {
@@ -8938,6 +9036,53 @@ function renderHintText(raw){
       const labelUpper = labelMatch[1].toUpperCase();
       if(labelUpper === 'EDGE CASES' || labelUpper === 'EXAMPLE WALKTHROUGH') closeSection();
       else closeList();
+      const label = labelMatch[1].replace(/\b\w/g, c=>c.toUpperCase());
+      html += `<div class="hint-label">${escapeHtml(label)}</div>`;
+      if(labelMatch[2]) html += `<div class="hint-line">${mathText(labelMatch[2])}</div>`;
+    } else if(stepMatch){
+      if(!inList){ html += '<ol class="hint-steps">'; inList = true; }
+      html += `<li>${mathText(stepMatch[2])}</li>`;
+    } else {
+      closeList();
+      html += `<div class="hint-line">${mathText(trimmed)}</div>`;
+    }
+  });
+  closeSection();
+  return html || mathText(raw);
+}
+
+// Same idea as renderHintText above, but for the Core Concept modal's
+// different label set (CONCEPT NAME / WHY IT WORKS / HOW TO RECOGNIZE IT /
+// GENERAL TEMPLATE / WORKED MINI-EXAMPLE / COMMON VARIATIONS / COMPLEXITY).
+function renderConceptText(raw){
+  const lines = stripLatexArtifacts(raw).split('\n');
+  let html = '';
+  let inList = false;
+  let inSection = false;
+  const closeList = ()=>{ if(inList){ html += '</ol>'; inList = false; } };
+  const closeSection = ()=>{ closeList(); if(inSection){ html += '</div>'; inSection = false; } };
+  lines.forEach(line=>{
+    const trimmed = line.trim();
+    if(!trimmed){ return; }
+    const nameMatch = trimmed.match(/^CONCEPT NAME\s*:\s*(.*)$/i);
+    const analogyMatch = trimmed.match(/^ANALOGY\s*:\s*(.*)$/i);
+    const sectionMatch = trimmed.match(/^(GENERAL TEMPLATE|WORKED MINI-EXAMPLE)\s*:?\s*(.*)$/i);
+    const labelMatch = trimmed.match(/^(WHY IT WORKS|HOW TO RECOGNIZE IT|COMMON VARIATIONS|COMPLEXITY)\s*:\s*(.*)$/i);
+    const stepMatch = trimmed.match(/^(\d+)[.)]\s+(.*)$/);
+    if(nameMatch){
+      closeSection();
+      if(nameMatch[1]) html += `<div class="hint-section optimal"><div class="hint-section-title">🧠 ${escapeHtml(nameMatch[1])}</div></div>`;
+    } else if(analogyMatch){
+      closeSection();
+      if(analogyMatch[1]) html += `<div class="hint-analogy">💭 ${mathText(analogyMatch[1])}</div>`;
+    } else if(sectionMatch){
+      closeSection();
+      const isTemplate = /template/i.test(sectionMatch[1]);
+      html += `<div class="hint-section ${isTemplate ? 'brute' : 'optimal'}"><div class="hint-section-title">${isTemplate ? '📐 General Template' : '🔎 Worked Mini-Example'}</div>`;
+      inSection = true;
+      if(sectionMatch[2]) html += `<div class="hint-line">${mathText(sectionMatch[2])}</div>`;
+    } else if(labelMatch){
+      closeList();
       const label = labelMatch[1].replace(/\b\w/g, c=>c.toUpperCase());
       html += `<div class="hint-label">${escapeHtml(label)}</div>`;
       if(labelMatch[2]) html += `<div class="hint-line">${mathText(labelMatch[2])}</div>`;
@@ -9247,6 +9392,7 @@ function openCodeEditorModal(id){
   resetSolveTestCases();
   setLcTab('solveBottomPane', 'solveTestcase');
   document.getElementById('codeEditorModal').classList.add('show');
+  scheduleCmRefresh(solveCM);
 
   let hasKey = false;
   try{ hasKey = !!localStorage.getItem(APIKEY_KEY); }catch(e){}
@@ -9332,7 +9478,7 @@ document.getElementById('solveRunBtn').addEventListener('click', async ()=>{
   out.textContent = 'Running…';
   // Run always checks the visible sample cases (at least the first
   // MIN_RUN_TEST_CASES, or every case there is if fewer exist) — Submit is
-  // the one that grades against the full ≥20-case set.
+  // the one that grades against the full ≥MIN_SUBMIT_TEST_CASES-case set.
   const sampleCases = solveTestCases.filter(tc=>tc.sample).slice(0, MIN_RUN_TEST_CASES);
   const casesToRun = sampleCases.length ? sampleCases : solveTestCases.slice(0, MIN_RUN_TEST_CASES);
   try{
@@ -9419,6 +9565,12 @@ document.getElementById('solveHintBtn').addEventListener('click', ()=>{
   const key = requireGeminiKey('solveKeySection');
   if(!key) return;
   openHintModal(solveModalId);
+});
+document.getElementById('solveConceptBtn').addEventListener('click', ()=>{
+  if(solveModalId==null) return;
+  const key = requireGeminiKey('solveKeySection');
+  if(!key) return;
+  openConceptModal(solveModalId);
 });
 document.getElementById('solveVisualizeBtn').addEventListener('click', ()=>{
   const key = requireGeminiKey('solveKeySection');
@@ -10098,12 +10250,90 @@ function cmModeForSolveLang(langVal){
   }
 }
 async function ensureCodeMirror(modeInfo){
+  // Core CSS/JS and the language mode are load-bearing — if any of these
+  // fail, initMockCodeEditor/initSolveCodeEditor's try/catch falls back to
+  // a plain <textarea>, which is the right call since there's no editor
+  // without them.
   await Promise.all([
     loadCSS(CM_BASE + '/codemirror.min.css'),
     loadScript(CM_BASE + '/codemirror.min.js')
   ]);
   if(modeInfo.file) await loadScript(modeInfo.file);
+  // Addons below all extend the base CodeMirror.js that was just loaded, so
+  // they must load strictly after it, but can load in parallel with each
+  // other:
+  //   - closebrackets/matchbrackets/active-line: LeetCode-style editing feel
+  //     (auto-close ()/[]/{}/quotes, highlight the matching bracket, tint
+  //     the current line).
+  //   - show-hint + anyword-hint: word-based autocomplete that suggests
+  //     identifiers already typed elsewhere in the buffer — i.e. it
+  //     "remembers" variable names you've already introduced and offers
+  //     them again as you keep typing, the same way LeetCode's editor does.
+  // Each is wrapped in .catch() and NOT awaited-as-fatal — passing an
+  // option an unloaded addon would have handled (e.g. autoCloseBrackets)
+  // is a harmless no-op in CodeMirror, so a CDN hiccup on any one of these
+  // should degrade to "missing that one nicety", never to "no editor at
+  // all". They race with, rather than block, the CodeMirror() constructor
+  // call below — whichever haven't finished by then just apply a moment
+  // later once they do.
+  Promise.all([
+    loadCSS(CM_BASE + '/addon/hint/show-hint.min.css').catch(()=>{}),
+    loadScript(CM_BASE + '/addon/edit/closebrackets.min.js').catch(()=>{}),
+    loadScript(CM_BASE + '/addon/edit/matchbrackets.min.js').catch(()=>{}),
+    loadScript(CM_BASE + '/addon/selection/active-line.min.js').catch(()=>{}),
+    loadScript(CM_BASE + '/addon/hint/show-hint.min.js')
+      .then(()=> loadScript(CM_BASE + '/addon/hint/anyword-hint.min.js'))
+      .catch(()=>{})
+  ]);
   return modeInfo.mode;
+}
+// Options shared by both the Mock Interview and Solve editors so their
+// behavior (and the LeetCode-parity features below) never drifts apart.
+function cmSharedOptions(){
+  return {
+    lineNumbers: true,
+    indentUnit: 2,
+    tabSize: 2,
+    indentWithTabs: false,
+    autoCloseBrackets: true,
+    matchBrackets: true,
+    styleActiveLine: true,
+    extraKeys: { 'Ctrl-Space': 'autocomplete', 'Cmd-Space': 'autocomplete' }
+  };
+}
+// Auto-popup word completion as the person types (LeetCode's editor does
+// this too) — sourced from words already present in the buffer, so it
+// effectively "remembers" every variable/function name already typed and
+// offers it again instead of making you retype or misspell it. Manual
+// trigger is still available via Ctrl/Cmd-Space (see extraKeys above).
+function wireLiveAutocomplete(cm){
+  cm.on('inputRead', (instance, change)=>{
+    if(!window.CodeMirror || !CodeMirror.showHint || !CodeMirror.hint || !CodeMirror.hint.anyword) return;
+    if(instance.state.completionActive) return;
+    if(change.origin !== '+input' || !change.text || !change.text.length) return;
+    const lastChar = change.text[change.text.length - 1];
+    if(!/[A-Za-z_]/.test(lastChar || '')) return;
+    CodeMirror.showHint(instance, CodeMirror.hint.anyword, { completeSingle: false });
+  });
+}
+// CodeMirror measures character widths (and therefore the gutter's width)
+// against whatever font is actually rendering at init time. This page loads
+// 'IBM Plex Mono' with font-display:swap, so the very first paint can use a
+// fallback font before the real one swaps in a moment later — CodeMirror
+// has no way to know that happened on its own, and the result is exactly
+// the symptom reported: line numbers drifting out of alignment and
+// overlapping the code next to them. Calling refresh() once the real font
+// is confirmed loaded (plus a couple of safety-net refreshes around modal
+// transitions/resizes, which have the same "measured while not fully
+// settled" failure mode) makes CodeMirror re-measure and fixes it for good.
+function scheduleCmRefresh(cm){
+  if(!cm) return;
+  requestAnimationFrame(()=> cm.refresh());
+  if(document.fonts && document.fonts.ready){
+    document.fonts.ready.then(()=>{ if(cm) cm.refresh(); }).catch(()=>{});
+  } else {
+    setTimeout(()=>{ if(cm) cm.refresh(); }, 300);
+  }
 }
 async function initMockCodeEditor(){
   const host = document.getElementById('mockEditorHost');
@@ -10115,17 +10345,15 @@ async function initMockCodeEditor(){
     if(isDark) await loadCSS(CM_BASE + '/theme/dracula.min.css');
     if(!activeMock) return; 
     host.innerHTML = '';
-    mockCM = window.CodeMirror(host, {
+    mockCM = window.CodeMirror(host, Object.assign({
       value: activeMock.code || '',
       mode: mode || 'text/plain',
-      lineNumbers: true,
-      indentUnit: 2,
-      tabSize: 2,
-      indentWithTabs: false,
       theme: isDark ? 'dracula' : 'default'
-    });
+    }, cmSharedOptions()));
     mockCM.on('change', ()=>{ if(activeMock) activeMock.code = mockCM.getValue(); });
     mockCM.setSize('100%', '100%');
+    wireLiveAutocomplete(mockCM);
+    scheduleCmRefresh(mockCM);
     applyMockStarterCodeIfEmpty();
   }catch(err){
     host.innerHTML = `<div style="padding:12px;font-size:12px;color:var(--ink-faint);">Couldn't load the syntax-highlighted editor (offline?) — using plain text instead.</div>`;
@@ -10192,15 +10420,11 @@ async function initSolveCodeEditor(langVal){
     if(isDark) await loadCSS(CM_BASE + '/theme/dracula.min.css');
     ta.style.display = 'none';
     host.querySelectorAll('.CodeMirror').forEach(el=>el.remove());
-    solveCM = window.CodeMirror(host, {
+    solveCM = window.CodeMirror(host, Object.assign({
       value: ta.value || '',
       mode: mode || 'text/plain',
-      lineNumbers: true,
-      indentUnit: 2,
-      tabSize: 2,
-      indentWithTabs: false,
       theme: isDark ? 'dracula' : 'default'
-    });
+    }, cmSharedOptions()));
     solveCM.on('change', ()=>{
       const newVal = solveCM.getValue();
       if(ta.value !== newVal){
@@ -10209,13 +10433,12 @@ async function initSolveCodeEditor(langVal){
       }
     });
     solveCM.setSize('100%', '100%');
+    wireLiveAutocomplete(solveCM);
+    scheduleCmRefresh(solveCM);
   }catch(err){
     solveCM = null;
     ta.style.display = '';
   }
-}
-function destroySolveCodeEditor(){
-  solveCM = null;
 }
 function runJSInWorker(code, rawInputJson, timeoutMs){
   timeoutMs = timeoutMs || 5000;
@@ -11902,6 +12125,53 @@ function getLastSubmission(id){
 }
 const SOLVE_LANG_KEY = 'dsa-tracker-solve-lang-v1';
 const FACTORY_RESET_BACKUP_KEY = 'dsa-tracker-factory-reset-backup-v1';
+const REVIEW_HISTORY_KEY = 'dsa-tracker-review-history-v1';
+// Per-problem review-chatbot history, so the conversation in the "🤖 Review
+// code" modal survives closing/reopening it and reloading the page — not
+// just kept in memory for the current session like it used to be.
+// Two parallel arrays are kept per problem instead of one, because the
+// first message sent to the API is wrapped in a large system-prompt
+// preamble (see sendReviewMessage) that shouldn't be shown back to the
+// person as if they'd typed it themselves:
+//   api     — the exact {role, parts:[{text}]} objects sent to/from Gemini,
+//             used verbatim as "contents" to keep the conversation coherent
+//             when the person continues chatting.
+//   display — just the human-readable text for each turn, used to redraw
+//             the chat bubbles when the modal reopens.
+function loadReviewHistoryStore(){
+  try{ return JSON.parse(localStorage.getItem(REVIEW_HISTORY_KEY) || '{}'); }catch(e){ return {}; }
+}
+function saveReviewHistoryStore(store){
+  try{ localStorage.setItem(REVIEW_HISTORY_KEY, JSON.stringify(store)); }catch(e){}
+}
+function getReviewHistory(id){
+  if(id==null) return { api: [], display: [] };
+  const entry = loadReviewHistoryStore()[id];
+  return entry ? { api: entry.api || [], display: entry.display || [] } : { api: [], display: [] };
+}
+// Appends one successful exchange (the user's turn plus the model's reply)
+// and caps how many turns are kept per problem so a very long back-and-forth
+// can't grow this key unboundedly in localStorage. Only ever called after a
+// reply actually comes back — a failed exchange is rolled back from the
+// in-memory conversation too (see sendReviewMessage), so there's nothing
+// coherent to persist for it.
+function appendReviewHistory(id, userApiTurn, userDisplayText, modelApiTurn, modelDisplayText){
+  if(id==null) return;
+  const store = loadReviewHistoryStore();
+  if(!store[id]) store[id] = { api: [], display: [] };
+  store[id].api.push(userApiTurn, modelApiTurn);
+  store[id].display.push({ role:'user', text: userDisplayText }, { role:'model', text: modelDisplayText });
+  const MAX_TURNS = 40;
+  if(store[id].api.length > MAX_TURNS) store[id].api = store[id].api.slice(-MAX_TURNS);
+  if(store[id].display.length > MAX_TURNS) store[id].display = store[id].display.slice(-MAX_TURNS);
+  saveReviewHistoryStore(store);
+}
+function clearReviewHistory(id){
+  if(id==null) return;
+  const store = loadReviewHistoryStore();
+  delete store[id];
+  saveReviewHistoryStore(store);
+}
 
 function loadGhSyncConfig(){
   try{
@@ -12170,9 +12440,11 @@ document.getElementById('certDownloadBtn').addEventListener('click', downloadCer
 document.getElementById('certDownloadPdfBtn').addEventListener('click', downloadCertificatePdf);
 
 let hintModalId = null;
+let conceptModalId = null;
 let reviewModalId = null;
 let reviewConversation = [];
 const hintCache = {};
+const conceptCache = {};
 function openHintModal(id){
   hintModalId = id;
   const p = PROBLEMS.find(x=>x.id===id);
@@ -12195,6 +12467,32 @@ function openHintModal(id){
   // already saved and we don't already have a cached hint for this problem.
   const key = getGeminiKey();
   if(key && !hintCache[id]) generateHint();
+}
+function openConceptModal(id){
+  conceptModalId = id;
+  const p = PROBLEMS.find(x=>x.id===id);
+  document.getElementById('conceptModalSub').textContent = p.title + ' — ' + p.section + ' — the reusable pattern, not this problem\'s specific solution.';
+  renderApiKeyWidget('conceptKeySection');
+  document.getElementById('conceptGetBtn').textContent = 'Explain the concept';
+  document.getElementById('conceptGetBtn').disabled = false;
+  const outSection = document.getElementById('conceptOutputSection');
+  const visualBox = document.getElementById('conceptVisualBox');
+  const out = document.getElementById('conceptOutput');
+  if(conceptCache[id]){
+    outSection.style.display = 'block';
+    visualBox.style.display = conceptCache[id].svg ? 'block' : 'none';
+    visualBox.innerHTML = conceptCache[id].svg ? `<div class="lcviz-box">${conceptCache[id].svg}</div>` : '';
+    out.innerHTML = conceptCache[id].html;
+  } else {
+    outSection.style.display = 'none';
+    visualBox.style.display = 'none';
+    visualBox.innerHTML = '';
+    out.textContent = '';
+  }
+  document.getElementById('conceptModal').classList.add('show');
+  // Same auto-generate-if-key-saved convention as the Hint modal.
+  const key = getGeminiKey();
+  if(key && !conceptCache[id]) generateConceptExplanation();
 }
 let codeModalId = null;
 let codeModalTab = 'brute';
@@ -12231,11 +12529,33 @@ function openReviewModal(id, opts){
   const p = PROBLEMS.find(x=>x.id===id);
   document.getElementById('reviewModalSub').textContent = p.title + ' — ' + p.section;
   renderApiKeyWidget('reviewKeySection');
-  document.getElementById('reviewOutput').innerHTML = '';
-  document.getElementById('reviewOutput').style.display = 'none';
+  const out = document.getElementById('reviewOutput');
+  const clearBtn = document.getElementById('reviewClearBtn');
+  out.innerHTML = '';
   document.getElementById('reviewChatInput').value = opts.prefillCode || '';
-  reviewConversation = [];
+  const history = getReviewHistory(id);
+  reviewConversation = history.api.slice();
+  if(history.display.length){
+    out.style.display = 'block';
+    clearBtn.style.display = 'inline-flex';
+    history.display.forEach(turn=>{
+      const bubble = document.createElement('div');
+      if(turn.role === 'user'){
+        bubble.className = 'chat-bubble chat-user';
+        bubble.textContent = turn.text;
+      } else {
+        bubble.className = 'chat-bubble chat-assistant';
+        bubble.innerHTML = wrapCollapsible(renderReviewText(turn.text));
+      }
+      out.appendChild(bubble);
+    });
+    attachReviewCodeCopyButtons(out);
+  } else {
+    out.style.display = 'none';
+    clearBtn.style.display = 'none';
+  }
   document.getElementById('reviewModal').classList.add('show');
+  if(history.display.length) out.scrollTop = out.scrollHeight;
   // Auto-send immediately when we already have code to review, instead of
   // requiring an extra manual click on "Send".
   if(opts.prefillCode && opts.prefillCode.trim()){
@@ -12243,6 +12563,15 @@ function openReviewModal(id, opts){
     if(key) sendReviewMessage();
   }
 }
+document.getElementById('reviewClearBtn').addEventListener('click', ()=>{
+  if(reviewModalId==null) return;
+  if(!confirm('Clear the saved review chat history for this problem? This can\'t be undone.')) return;
+  clearReviewHistory(reviewModalId);
+  reviewConversation = [];
+  document.getElementById('reviewOutput').innerHTML = '';
+  document.getElementById('reviewOutput').style.display = 'none';
+  document.getElementById('reviewClearBtn').style.display = 'none';
+});
 async function fetchHintText(p, key){
   const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=' + encodeURIComponent(key), {
     method:'POST',
@@ -12315,6 +12644,38 @@ async function generateHint(){
   }
 }
 document.getElementById('hintGetBtn').addEventListener('click', generateHint);
+async function generateConceptExplanation(){
+  const key = requireGeminiKey('conceptKeySection');
+  if(!key) return;
+  const p = PROBLEMS.find(x=>x.id===conceptModalId);
+  const btn = document.getElementById('conceptGetBtn');
+  btn.disabled = true; btn.textContent = 'Thinking…';
+  const outSection = document.getElementById('conceptOutputSection');
+  const visualBox = document.getElementById('conceptVisualBox');
+  const out = document.getElementById('conceptOutput');
+  outSection.style.display = 'block';
+  visualBox.style.display = 'none';
+  visualBox.innerHTML = '';
+  out.innerHTML = '<div class="lcfmt-note">Working out the underlying pattern (and sketching a diagram of it if one would help)…</div>';
+  try{
+    const [text, svg] = await Promise.all([
+      fetchConceptText(p, key),
+      fetchConceptSvg(p, key).catch(()=>null)
+    ]);
+    if(svg){
+      visualBox.style.display = 'block';
+      visualBox.innerHTML = `<div class="lcviz-box">${svg}</div>`;
+    }
+    const html = wrapCollapsible(renderConceptText(text));
+    out.innerHTML = html;
+    conceptCache[p.id] = { html, svg };
+  }catch(err){
+    out.textContent = '⚠️ Could not reach the API from this page (' + err.message + '). Double-check the key is a valid Gemini API key from aistudio.google.com/apikey — that\'s the most common cause of a failure here.';
+  }finally{
+    btn.disabled = false; btn.textContent = 'Explain the concept';
+  }
+}
+document.getElementById('conceptGetBtn').addEventListener('click', generateConceptExplanation);
 // "Get code" / "Review code" inside the Hint modal — same underlying
 // modals the full code editor uses, just reachable without leaving the
 // hint flow. No prefill code here since there's no open editor to pull
@@ -12474,10 +12835,15 @@ async function sendReviewMessage(){
     const parts = (candidate && candidate.content && candidate.content.parts) || [];
     const text = parts.map(b=>b.text||'').join('\n').trim();
     if(text){
-      reviewConversation.push({ role:'model', parts: parts.length ? parts : [{text}] });
+      const modelApiTurn = { role:'model', parts: parts.length ? parts : [{text}] };
+      reviewConversation.push(modelApiTurn);
       thinkingEl.className = 'chat-bubble chat-assistant';
       thinkingEl.innerHTML = wrapCollapsible(renderReviewText(text));
       attachReviewCodeCopyButtons(out);
+      // Persist the whole exchange now that it's actually succeeded — see
+      // appendReviewHistory's comment for why this happens only on success.
+      appendReviewHistory(reviewModalId, reviewConversation[reviewConversation.length - 2], message, modelApiTurn, text);
+      document.getElementById('reviewClearBtn').style.display = 'inline-flex';
     } else {
       reviewConversation.pop();
       const reason = (candidate && candidate.finishReason) || (data.promptFeedback && data.promptFeedback.blockReason) || 'unknown';
