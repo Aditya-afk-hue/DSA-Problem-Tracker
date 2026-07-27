@@ -252,6 +252,7 @@
           <div class="lc-subtab-body" data-lc-panel="solveResult" style="display:none;">
             <div id="solveCheerBanner"></div>
             <div id="solveResultSummary" style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;"></div>
+            <div id="solveComplexityChart"></div>
             <div id="solveConsoleWrap" style="display:none;">
               <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.5px;text-transform:uppercase;color:var(--ink-faint);margin-bottom:4px;">Console output</div>
               <pre id="solveConsoleOutput" style="background:var(--card);border:1px solid var(--rule-soft);border-radius:8px;padding:10px 12px;font-size:12.5px;white-space:pre-wrap;max-height:100%;overflow:auto;margin:0;"></pre>
@@ -367,7 +368,6 @@
         </div>
         <div id="codeOutputSection" style="display:none;">
           <div class="code-meta" id="codeMeta"></div>
-          <div id="codeComplexityChart"></div>
           <div class="code-explain" id="codeExplain"></div>
           <div class="code-visual" id="codeVisual"></div>
           <div class="code-block-wrap">
@@ -810,7 +810,6 @@ let mockSessions = [];
 let activeMock = null; 
 let mockCM = null; 
 let solveCM = null; 
-let pyodideLoadPromise = null; 
 let sqlJsLoadPromise = null; 
 let cheerpjLoadPromise = null;
 let cheerpjBootCounter = 0;
@@ -993,7 +992,79 @@ function sanitizeSvgOrNull(raw){
   if(end <= start) return null;
   t = t.slice(start, end);
   if(/<script/i.test(t) || /\bon\w+\s*=/i.test(t) || /<foreignObject/i.test(t) || /xlink:href\s*=\s*["'](?!#)/i.test(t)) return null;
-  return t;
+  return dedupeSvgTextOverlaps(t);
+}
+// The model places <text> labels by guessing coordinates — it has no way to
+// know how wide a given string will actually render, so two labels that
+// looked fine in the model's head sometimes land on top of each other. This
+// renders the SVG off-screen (real layout, so getBBox() gives real
+// measurements — not display:none, which never computes layout), finds any
+// <text> elements whose real bounding boxes collide, and pushes the later
+// one down below the earlier one — turning a crowded single line into
+// cleanly stacked lines — then grows the viewBox if anything got pushed
+// past the bottom edge. Best-effort: if anything here throws (e.g. an
+// unusual browser), it just falls back to the original, unmodified SVG
+// rather than losing the diagram entirely.
+function dedupeSvgTextOverlaps(svgString){
+  let host;
+  try{
+    host = document.createElement('div');
+    host.style.cssText = 'position:fixed;left:-99999px;top:-99999px;visibility:hidden;';
+    host.innerHTML = svgString;
+    document.body.appendChild(host);
+    const svg = host.querySelector('svg');
+    if(!svg) return svgString;
+    const texts = Array.from(svg.querySelectorAll('text'));
+    if(texts.length < 2) return svgString;
+    const items = texts.map(el=>{
+      let box;
+      try{ box = el.getBBox(); }catch(e){ return null; }
+      if(!box || !isFinite(box.x) || !isFinite(box.y)) return null;
+      return { el, x:box.x, y:box.y, w:box.width, h:box.height };
+    }).filter(Boolean);
+    // Resolve top-to-bottom, left-to-right — matches natural reading order
+    // for diagram labels, so pushed-down text still reads sensibly.
+    items.sort((a,b)=> a.y - b.y || a.x - b.x);
+    const GAP = 4;
+    const placed = [];
+    let maxBottom = 0;
+    items.forEach(item=>{
+      let shiftedY = item.y;
+      let collided = true, guard = 0;
+      while(collided && guard < 20){
+        guard++;
+        collided = false;
+        for(const p of placed){
+          const hOverlap = item.x < p.x + p.w + GAP && item.x + item.w + GAP > p.x;
+          const vOverlap = shiftedY < p.y + p.h + GAP && shiftedY + item.h + GAP > p.y;
+          if(hOverlap && vOverlap){ shiftedY = p.y + p.h + GAP; collided = true; }
+        }
+      }
+      if(shiftedY !== item.y){
+        const dy = shiftedY - item.y;
+        const curY = parseFloat(item.el.getAttribute('y')) || 0;
+        item.el.setAttribute('y', (curY + dy).toFixed(1));
+        item.el.querySelectorAll('tspan').forEach(ts=>{
+          if(ts.hasAttribute('y')){
+            ts.setAttribute('y', ((parseFloat(ts.getAttribute('y'))||0) + dy).toFixed(1));
+          }
+        });
+      }
+      placed.push({ x:item.x, y:shiftedY, w:item.w, h:item.h });
+      maxBottom = Math.max(maxBottom, shiftedY + item.h);
+    });
+    const vb = (svg.getAttribute('viewBox')||'').trim().split(/\s+/).map(Number);
+    if(vb.length === 4 && !vb.some(isNaN)){
+      const [vx,vy,vw,vh] = vb;
+      const needed = Math.ceil(maxBottom + 10 - vy);
+      if(needed > vh) svg.setAttribute('viewBox', `${vx} ${vy} ${vw} ${needed}`);
+    }
+    return svg.outerHTML;
+  }catch(e){
+    return svgString;
+  }finally{
+    if(host && host.parentNode) host.parentNode.removeChild(host);
+  }
 }
 async function fetchVisualizationSvg(p, key){
   const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=' + encodeURIComponent(key), {
@@ -1004,7 +1075,7 @@ async function fetchVisualizationSvg(p, key){
         `Draw ONE small diagram of a concrete example input for the LeetCode problem "${p.title}" (topic: ${p.section}) that would meaningfully help someone visualize it. Pick whatever diagram shape actually fits the problem: ` +
         `trees/graphs/linked-lists/matrices/intervals/stacks/queues/pointers get a spatial diagram of that structure; pure-math problems (e.g. counting, number theory, bit manipulation) get a labeled number line or a small annotated worked example with the key values called out; string/parsing problems get a character-by-character or before/after diagram; DP problems get a small filled-in DP table with a couple of cells' values shown and an arrow showing how one is derived from another; anything step-by-sequence gets a compact flowchart. ` +
         `Every problem has SOME reasonable way to sketch its example — always produce a diagram, never decline. ` +
-        `Reply with ONLY a single self-contained <svg viewBox="0 0 480 240" xmlns="http://www.w3.org/2000/svg">...</svg> element and nothing else — no prose, no markdown code fences. Use plain <rect>/<circle>/<line>/<path>/<text> elements with inline fill/stroke attributes (readable on both light and dark backgrounds, so use a mid-tone palette, not pure black or pure white), label values with <text>. No <script>, no external references, no event-handler attributes.`
+        `Reply with ONLY a single self-contained <svg viewBox="0 0 480 240" xmlns="http://www.w3.org/2000/svg">...</svg> element and nothing else — no prose, no markdown code fences. Use plain <rect>/<circle>/<line>/<path>/<text> elements with inline fill/stroke attributes (readable on both light and dark backgrounds, so use a mid-tone palette, not pure black or pure white), label values with <text>. Leave generous spacing: assume each character of a <text> is roughly 7-8px wide at font-size 13-14 and leave that much horizontal room before the next element, never place two <text> elements on the same y within 60px of each other horizontally, and put any line of text or formula that might run long (e.g. a calculation summary) on its own row with nothing beside it rather than packed next to another label. If in doubt, use a taller viewBox and more line breaks rather than cramming text closer together. No <script>, no external references, no event-handler attributes.`
       }]}],
       generationConfig:{ maxOutputTokens:3000, thinkingConfig:{ thinkingLevel:'minimal' } }
     })
@@ -1038,7 +1109,7 @@ async function fetchConceptSvg(p, key){
     body: JSON.stringify({
       contents:[{ role:'user', parts:[{ text:
         `The LeetCode problem "${p.title}" (topic: ${p.section}) is solved using some general algorithmic pattern or data structure (e.g. two pointers, sliding window, binary search, a monotonic stack, BFS/DFS on a graph, a heap, dynamic programming on a table, a trie, union-find, or — for pure-math/number-theory/bit-manipulation problems — a formula, a number line, or a small worked table). Draw a small generic diagram of THAT PATTERN ITSELF (not this specific problem's input) so someone can recognize and remember it. Even for a purely mathematical idea there's always something worth sketching: a number line with the relevant region marked, a small annotated formula derivation, or a couple of worked rows of a table. Always produce a diagram, never decline. ` +
-        `Reply with ONLY a single self-contained <svg viewBox="0 0 480 240" xmlns="http://www.w3.org/2000/svg">...</svg> element and nothing else — no prose, no markdown code fences. Illustrate the GENERAL mechanics of the pattern with a small generic example (not necessarily this problem's own example), label moving parts (pointers, window edges, indices, values) with <text>. Use plain <rect>/<circle>/<line>/<path>/<text> elements with inline fill/stroke attributes readable on both light and dark backgrounds (mid-tone palette, not pure black or pure white). No <script>, no external references, no event-handler attributes.`
+        `Reply with ONLY a single self-contained <svg viewBox="0 0 480 240" xmlns="http://www.w3.org/2000/svg">...</svg> element and nothing else — no prose, no markdown code fences. Illustrate the GENERAL mechanics of the pattern with a small generic example (not necessarily this problem's own example), label moving parts (pointers, window edges, indices, values) with <text>. Use plain <rect>/<circle>/<line>/<path>/<text> elements with inline fill/stroke attributes readable on both light and dark backgrounds (mid-tone palette, not pure black or pure white). Leave generous spacing: assume each character of a <text> is roughly 7-8px wide at font-size 13-14 and leave that much horizontal room before the next element, never place two <text> elements on the same y within 60px of each other horizontally, and put any line of text or formula that might run long on its own row with nothing beside it rather than packed next to another label. If in doubt, use a taller viewBox and more line breaks rather than cramming text closer together. No <script>, no external references, no event-handler attributes.`
       }]}],
       generationConfig:{ maxOutputTokens:3000, thinkingConfig:{ thinkingLevel:'minimal' } }
     })
@@ -5228,6 +5299,7 @@ function openCodeEditorModal(id){
   const lang = (p.section === 'Database & SQL') ? 'sql' : savedLang;
   document.getElementById('solveLangSel').value = lang;
   document.getElementById('solveCodeInput').dataset.lastLang = lang;
+  preloadRuntimeForLang(lang);
   const code = getSolveCode(id, lang);
   setSolveEditorValue(code);
   resetSolveHistory(code);
@@ -5263,6 +5335,7 @@ document.getElementById('solveLangSel').addEventListener('change', ()=>{
   const wasSql = document.getElementById('solveCodeInput').dataset.lastLang === 'sql';
   const isSql = newLang === 'sql';
   try{ localStorage.setItem(SOLVE_LANG_KEY, newLang); }catch(e){}
+  preloadRuntimeForLang(newLang);
   const code = getSolveCode(solveModalId, newLang);
   setSolveEditorValue(code);
   document.getElementById('solveCodeInput').dataset.lastLang = newLang;
@@ -5330,7 +5403,7 @@ document.getElementById('solveRunBtn').addEventListener('click', async ()=>{
     return;
   }
   runBtn.disabled = true;
-  runBtn.textContent = langVal === 'python' && !pyodideLoadPromise ? 'Loading Python runtime…' : (langVal === 'sql' && !sqlJsLoadPromise ? 'Loading SQL runtime…' : (langVal === 'java' && !cheerpjLoadPromise ? 'Loading Java runtime (can take a while first time)…' : 'Running…'));
+  runBtn.textContent = langVal === 'python' && !pyodideWorker ? 'Loading Python runtime…' : (langVal === 'sql' && !sqlJsLoadPromise ? 'Loading SQL runtime…' : (langVal === 'java' && !cheerpjLoadPromise ? 'Loading Java runtime (can take a while first time)…' : 'Running…'));
   out.textContent = 'Running…';
   // Run always checks the visible sample cases (at least the first
   // MIN_RUN_TEST_CASES, or every case there is if fewer exist) — Submit is
@@ -5346,7 +5419,7 @@ document.getElementById('solveRunBtn').addEventListener('click', async ()=>{
       casesToRun.forEach((tc, i)=>{
         const result = results[i];
         if(!result.ok){
-          lines.push(`Case ${i+1} — input: ${tc.input}`, `  ⚠ Error — ${formatRunError(result)}`, '');
+          lines.push(`Case ${i+1} — input: ${tc.input}`, result.tle ? `  ⏱ Time Limit Exceeded — ${formatRunError(result)}` : `  ⚠ Error — ${formatRunError(result)}`, '');
         } else {
           const lastLine = (result.logs || []).filter(l=>l.trim()).pop() || '';
           const ok = normalizeForCompare(lastLine) === normalizeForCompare(tc.expected);
@@ -5777,6 +5850,7 @@ function renderSolveTestCases(){
       </div>
       <div class="mock-tc-status ${tc.status}">${
         tc.status==='pass' ? '✓ Pass' : tc.status==='fail' ? `✕ Fail — got: ${escapeHtml(tc.actual||'(no output)')}` :
+        tc.status==='tle' ? `⏱ Time Limit Exceeded` :
         tc.status==='error' ? `⚠ Error — ${escapeHtml(tc.actual||'')}` : ''
       }</div>
       <button class="mock-tc-remove" data-idx="${i}" type="button" title="Remove test case">✕</button>
@@ -5846,7 +5920,7 @@ async function submitSolveTestCases(){
     solveTestCases.forEach((tc, i)=>{
       const result = results[i];
       if(!result.ok){
-        tc.status = 'error'; tc.actual = formatShortError(result);
+        tc.status = result.tle ? 'tle' : 'error'; tc.actual = formatShortError(result);
       } else {
         const lastLine = (result.logs || []).filter(l=>l.trim()).pop() || '';
         tc.actual = lastLine;
@@ -5869,8 +5943,19 @@ async function submitSolveTestCases(){
   // backend of other people's submissions to rank against here, so this is
   // just your own number, not a percentile.
   document.getElementById('solveResultSummary').textContent = `${passed}/${solveTestCases.length} test case${solveTestCases.length===1?'':'s'} passed` + (elapsedMs!=null ? ` · ⏱ Runtime: ${elapsedMs} ms` : '');
+  const solveComplexityEl = document.getElementById('solveComplexityChart');
+  if(solveComplexityEl) solveComplexityEl.innerHTML = '';
   if(solveTestCases.length > 0 && passed === solveTestCases.length){
     showLcCheer('solveCheerBanner');
+    const pForComplexity = PROBLEMS.find(x=>x.id===solveModalId);
+    if(pForComplexity){
+      fetchComplexityAnalysis(pForComplexity, langVal, rawCode).then(result=>{
+        // Guard against a stale response landing after the person has
+        // already moved on to a different problem in the meantime.
+        if(!result || solveModalId !== pForComplexity.id) return;
+        renderPostSubmitComplexity('solveComplexityChart', result.time_complexity, result.space_complexity);
+      });
+    }
   } else {
     document.getElementById('solveCheerBanner').innerHTML = '';
   }
@@ -6525,28 +6610,115 @@ function runJSCasesInWorker(code, rawInputJsons, timeoutMs){
     runNext();
   });
 }
-function ensurePyodide(){
-  if(pyodideLoadPromise) return pyodideLoadPromise;
-  pyodideLoadPromise = loadScript('https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js')
-    .then(()=> window.loadPyodide());
-  return pyodideLoadPromise;
+// Starts downloading/booting the Java (CheerpJ) or Python (Pyodide) runtime
+// in the background as soon as we have a reason to believe it'll be needed
+// — when a problem is opened with that language selected, when the
+// language dropdown is switched to it, or opportunistically on page load
+// for whichever language was last used. Both ensureCheerpJ()/
+// ensurePyodideWorker() are no-ops once already booting/booted, so calling
+// this repeatedly (e.g. once per keystroke-triggered re-render) is harmless
+// — this only ever removes wait time, it can't duplicate the download.
+// JS/SQL don't need this: their runtimes are tiny/instant by comparison.
+function preloadRuntimeForLang(lang){
+  const l = (lang||'').toLowerCase();
+  if(l === 'java') ensureCheerpJ().catch(()=>{});
+  else if(l === 'python') ensurePyodideWorker();
+}
+const PY_TLE_MS = 8000; // Python/Pyodide has more interpreter overhead than raw JS, so it gets a bit more rope before being called TLE
+let pyodideWorker = null;
+function pyodideWorkerSrc(){
+  return `
+    importScripts('https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js');
+    let pyodideReady = (async ()=>{
+      const py = await loadPyodide();
+      py.setStdout({ batched: (s)=>{ self.__out = (self.__out||'') + s + '\\n'; } });
+      py.setStderr({ batched: (s)=>{ self.__err = (self.__err||'') + s + '\\n'; } });
+      return py;
+    })();
+    self.onmessage = async function(e){
+      const py = await pyodideReady;
+      self.__out = ''; self.__err = '';
+      try{
+        let fullCode = e.data.code;
+        if(e.data.inputJson !== null && e.data.inputJson !== undefined && e.data.inputJson !== ''){
+          py.globals.set('__raw_input__', e.data.inputJson);
+          fullCode = 'import json\\nINPUT = json.loads(__raw_input__)\\n' + fullCode;
+        }
+        await py.runPythonAsync(fullCode);
+        const logs = self.__out ? self.__out.split('\\n').filter((l,i,a)=>i<a.length-1) : [];
+        self.postMessage({ ok:true, logs, error:null });
+      }catch(err){
+        const logs = self.__out ? self.__out.split('\\n').filter((l,i,a)=>i<a.length-1) : [];
+        self.postMessage({ ok:false, logs, error: (err && err.message) ? err.message : String(err) });
+      }
+    };
+  `;
+}
+function spawnPyodideWorker(){
+  const blob = new Blob([pyodideWorkerSrc()], { type:'application/javascript' });
+  const url = URL.createObjectURL(blob);
+  const w = new Worker(url);
+  w.__blobUrl = url;
+  return w;
+}
+// Unlike the JS runner (which spawns a fresh throwaway worker per batch,
+// since booting a plain JS worker is instant), Pyodide takes real time to
+// download and initialize — so this worker is created ONCE and kept alive
+// for the whole page session, reused across every Run/Submit, and only ever
+// replaced if a case actually times out (see runPythonCasesInWorker below).
+function ensurePyodideWorker(){
+  if(!pyodideWorker) pyodideWorker = spawnPyodideWorker();
+  return pyodideWorker;
+}
+function runPythonCasesInWorker(code, rawInputJsons, timeoutMs){
+  timeoutMs = timeoutMs || PY_TLE_MS;
+  ensurePyodideWorker();
+  return new Promise((resolve)=>{
+    const results = [];
+    let idx = 0, timer = null;
+    const wireHandlers = ()=>{
+      pyodideWorker.onmessage = (e)=>{
+        clearTimeout(timer);
+        results.push(e.data);
+        idx++;
+        runNext();
+      };
+      pyodideWorker.onerror = (e)=>{
+        clearTimeout(timer);
+        results.push({ ok:false, logs:[], error: e.message || 'Worker error' });
+        idx++;
+        respawn();
+        runNext();
+      };
+    };
+    const respawn = ()=>{
+      if(pyodideWorker) pyodideWorker.terminate();
+      pyodideWorker = spawnPyodideWorker();
+      wireHandlers();
+    };
+    wireHandlers();
+    const finish = ()=>{ clearTimeout(timer); resolve(results); };
+    const runNext = ()=>{
+      if(idx >= rawInputJsons.length){ finish(); return; }
+      clearTimeout(timer);
+      timer = setTimeout(()=>{
+        results.push({ ok:false, logs:[], error: `Time Limit Exceeded — no output after ${Math.round(timeoutMs/1000)}s`, tle:true });
+        idx++;
+        // A hung case is a real infinite loop still spinning inside that
+        // worker's thread — terminate() is the one thing that can actually
+        // kill it (main-thread interpreters can't be interrupted like this;
+        // this is the whole reason Python runs in a Worker now).
+        respawn();
+        runNext();
+      }, timeoutMs);
+      pyodideWorker.postMessage({ code, inputJson: rawInputJsons[idx] });
+    };
+    runNext();
+  });
 }
 async function runPythonCode(code, rawInputJson){
-  const py = await ensurePyodide();
-  py.setStdout({ batched: (s)=>{ py._capturedOut = (py._capturedOut||'') + s + '\n'; } });
-  py.setStderr({ batched: (s)=>{ py._capturedErr = (py._capturedErr||'') + s + '\n'; } });
-  py._capturedOut = ''; py._capturedErr = '';
-  let fullCode = code;
-  if(rawInputJson !== null && rawInputJson !== undefined && rawInputJson !== ''){
-    py.globals.set('__raw_input__', rawInputJson);
-    fullCode = 'import json\nINPUT = json.loads(__raw_input__)\n' + code;
-  }
-  try{
-    await py.runPythonAsync(fullCode);
-    return { ok:true, logs: py._capturedOut ? py._capturedOut.split('\n').filter((l,i,a)=>i<a.length-1) : [], error:null };
-  }catch(err){
-    return { ok:false, logs: py._capturedOut ? py._capturedOut.split('\n').filter((l,i,a)=>i<a.length-1) : [], error: (err && err.message) ? err.message : String(err) };
-  }
+  const results = await runPythonCasesInWorker(code, [rawInputJson]);
+  return results[0];
 }
 function ensureSqlJs(){
   if(sqlJsLoadPromise) return sqlJsLoadPromise;
@@ -6716,6 +6888,33 @@ async function runJavaCode(code, rawInputJson){
 //     per case.
 //   - Python/SQL: already cheap per-call (same Pyodide interpreter reused;
 //     SQL.js just opens a small in-memory DB), so they just loop.
+const JAVA_TLE_MS = 10000; // CheerpJ has real per-call JVM overhead on top of the code itself, so it gets more rope than JS/Python
+// Races a promise against a timeout WITHOUT cancelling the underlying work —
+// only usable when it's safe for that work to keep running unobserved in
+// the background (true for CheerpJ, since there's no way to actually kill
+// it from JS; NOT a substitute for Worker.terminate() where that's
+// available, which is why JS/Python don't use this).
+function raceTimeout(promise, ms){
+  return new Promise((resolve)=>{
+    let settled = false;
+    const timer = setTimeout(()=>{
+      if(settled) return;
+      settled = true;
+      resolve({ timedOut:true });
+    }, ms);
+    promise.then(r=>{
+      if(settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve({ timedOut:false, value:r });
+    }).catch(err=>{
+      if(settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve({ timedOut:false, value:{ ok:false, logs:[], error:(err&&err.message)?err.message:String(err) } });
+    });
+  });
+}
 async function runCasesInLang(langKey, wrappedCode, rawInputJsons){
   if(langKey === 'java'){
     const compiled = await compileJavaOnce(wrappedCode);
@@ -6724,16 +6923,32 @@ async function runCasesInLang(langKey, wrappedCode, rawInputJsons){
       return rawInputJsons.map(()=>err);
     }
     const out = [];
-    for(const inputJson of rawInputJsons){
-      const r = await runCompiledJavaOnce(compiled.className, inputJson);
+    for(let i=0; i<rawInputJsons.length; i++){
+      const race = await raceTimeout(runCompiledJavaOnce(compiled.className, rawInputJsons[i]), JAVA_TLE_MS);
+      if(race.timedOut){
+        // A real infinite loop in Java can't be interrupted from here —
+        // the browser's single JS thread can't preempt a synchronous call
+        // into the CheerpJ VM the way Worker.terminate() can for JS/Python.
+        // That stuck call may still be silently running in the background,
+        // so it's not safe to start another one on top of it (shared JVM
+        // state, crossed-wire stdout capture) — stop the whole batch here
+        // rather than risk corrupted results on the remaining cases.
+        out.push({ ok:false, logs:[], error:`Time Limit Exceeded — no output after ${Math.round(JAVA_TLE_MS/1000)}s. Java can't be safely interrupted mid-run in the browser, so the remaining cases were skipped rather than risk garbled results — if the page feels unresponsive afterward, reload the tab.`, tle:true });
+        for(let j=i+1; j<rawInputJsons.length; j++){
+          out.push({ ok:false, logs:[], error:'Skipped — an earlier case timed out (see above).' });
+        }
+        break;
+      }
+      const r = race.value;
       out.push({ ok:r.ok, logs:[...(compiled.logs||[]), ...(r.logs||[])], error:r.error });
     }
     return out;
   }
   if(langKey === 'javascript') return runJSCasesInWorker(wrappedCode, rawInputJsons);
+  if(langKey === 'python') return runPythonCasesInWorker(wrappedCode, rawInputJsons);
   const out = [];
   for(const inputJson of rawInputJsons){
-    const result = langKey === 'sql' ? await runSQLCode(wrappedCode, inputJson) : await runPythonCode(wrappedCode, inputJson);
+    const result = await runSQLCode(wrappedCode, inputJson);
     out.push(result);
   }
   return out;
@@ -6756,7 +6971,7 @@ async function runMockCode(){
     return;
   }
   runBtn.disabled = true;
-  runBtn.textContent = lang === 'Python' && !pyodideLoadPromise ? 'Loading Python runtime…' : (lang === 'SQL' && !sqlJsLoadPromise ? 'Loading SQL runtime…' : (lang === 'Java' && !cheerpjLoadPromise ? 'Loading Java runtime (can take a while first time)…' : 'Running…'));
+  runBtn.textContent = lang === 'Python' && !pyodideWorker ? 'Loading Python runtime…' : (lang === 'SQL' && !sqlJsLoadPromise ? 'Loading SQL runtime…' : (lang === 'Java' && !cheerpjLoadPromise ? 'Loading Java runtime (can take a while first time)…' : 'Running…'));
   out.classList.remove('err');
   out.textContent = 'Running…';
   const langKey = mockLangToHarnessKey(lang);
@@ -6773,7 +6988,7 @@ async function runMockCode(){
       casesToRun.forEach((tc, i)=>{
         const result = results[i];
         if(!result.ok){
-          lines.push(`Case ${i+1} — input: ${tc.input}`, `  ⚠ Error — ${formatRunError(result)}`, '');
+          lines.push(`Case ${i+1} — input: ${tc.input}`, result.tle ? `  ⏱ Time Limit Exceeded — ${formatRunError(result)}` : `  ⚠ Error — ${formatRunError(result)}`, '');
         } else {
           const lastLine = (result.logs || []).filter(l=>l.trim()).pop() || '';
           const ok = normalizeForCompare(lastLine) === normalizeForCompare(tc.expected);
@@ -6931,6 +7146,7 @@ function renderMockTestCases(){
       </div>
       <div class="mock-tc-status ${tc.status}">${
         tc.status==='pass' ? '✓ Pass' : tc.status==='fail' ? `✕ Fail — got: ${escapeHtml(tc.actual||'(no output)')}` :
+        tc.status==='tle' ? `⏱ Time Limit Exceeded` :
         tc.status==='error' ? `⚠ Error — ${escapeHtml(tc.actual||'')}` : ''
       }</div>
       <button class="mock-tc-remove" data-idx="${i}" type="button" title="Remove test case">✕</button>
@@ -7006,7 +7222,7 @@ async function submitMockTestCases(){
     activeMock.testCases.forEach((tc, i)=>{
       const result = results[i];
       if(!result.ok){
-        tc.status = 'error'; tc.actual = formatShortError(result);
+        tc.status = result.tle ? 'tle' : 'error'; tc.actual = formatShortError(result);
       } else {
         const lastLine = (result.logs || []).filter(l=>l.trim()).pop() || '';
         tc.actual = lastLine;
@@ -7024,6 +7240,8 @@ async function submitMockTestCases(){
   setLcTab('mockBottomPane', 'mockResult');
   document.getElementById('mockOutputPanel').style.display = 'none';
   document.getElementById('mockResultSummary').textContent = `${passed}/${activeMock.testCases.length} test case${activeMock.testCases.length===1?'':'s'} passed` + (elapsedMs!=null ? ` · ⏱ Runtime: ${elapsedMs} ms` : '');
+  const mockComplexityEl = document.getElementById('mockComplexityChart');
+  if(mockComplexityEl) mockComplexityEl.innerHTML = '';
   if(activeMock.testCases.length > 0 && passed === activeMock.testCases.length){
     showLcCheer('mockCheerBanner');
   } else {
@@ -7036,6 +7254,15 @@ async function submitMockTestCases(){
   // sync can't confirm solves for accounts without Premium, or for problems
   // LeetCode doesn't host at all.
   const p = PROBLEMS.find(x=>x.id===activeMock.problemId);
+  const mockProblemIdAtSubmit = activeMock.problemId;
+  if(p && activeMock.testCases.length > 0 && passed === activeMock.testCases.length){
+    fetchComplexityAnalysis(p, lang, code).then(result=>{
+      // Guard against a stale response landing after the person has already
+      // moved on to a different problem in the meantime.
+      if(!result || !activeMock || activeMock.problemId !== mockProblemIdAtSubmit) return;
+      renderPostSubmitComplexity('mockComplexityChart', result.time_complexity, result.space_complexity);
+    });
+  }
   if(p && (p.premium || p.noOJ) && activeMock.testCases.length >= MIN_SUBMIT_TEST_CASES && passed === activeMock.testCases.length && !solved.has(p.id)){
     solved.add(p.id);
     const m = getMeta(p.id);
@@ -7194,6 +7421,7 @@ function startMockTimer(){
   }, 1000);
 }
 function renderMockActiveView(){
+  preloadRuntimeForLang(activeMock.lang);
   const p = PROBLEMS.find(x=>x.id===activeMock.problemId);
   const url = `https://leetcode.com/problems/${p.slug}/`;
   const mockTitleHtml = p.noOJ
@@ -7268,6 +7496,7 @@ function renderMockActiveView(){
             <div class="lc-subtab-body" data-lc-panel="mockResult" style="display:none;">
               <div id="mockCheerBanner"></div>
               <div id="mockResultSummary" style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;"></div>
+              <div id="mockComplexityChart"></div>
               <div class="mock-output-panel" id="mockOutputPanel" style="display:none;"></div>
             </div>
           </div>
@@ -9222,6 +9451,37 @@ function renderReviewChatHistoryPanel(id){
   pastBtn.style.display = (history.display.length || hasArchive) ? 'inline-flex' : 'none';
   if(history.display.length) out.scrollTop = out.scrollHeight;
 }
+// Review Code needs to know which test-case array (if any) reflects the
+// code it's reviewing — the Solve editor's or the active Mock Interview
+// session's — so it can explain actual failures instead of just reading the
+// code in a vacuum. Same "which context is this problem id in" check used
+// for prefilling the code itself.
+function getReviewTestCaseTarget(problemId){
+  if(solveModalId != null && solveModalId === problemId) return { arr: solveTestCases, kind:'solve' };
+  if(activeMock && activeMock.problemId === problemId) return { arr: activeMock.testCases, kind:'mock' };
+  return null;
+}
+// Summarizes the last Run/Submit's results as plain text for the review
+// prompt. Returns '' if nothing has actually been run yet (idle cases;
+// nothing to say) so the prompt doesn't get padded with vacuous "no results
+// yet" filler.
+function buildReviewTestCaseContext(target){
+  if(!target || !target.arr || !target.arr.length) return '';
+  const ran = target.arr.filter(tc => tc.status && tc.status !== 'idle');
+  if(!ran.length) return '';
+  const failing = target.arr.filter(tc => tc.status && tc.status !== 'idle' && tc.status !== 'pass');
+  if(!failing.length){
+    return `Test case results from the last Run/Submit: all ${ran.length} case(s) already PASSED — no failures to investigate, so just review the code itself (style, edge cases it might not have been tested against, complexity).`;
+  }
+  const lines = failing.map(tc=>{
+    const idx = target.arr.indexOf(tc) + 1; // 1-based — matches the "Case N" numbering shown in the Testcase panel
+    const actualText = tc.status === 'error' ? `(error) ${tc.actual || ''}` : (tc.actual || '(no output)');
+    return `Case ${idx} — input: ${tc.input} — expected: ${tc.expected} — actual: ${actualText}`;
+  }).join('\n');
+  return `Test case results from the last Run/Submit (${ran.length - failing.length}/${ran.length} passed):\n${lines}\n\n` +
+    `For each failing case above, explain why the code produces that actual output for that input. Only if — based on the problem's own stated rules and examples — you're confident a case's "expected" value is itself wrong (not the code), correct it using the FIXED TESTCASE protocol described below. This should be rare; assume the code is the bug unless the problem statement clearly says otherwise.`;
+}
+let reviewPendingTestContext = '';
 function openReviewModal(id, opts){
   opts = opts || {};
   reviewModalId = id;
@@ -9230,6 +9490,7 @@ function openReviewModal(id, opts){
   renderApiKeyWidget('reviewKeySection');
   document.getElementById('reviewChatInput').value = opts.prefillCode || '';
   renderReviewChatHistoryPanel(id);
+  reviewPendingTestContext = opts.prefillCode ? buildReviewTestCaseContext(getReviewTestCaseTarget(id)) : '';
   // Auto-send immediately when we already have code to review, instead of
   // requiring an extra manual click on "Send".
   if(opts.prefillCode && opts.prefillCode.trim()){
@@ -9581,10 +9842,13 @@ async function sendReviewMessage(){
   out.style.display = 'block';
 
   const isFirst = reviewConversation.length === 0;
+  const testCaseContext = isFirst ? reviewPendingTestContext : '';
+  reviewPendingTestContext = ''; // one-shot — already folded into this prompt (or there was none to fold in)
   const payloadText = isFirst
     ? `You're a coding assistant helping with the LeetCode problem "${p.title}" (${p.section}). ` +
       `The user may paste their code for review, ask a question, or both in the same message — respond to whatever they actually sent, don't force a review format onto a plain question. ` +
       `If they paste code: evaluate correctness (call out specific failing cases if any, e.g. empty input, duplicates, negative numbers), point out bugs with specific fixes, note time/space complexity, and comment on style/readability. If there are bugs, include a corrected version of their code — same language, minimal targeted changes — inside a single fenced code block (triple backticks) preceded by a line that says exactly "FIXED CODE:". If the code is already correct, say so plainly and skip the code block entirely. ` +
+      (testCaseContext ? `\n\n${testCaseContext}\n\nIf you correct any test case's expected value per the rule above, add one line per corrected case at the very end of your whole reply (after everything else), in exactly this format and nothing else on that line: FIXED TESTCASE #<case number>: <the corrected expected output, exactly as it should be printed>. Only include this line for cases you're actually correcting — do not list unchanged/passing cases.` : '') +
       `If they just ask a question with no code, answer directly and conversationally. ` +
       `Be concise and concrete. ${MATH_NOTATION_RULE} ` +
       `Write complexity as plain text like "O(M x N)" or "O(n log n)" — never LaTeX or math markup (no $, no \\times, no \\O, no other backslash commands). Never use markdown bold/italic (no ** or _) or headers (no #) — plain text only, the code block for FIXED CODE is the only exception.\n\nTheir message:\n${message}`
@@ -9623,9 +9887,45 @@ async function sendReviewMessage(){
     if(text){
       const modelApiTurn = { role:'model', parts: parts.length ? parts : [{text}] };
       reviewConversation.push(modelApiTurn);
+      // Pull out any "FIXED TESTCASE #N: value" protocol lines the model
+      // used (per the instructions above) to flag a test case whose
+      // EXPECTED value — not the code — was actually wrong, and apply them
+      // directly to the live test-case array so it's really fixed rather
+      // than just described. Stripped out of the displayed text since
+      // they're a machine-facing signal, not something worth showing raw.
+      let displayText = text;
+      const fixMatches = [...text.matchAll(/^FIXED TESTCASE #(\d+):\s*(.+)$/gim)];
+      displayText = displayText.replace(/^FIXED TESTCASE #\d+:\s*.+$/gim, '').trim();
       thinkingEl.className = 'chat-bubble chat-assistant';
-      thinkingEl.innerHTML = wrapCollapsible(renderReviewText(text));
+      thinkingEl.innerHTML = wrapCollapsible(renderReviewText(displayText));
       attachReviewCodeCopyButtons(out);
+      if(fixMatches.length){
+        const target = getReviewTestCaseTarget(reviewModalId);
+        const applied = [];
+        if(target && target.arr){
+          fixMatches.forEach(m=>{
+            const idx1 = parseInt(m[1], 10);
+            const newExpected = m[2].trim();
+            const tc = target.arr[idx1 - 1];
+            if(tc && newExpected){
+              tc.expected = newExpected;
+              tc.status = 'idle'; // needs a fresh Run/Submit against the corrected value
+              tc.actual = '';
+              applied.push(idx1);
+            }
+          });
+          if(applied.length){
+            if(target.kind === 'solve') renderSolveTestCases();
+            else { saveActiveMockSession(); renderMockTestCases(); }
+            const fixNote = document.createElement('div');
+            fixNote.className = 'chat-bubble chat-assistant';
+            fixNote.style.cssText = 'border-color:var(--pine);';
+            fixNote.innerHTML = `<div class="hint-label" style="color:var(--pine);">✏️ Test case${applied.length===1?'':'s'} auto-corrected</div><div class="hint-line">Case${applied.length===1?'':'s'} ${applied.join(', ')} — expected value updated. Run/Submit again to verify.</div>`;
+            out.appendChild(fixNote);
+            showToast(`✏️ Auto-corrected ${applied.length} test case${applied.length===1?'':'s'} — re-run to verify.`);
+          }
+        }
+      }
       // Persist the whole exchange now that it's actually succeeded — see
       // appendReviewHistory's comment for why this happens only on success.
       appendReviewHistory(reviewModalId, reviewConversation[reviewConversation.length - 2], message, modelApiTurn, text);
@@ -9710,7 +10010,6 @@ function renderCodeEntry(entry){
     entry.time_complexity ? `<span class="code-chip">⏱ ${escapeHtml(entry.time_complexity)}</span>` : '',
     entry.space_complexity ? `<span class="code-chip">🗂 ${escapeHtml(entry.space_complexity)}</span>` : ''
   ].filter(Boolean).join('');
-  document.getElementById('codeComplexityChart').innerHTML = renderComplexityChartSvg(entry.time_complexity, entry.space_complexity);
   document.getElementById('codeExplain').innerHTML = entry.explanation ? mathText(stripLatexArtifacts(entry.explanation)) : '';
   document.getElementById('codeBlockText').innerHTML = entry.code ? highlightCode(entry.code) : '';
   renderCodeVisual(entry);
@@ -9788,6 +10087,52 @@ function renderComplexityChartSvg(timeStr, spaceStr){
       <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;font-weight:600;margin-top:4px;">${legendBits.join('')}</div>
     </div>
   `;
+}
+// LeetCode shows a runtime/memory readout after every Accepted submission —
+// this is the closest honest equivalent available here: analyze the code
+// that was JUST submitted (not a cached "Get code" example, so it reflects
+// whatever approach the person actually wrote) for its real Big-O time and
+// space complexity, then plot it on the same reference chart used in the
+// "Get code" panel. Best-effort and silent on failure (no key saved, no
+// network, response didn't parse) — this is a bonus on top of an already-
+// successful submission, not something worth surfacing an error for.
+async function fetchComplexityAnalysis(p, langLabel, code){
+  const key = getGeminiKey();
+  if(!key || !code || !code.trim()) return null;
+  try{
+    const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=' + encodeURIComponent(key), {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({
+        contents:[{ role:'user', parts:[{ text:
+          `Analyze the time and space complexity (Big-O, in terms of the input size n) of this ${langLabel} solution to the LeetCode problem "${p.title}" (${p.section}). Reply with ONLY raw JSON and nothing else — no markdown fences, no prose — in exactly this shape: {"time_complexity":"O(...)","space_complexity":"O(...)"}.\n\nCode:\n${code}`
+        }]}],
+        generationConfig:{ maxOutputTokens:200, thinkingConfig:{ thinkingLevel:'minimal' } }
+      })
+    });
+    if(!resp.ok) return null;
+    const data = await resp.json();
+    const candidate = data.candidates && data.candidates[0];
+    const parts = (candidate && candidate.content && candidate.content.parts) || [];
+    const text = parts.map(b=>b.text||'').join('\n').trim().replace(/^```(?:json)?/i,'').replace(/```\s*$/,'').trim();
+    const parsed = JSON.parse(text);
+    if(!parsed || (!parsed.time_complexity && !parsed.space_complexity)) return null;
+    return parsed;
+  }catch(e){
+    return null;
+  }
+}
+// Renders the chips + chart into a post-submit results panel (as opposed to
+// renderCodeEntry, which does the same thing for the "Get code" panel).
+function renderPostSubmitComplexity(containerId, timeStr, spaceStr){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  const chips = [
+    timeStr ? `<span class="code-chip">⏱ ${escapeHtml(timeStr)}</span>` : '',
+    spaceStr ? `<span class="code-chip">🗂 ${escapeHtml(spaceStr)}</span>` : ''
+  ].filter(Boolean).join('');
+  const chart = renderComplexityChartSvg(timeStr, spaceStr);
+  el.innerHTML = (chips || chart) ? `<div class="code-meta" style="margin:8px 0 6px;">${chips}</div>${chart}` : '';
 }
 
 function renderCodeVisual(entry){
@@ -10174,6 +10519,21 @@ loadSolved().then(()=>{ handleSolveDeepLink(); handleMockDeepLink(); });
 loadMockSessions();
 document.getElementById('versionBadge').textContent = 'v' + APP_VERSION;
 refreshProStatus();
+
+// Opportunistic warm-up: if either editor was last left on Java or Python,
+// there's a good chance that's what gets used again, so start downloading
+// that runtime now rather than waiting for the person to open a problem and
+// hit Run. Deliberately NOT the deep-link cases above — those already
+// trigger their own preload via openCodeEditorModal()/renderMockActiveView()
+// as soon as they run — this only covers the plain "just opened the
+// tracker" case. Runs after a short idle delay so it doesn't compete with
+// the rest of the page's own startup work.
+setTimeout(()=>{
+  try{
+    preloadRuntimeForLang(localStorage.getItem(SOLVE_LANG_KEY));
+    preloadRuntimeForLang(localStorage.getItem(MOCK_LANG_KEY));
+  }catch(e){}
+}, 1200);
 
 (function checkFactoryResetUndo(){
   let raw;

@@ -742,9 +742,9 @@
     padding:10px 12px;margin:0 0 14px;font-style:italic;color:var(--ink);
   }
   .hint-output .hint-visual{
-    margin:0 0 14px;text-align:center;
+    margin:0 0 14px;text-align:center;overflow:hidden;border-radius:8px;
   }
-  .hint-output .hint-visual svg{max-width:100%;height:auto;}
+  .hint-output .hint-visual svg{max-width:100%;height:auto;overflow:hidden;display:block;margin:0 auto;}
   .lcfmt-desc{margin:0 0 12px;color:var(--ink-soft);}
   .lcfmt-example{
     background:var(--medium-bg);border:1px solid var(--rule-soft);border-radius:8px;
@@ -762,9 +762,9 @@
   .lcfmt-note{color:var(--ink-faint);font-size:12px;}
   .lcviz-box{
     background:var(--paper);border:1px solid var(--rule-soft);border-radius:8px;
-    padding:10px;margin-top:10px;display:flex;align-items:center;justify-content:center;
+    padding:10px;margin-top:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;
   }
-  .lcviz-box svg{max-width:100%;height:auto;display:block;}
+  .lcviz-box svg{max-width:100%;height:auto;overflow:hidden;display:block;}
   .modal-note{font-size:11.5px;color:var(--ink-faint);margin-top:10px;line-height:1.5;}
   .code-section-divider{border-top:1.5px dashed var(--rule-soft);margin:18px 0 14px;}
   .code-toggle-btn{
@@ -1043,6 +1043,7 @@
   .mock-tc-status.pass{color:var(--easy);}
   .mock-tc-status.fail{color:var(--hard);}
   .mock-tc-status.error{color:var(--medium);}
+  .mock-tc-status.tle{color:var(--medium);font-weight:700;}
   .mock-tc-remove{background:none;border:none;color:var(--ink-faint);cursor:pointer;font-size:13px;padding:4px;}
   .mock-tc-remove:hover{color:var(--hard);}
   .mock-session-card{border:1.5px solid var(--rule-soft);border-radius:9px;padding:11px 14px;margin-bottom:8px;
