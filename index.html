@@ -367,6 +367,7 @@
         </div>
         <div id="codeOutputSection" style="display:none;">
           <div class="code-meta" id="codeMeta"></div>
+          <div id="codeComplexityChart"></div>
           <div class="code-explain" id="codeExplain"></div>
           <div class="code-visual" id="codeVisual"></div>
           <div class="code-block-wrap">
@@ -5647,6 +5648,23 @@ function pyHarnessFooter(h){
 // /returnType, this template does the type-directed extraction and printing
 // for every problem the same reliable way.
 function javaHarnessFull(userCode, h){
+  // The person's own code sometimes comes in as a complete standalone
+  // program — e.g. the "Get code" AI panel deliberately generates a
+  // full, directly-runnable program (so it also works pasted straight into
+  // LeetCode), or someone just writes/pastes one themselves — meaning it
+  // may already declare "public class Solution { ... public static void
+  // main(...) { ... } }" of its own. That collides with the "public class
+  // Main" wrapper below: a single .java file can only have ONE public
+  // top-level type, and it must match the filename CheerpJ compiles against
+  // — so if the person's own class kept its "public" modifier, compilation
+  // always failed here (either as an outright "class X is public, should be
+  // declared in a file named X.java" error, or — after the class-rename
+  // step below mistakenly grabbed the WRONG public class — as a confusing
+  // "cannot find symbol Solution"). Demoting the person's own class(es) to
+  // package-private fixes this regardless of where the code came from, and
+  // is invisible to them since nothing outside this generated file ever
+  // references these classes by name.
+  const sanitizedUserCode = userCode.replace(/\bpublic\s+class\b/g, 'class');
   const argVars = h.params.map((p,i)=>{
     const getter = {
       'int':'toInt','long':'toLong','double':'toDouble','boolean':'toBool','String':'toStr','char':'toChar',
@@ -5660,7 +5678,7 @@ function javaHarnessFull(userCode, h){
     : h.returnType === 'String'
       ? `        System.out.println(__result);`
       : `        System.out.println(__H.toJson(__result));`;
-  return `import java.util.*;\n\n${userCode}\n\n` +
+  return `import java.util.*;\n\n${sanitizedUserCode}\n\n` +
 `public class Main {\n` +
 `    public static void main(String[] args) throws Exception {\n` +
 `        String raw = args.length > 0 ? args[0] : "[]";\n` +
@@ -5819,9 +5837,12 @@ async function submitSolveTestCases(){
   }
   if(!rawCode.trim()){ showToast('Write some code first.'); return; }
   submitBtn.disabled = true; submitBtn.textContent = 'Running…';
+  let elapsedMs = null;
   try{
     const { code } = buildExecutionPayload(langVal, rawCode, null, solveHarness);
+    const t0 = performance.now();
     const results = await runCasesInLang(langVal, code, solveTestCases.map(tc=>tc.input || null));
+    elapsedMs = Math.round(performance.now() - t0);
     solveTestCases.forEach((tc, i)=>{
       const result = results[i];
       if(!result.ok){
@@ -5842,7 +5863,12 @@ async function submitSolveTestCases(){
   showToast(`${passed}/${solveTestCases.length} test cases passed`);
   setLcTab('solveBottomPane', 'solveResult');
   document.getElementById('solveConsoleWrap').style.display = 'none';
-  document.getElementById('solveResultSummary').textContent = `${passed}/${solveTestCases.length} test case${solveTestCases.length===1?'':'s'} passed`;
+  // Runtime here is real, measured wall-clock time for this batch of cases
+  // (execution only — Java's one-time compile isn't counted in it, so it's
+  // comparable run to run). Unlike LeetCode's "beats X%", there's no shared
+  // backend of other people's submissions to rank against here, so this is
+  // just your own number, not a percentile.
+  document.getElementById('solveResultSummary').textContent = `${passed}/${solveTestCases.length} test case${solveTestCases.length===1?'':'s'} passed` + (elapsedMs!=null ? ` · ⏱ Runtime: ${elapsedMs} ms` : '');
   if(solveTestCases.length > 0 && passed === solveTestCases.length){
     showLcCheer('solveCheerBanner');
   } else {
@@ -6593,6 +6619,20 @@ function ensureCheerpJ(){
 const SITE_BASE = location.pathname.replace(/[^/]*$/, ''); // e.g. "/DSA-Problem-Tracker/" or "/"
 const TOOLS_JAR_PATH = `/app${SITE_BASE}tools.jar`;
 async function compileJavaOnce(code){
+  // CheerpJ fetches tools.jar (and its own runtime files) over http/https —
+  // that's simply not possible when this page is opened directly as a local
+  // file (file://), which is what "Network error for null: Failed to fetch"
+  // / "Could not find or load main class com.sun.tools.javac.Main" always
+  // means here. It looks like a compile error but it's actually the JVM
+  // never getting the compiler at all, so give a clear, actionable message
+  // upfront instead of letting it fail cryptically. JS/Python/SQL don't have
+  // this restriction (their runtimes are fetched from a public CDN, which
+  // browsers generally still allow from a file:// page) — only Java, because
+  // tools.jar has to come from this site's own origin.
+  if(location.protocol === 'file:'){
+    return { ok:false, logs:[], error:
+      "Java can't run from a local file (file://) — CheerpJ has to fetch tools.jar over http/https to compile, and that isn't possible when the page is opened directly. Serve this folder with a local web server instead (e.g. run `npx serve .` or `python -m http.server` in the folder and open the localhost URL it prints), or host it on something like GitHub Pages. JavaScript, Python, and SQL will still run fine over file:// — this limitation is Java-only." };
+  }
   await ensureCheerpJ();
   cheerpjBootCounter++;
   const runId = cheerpjBootCounter;
@@ -6613,7 +6653,18 @@ async function compileJavaOnce(code){
   console.error = (...a)=>{ logs.push(a.map(String).join(' ')); };
   try{
     const compileExit = await cheerpjRunMain('com.sun.tools.javac.Main', TOOLS_JAR_PATH, srcPath, '-d', '/files/');
-    if(compileExit !== 0) return { ok:false, logs, error: 'Compile error — see output above.' };
+    if(compileExit !== 0){
+      // A nonzero exit here USUALLY means a real syntax error in the logs
+      // above — but if CheerpJ itself never managed to fetch/load the
+      // compiler (network issue, wrong TOOLS_JAR_PATH, offline, etc.) the
+      // logs say so explicitly instead of showing javac diagnostics, so
+      // surface that distinction rather than the generic message.
+      const logsText = logs.join('\n');
+      const runtimeFailure = /Failed to fetch|could not find or load main class/i.test(logsText);
+      return { ok:false, logs, error: runtimeFailure
+        ? "Couldn't reach the Java compiler runtime (tools.jar fetch failed — see the network detail above). Check your connection, and if this page is running from a local file, serve it over http/https instead (Java specifically needs that)."
+        : 'Compile error — see output above.' };
+    }
     return { ok:true, logs, className };
   }catch(err){
     return { ok:false, logs, error: 'CheerpJ error: ' + ((err && err.message) ? err.message : String(err)) };
@@ -6946,9 +6997,12 @@ async function submitMockTestCases(){
   submitBtn.disabled = true; submitBtn.textContent = 'Running…';
   const langKey = mockLangToHarnessKey(lang);
   const harness = activeMock.harness;
+  let elapsedMs = null;
   try{
     const { code: wrappedCode } = buildExecutionPayload(langKey, code, null, harness);
+    const t0 = performance.now();
     const results = await runCasesInLang(langKey, wrappedCode, activeMock.testCases.map(tc=>tc.input || null));
+    elapsedMs = Math.round(performance.now() - t0);
     activeMock.testCases.forEach((tc, i)=>{
       const result = results[i];
       if(!result.ok){
@@ -6969,7 +7023,7 @@ async function submitMockTestCases(){
   showToast(`${passed}/${activeMock.testCases.length} test cases passed`);
   setLcTab('mockBottomPane', 'mockResult');
   document.getElementById('mockOutputPanel').style.display = 'none';
-  document.getElementById('mockResultSummary').textContent = `${passed}/${activeMock.testCases.length} test case${activeMock.testCases.length===1?'':'s'} passed`;
+  document.getElementById('mockResultSummary').textContent = `${passed}/${activeMock.testCases.length} test case${activeMock.testCases.length===1?'':'s'} passed` + (elapsedMs!=null ? ` · ⏱ Runtime: ${elapsedMs} ms` : '');
   if(activeMock.testCases.length > 0 && passed === activeMock.testCases.length){
     showLcCheer('mockCheerBanner');
   } else {
@@ -9656,9 +9710,84 @@ function renderCodeEntry(entry){
     entry.time_complexity ? `<span class="code-chip">⏱ ${escapeHtml(entry.time_complexity)}</span>` : '',
     entry.space_complexity ? `<span class="code-chip">🗂 ${escapeHtml(entry.space_complexity)}</span>` : ''
   ].filter(Boolean).join('');
+  document.getElementById('codeComplexityChart').innerHTML = renderComplexityChartSvg(entry.time_complexity, entry.space_complexity);
   document.getElementById('codeExplain').innerHTML = entry.explanation ? mathText(stripLatexArtifacts(entry.explanation)) : '';
   document.getElementById('codeBlockText').innerHTML = entry.code ? highlightCode(entry.code) : '';
   renderCodeVisual(entry);
+}
+
+// Maps a free-form Big-O string (as generated by the AI, e.g. "O(n log n)",
+// "O(n^2)", "O(1) — constant") onto one of a fixed, ordered set of reference
+// growth curves. Order matters: more specific patterns (n^3, n log n) must
+// be checked before the more general ones they'd otherwise also match (n^2
+// before n, n log n before both n and log n) so e.g. "O(n^2)" doesn't get
+// mis-read as plain "O(n)".
+const BIGO_CURVES = [
+  { key:'1',     label:'O(1)',        test:/\bo\(\s*1\s*\)|constant/i,                         fn:n=>1 },
+  { key:'logn',  label:'O(log n)',    test:/log\s*\(?\s*n\)?/i,                                fn:n=>Math.log2(n+1) },
+  { key:'sqrtn', label:'O(√n)',       test:/sqrt|√/i,                                          fn:n=>Math.sqrt(n) },
+  { key:'n',     label:'O(n)',        test:/\bo\(\s*n\s*\)|linear/i,                            fn:n=>n },
+  { key:'nlogn', label:'O(n log n)',  test:/n\s*log\s*n|n\s*\*\s*log/i,                          fn:n=>n*Math.log2(n+1) },
+  { key:'n2',    label:'O(n\u00b2)',  test:/n\s*(\^|\*\*)?\s*2|n\s*\*\s*n\b/i,                   fn:n=>n*n },
+  { key:'n3',    label:'O(n\u00b3)',  test:/n\s*(\^|\*\*)?\s*3/i,                                fn:n=>n*n*n },
+  { key:'2n',    label:'O(2\u207f)',  test:/2\s*(\^|\*\*)\s*n|exponential/i,                     fn:n=>Math.pow(2,n) },
+];
+// nlogn must be tested before both n and logn — reorder the check list
+// (not the display list) so that happens without duplicating entries.
+const BIGO_CHECK_ORDER = ['nlogn','n2','n3','2n','logn','sqrtn','n','1'];
+function bigOToCurveKey(str){
+  if(!str) return null;
+  for(const key of BIGO_CHECK_ORDER){
+    const c = BIGO_CURVES.find(x=>x.key===key);
+    if(c.test.test(str)) return key;
+  }
+  return null;
+}
+// Renders a small SVG reference chart plotting every curve in BIGO_CURVES
+// (log2-scaled on the y-axis, since e.g. O(2^n) vs O(n) on a linear scale
+// would flatten every other curve to invisible) over a relative "input
+// size" x-axis, with whichever curve(s) match this entry's time/space
+// complexity highlighted in color and labeled — the same idea as the
+// familiar Big-O reference chart, with this specific solution's complexity
+// pointed out on it.
+function renderComplexityChartSvg(timeStr, spaceStr){
+  const timeKey = bigOToCurveKey(timeStr);
+  const spaceKey = bigOToCurveKey(spaceStr);
+  if(!timeKey && !spaceKey) return ''; // nothing recognizable to plot — say nothing rather than a chart with nothing highlighted
+  const W = 460, H = 200, padL = 34, padR = 12, padT = 10, padB = 26;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const N = 16; // relative input-size steps plotted, not a literal problem size
+  const xs = Array.from({length:N}, (_,i)=>i+1);
+  let maxLog = 1;
+  BIGO_CURVES.forEach(c=>{ xs.forEach(n=>{ maxLog = Math.max(maxLog, Math.log2(c.fn(n)+1)); }); });
+  const xFor = n => padL + (plotW * (n-1) / (N-1));
+  const yFor = v => padT + plotH - (plotH * Math.log2(v+1) / maxLog);
+  const pathFor = c => xs.map((n,i)=>`${i===0?'M':'L'}${xFor(n).toFixed(1)},${yFor(c.fn(n)).toFixed(1)}`).join(' ');
+  const curvesSvg = BIGO_CURVES.map(c=>{
+    const isTime = c.key === timeKey, isSpace = c.key === spaceKey;
+    const highlighted = isTime || isSpace;
+    const color = isTime && isSpace ? 'var(--pine)' : isTime ? 'var(--pine)' : isSpace ? '#c99a2e' : 'var(--rule-soft)';
+    const width = highlighted ? 2.5 : 1.25;
+    const dash = isSpace && !isTime ? ' stroke-dasharray="4,3"' : '';
+    return `<path d="${pathFor(c)}" fill="none" stroke="${color}" stroke-width="${width}"${dash} opacity="${highlighted?1:0.55}"/>`;
+  }).join('');
+  const legendBits = [];
+  if(timeKey) legendBits.push(`<span style="color:var(--pine);">━ Time: ${BIGO_CURVES.find(c=>c.key===timeKey).label}</span>`);
+  if(spaceKey) legendBits.push(`<span style="color:#c99a2e;">${timeKey===spaceKey ? '(same curve)' : '┄ Space: ' + BIGO_CURVES.find(c=>c.key===spaceKey).label}</span>`);
+  return `
+    <div style="margin:2px 0 10px;padding:10px 12px;border:1.5px solid var(--rule-soft);border-radius:10px;background:var(--card);">
+      <div style="font-size:11px;color:var(--ink-faint);margin-bottom:4px;">Growth rate vs. common complexities (log-scaled y-axis, relative input size — not this problem's real n)</div>
+      <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:460px;display:block;">
+        <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT+plotH}" stroke="var(--rule-soft)" stroke-width="1"/>
+        <line x1="${padL}" y1="${padT+plotH}" x2="${padL+plotW}" y2="${padT+plotH}" stroke="var(--rule-soft)" stroke-width="1"/>
+        <text x="${padL}" y="${H-6}" font-size="10" fill="var(--ink-faint)">small n</text>
+        <text x="${padL+plotW}" y="${H-6}" font-size="10" fill="var(--ink-faint)" text-anchor="end">large n</text>
+        <text x="6" y="${padT+6}" font-size="10" fill="var(--ink-faint)">ops</text>
+        ${curvesSvg}
+      </svg>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;font-weight:600;margin-top:4px;">${legendBits.join('')}</div>
+    </div>
+  `;
 }
 
 function renderCodeVisual(entry){
