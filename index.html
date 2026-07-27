@@ -5340,13 +5340,10 @@ document.getElementById('solveRunBtn').addEventListener('click', async ()=>{
     if(solveHarness && casesToRun.length){
       const lines = [];
       let passCount = 0;
-      for(let i=0;i<casesToRun.length;i++){
-        const tc = casesToRun[i];
-        const { code, inputJson } = buildExecutionPayload(langVal, code_raw, tc.input, solveHarness);
-        const result = langVal === 'javascript' ? await runJSInWorker(code, inputJson)
-          : langVal === 'sql' ? await runSQLCode(code, inputJson)
-          : langVal === 'java' ? await runJavaCode(code, inputJson)
-          : await runPythonCode(code, inputJson);
+      const { code } = buildExecutionPayload(langVal, code_raw, null, solveHarness);
+      const results = await runCasesInLang(langVal, code, casesToRun.map(tc=>tc.input));
+      casesToRun.forEach((tc, i)=>{
+        const result = results[i];
         if(!result.ok){
           lines.push(`Case ${i+1} — input: ${tc.input}`, `  ⚠ Error — ${formatRunError(result)}`, '');
         } else {
@@ -5355,7 +5352,7 @@ document.getElementById('solveRunBtn').addEventListener('click', async ()=>{
           if(ok) passCount++;
           lines.push(`Case ${i+1} — input: ${tc.input}`, `  Expected: ${tc.expected}`, `  Got: ${lastLine || '(no output)'}${ok ? '  ✓ Pass' : '  ✕ Fail'}`, '');
         }
-      }
+      });
       lines.push(`${passCount}/${casesToRun.length} sample case${casesToRun.length===1?'':'s'} passed — Submit checks the full ${solveTestCases.length || MIN_SUBMIT_TEST_CASES}-case set before this counts as solved.`);
       out.textContent = lines.join('\n');
     } else {
@@ -5822,14 +5819,11 @@ async function submitSolveTestCases(){
   }
   if(!rawCode.trim()){ showToast('Write some code first.'); return; }
   submitBtn.disabled = true; submitBtn.textContent = 'Running…';
-  for(let i=0; i<solveTestCases.length; i++){
-    const tc = solveTestCases[i];
-    try{
-      const { code, inputJson } = buildExecutionPayload(langVal, rawCode, tc.input || null, solveHarness);
-      const result = langVal === 'javascript' ? await runJSInWorker(code, inputJson)
-        : langVal === 'sql' ? await runSQLCode(code, inputJson)
-        : langVal === 'java' ? await runJavaCode(code, inputJson)
-        : await runPythonCode(code, inputJson);
+  try{
+    const { code } = buildExecutionPayload(langVal, rawCode, null, solveHarness);
+    const results = await runCasesInLang(langVal, code, solveTestCases.map(tc=>tc.input || null));
+    solveTestCases.forEach((tc, i)=>{
+      const result = results[i];
       if(!result.ok){
         tc.status = 'error'; tc.actual = formatShortError(result);
       } else {
@@ -5837,9 +5831,9 @@ async function submitSolveTestCases(){
         tc.actual = lastLine;
         tc.status = normalizeForCompare(lastLine) === normalizeForCompare(tc.expected) ? 'pass' : 'fail';
       }
-    }catch(err){
-      tc.status = 'error'; tc.actual = (err && err.message) ? err.message : String(err);
-    }
+    });
+  }catch(err){
+    solveTestCases.forEach(tc=>{ tc.status = 'error'; tc.actual = (err && err.message) ? err.message : String(err); });
   }
   submitBtn.disabled = false; submitBtn.textContent = '✓ Submit';
   renderSolveTestCases();
@@ -6430,44 +6424,79 @@ async function initSolveCodeEditor(langVal){
   }
 }
 function runJSInWorker(code, rawInputJson, timeoutMs){
+  return runJSCasesInWorker(code, [rawInputJson], timeoutMs).then(rs=>rs[0]);
+}
+// Runs the SAME wrapped program against a whole batch of inputs, reusing one
+// Worker instead of spinning up (and blob-URL-allocating/tearing down) a
+// fresh one per test case — the per-case overhead was small individually
+// but adds up across a full submit-sized case set.
+function runJSCasesInWorker(code, rawInputJsons, timeoutMs){
   timeoutMs = timeoutMs || 5000;
-  return new Promise((resolve)=>{
-    const workerSrc = `
-      const logs = [];
-      const push = (...args)=>logs.push(args.map(a=>{
-        try{ return typeof a==='string' ? a : JSON.stringify(a); }catch(e){ return String(a); }
-      }).join(' '));
-      console.log = push; console.info = push; console.warn = push; console.error = push;
-      self.onmessage = function(e){
-        try{
-          if(e.data.inputJson !== null && e.data.inputJson !== undefined && e.data.inputJson !== ''){
-            self.INPUT = JSON.parse(e.data.inputJson);
-          }
-          (0, eval)(e.data.code);
-          self.postMessage({ ok:true, logs });
-        }catch(err){
-          self.postMessage({ ok:false, logs, error: (err && err.message) ? err.message : String(err) });
+  const workerSrc = `
+    let logs = [];
+    const push = (...args)=>logs.push(args.map(a=>{
+      try{ return typeof a==='string' ? a : JSON.stringify(a); }catch(e){ return String(a); }
+    }).join(' '));
+    console.log = push; console.info = push; console.warn = push; console.error = push;
+    self.onmessage = function(e){
+      logs = [];
+      try{
+        if(e.data.inputJson !== null && e.data.inputJson !== undefined && e.data.inputJson !== ''){
+          self.INPUT = JSON.parse(e.data.inputJson);
+        } else {
+          self.INPUT = undefined;
         }
-      };
-    `;
-    const blob = new Blob([workerSrc], { type: 'application/javascript' });
-    const url = URL.createObjectURL(blob);
-    const worker = new Worker(url);
-    let settled = false;
-    const finish = (result)=>{
-      if(settled) return;
-      settled = true;
-      clearTimeout(timer);
-      worker.terminate();
-      URL.revokeObjectURL(url);
-      resolve(result);
+        (0, eval)(e.data.code);
+        self.postMessage({ ok:true, logs });
+      }catch(err){
+        self.postMessage({ ok:false, logs, error: (err && err.message) ? err.message : String(err) });
+      }
     };
-    const timer = setTimeout(()=>{
-      finish({ ok:false, logs:[], error: `Timed out after ${timeoutMs/1000}s (infinite loop?)` });
-    }, timeoutMs);
-    worker.onmessage = (e)=> finish(e.data);
-    worker.onerror = (e)=> finish({ ok:false, logs:[], error: e.message || 'Worker error' });
-    worker.postMessage({ code, inputJson: rawInputJson });
+  `;
+  return new Promise((resolve)=>{
+    const results = [];
+    let idx = 0, timer = null;
+    let worker = null, url = null;
+    const spawnWorker = ()=>{
+      if(worker){ worker.terminate(); URL.revokeObjectURL(url); }
+      const blob = new Blob([workerSrc], { type: 'application/javascript' });
+      url = URL.createObjectURL(blob);
+      worker = new Worker(url);
+      worker.onmessage = (e)=>{
+        clearTimeout(timer);
+        results.push(e.data);
+        idx++;
+        runNext();
+      };
+      worker.onerror = (e)=>{
+        clearTimeout(timer);
+        results.push({ ok:false, logs:[], error: e.message || 'Worker error' });
+        idx++;
+        spawnWorker(); // this worker's context may be corrupted — start clean for the next case
+        runNext();
+      };
+    };
+    const finish = ()=>{
+      clearTimeout(timer);
+      if(worker){ worker.terminate(); URL.revokeObjectURL(url); }
+      resolve(results);
+    };
+    const runNext = ()=>{
+      if(idx >= rawInputJsons.length){ finish(); return; }
+      clearTimeout(timer);
+      timer = setTimeout(()=>{
+        results.push({ ok:false, logs:[], error: `Timed out after ${timeoutMs/1000}s (infinite loop?)` });
+        idx++;
+        // A hung case is still blocking this worker's thread — postMessage
+        // to it would just queue forever, so terminate and start fresh
+        // rather than trying to reuse it.
+        spawnWorker();
+        runNext();
+      }, timeoutMs);
+      worker.postMessage({ code, inputJson: rawInputJsons[idx] });
+    };
+    spawnWorker();
+    runNext();
   });
 }
 function ensurePyodide(){
@@ -6563,7 +6592,7 @@ function ensureCheerpJ(){
 // so /app/tools.jar resolves correctly either way.
 const SITE_BASE = location.pathname.replace(/[^/]*$/, ''); // e.g. "/DSA-Problem-Tracker/" or "/"
 const TOOLS_JAR_PATH = `/app${SITE_BASE}tools.jar`;
-async function runJavaCode(code, rawInputJson){
+async function compileJavaOnce(code){
   await ensureCheerpJ();
   cheerpjBootCounter++;
   const runId = cheerpjBootCounter;
@@ -6572,10 +6601,10 @@ async function runJavaCode(code, rawInputJson){
   // rewrite the user's "public class X" to a unique name per run so repeated
   // runs in the same session don't collide.
   const className = `Main${runId}`;
-  const rewritten = code.replace(/public\s+class\s+\w+/, `public class ${className}`);
   if(!/public\s+class\s+\w+/.test(code)){
     return { ok:false, logs:[], error:'Java needs a full program — write a "public class Main { public static void main(String[] args) { ... } }" wrapper around your solution. Read args[0] for the test-case input.' };
   }
+  const rewritten = code.replace(/public\s+class\s+\w+/, `public class ${className}`);
   cheerpOSAddStringFile(srcPath, rewritten);
   const logs = [];
   const origLog = console.log;
@@ -6584,9 +6613,26 @@ async function runJavaCode(code, rawInputJson){
   console.error = (...a)=>{ logs.push(a.map(String).join(' ')); };
   try{
     const compileExit = await cheerpjRunMain('com.sun.tools.javac.Main', TOOLS_JAR_PATH, srcPath, '-d', '/files/');
-    if(compileExit !== 0){
-      return { ok:false, logs, error: 'Compile error — see output above.' };
-    }
+    if(compileExit !== 0) return { ok:false, logs, error: 'Compile error — see output above.' };
+    return { ok:true, logs, className };
+  }catch(err){
+    return { ok:false, logs, error: 'CheerpJ error: ' + ((err && err.message) ? err.message : String(err)) };
+  }finally{
+    console.log = origLog;
+    console.error = origError;
+  }
+}
+// Runs an already-compiled class (from compileJavaOnce) against ONE test
+// case's input — no compilation here, just executing main() again with
+// different args, which is what actually makes running a full case set
+// fast instead of re-compiling once per case.
+async function runCompiledJavaOnce(className, rawInputJson){
+  const logs = [];
+  const origLog = console.log;
+  const origError = console.error;
+  console.log = (...a)=>{ logs.push(a.map(String).join(' ')); };
+  console.error = (...a)=>{ logs.push(a.map(String).join(' ')); };
+  try{
     const runArgs = rawInputJson ? [rawInputJson] : [];
     await cheerpjRunMain(className, `${TOOLS_JAR_PATH}:/files/`, ...runArgs);
     return { ok:true, logs, error:null };
@@ -6596,6 +6642,50 @@ async function runJavaCode(code, rawInputJson){
     console.log = origLog;
     console.error = origError;
   }
+}
+// Single-shot convenience wrapper (compile + run in one call) for call sites
+// that only ever execute one case — behavior-identical to the old
+// all-in-one runJavaCode.
+async function runJavaCode(code, rawInputJson){
+  const compiled = await compileJavaOnce(code);
+  if(!compiled.ok) return { ok:false, logs: compiled.logs || [], error: compiled.error };
+  const result = await runCompiledJavaOnce(compiled.className, rawInputJson);
+  return { ok: result.ok, logs: [...(compiled.logs||[]), ...(result.logs||[])], error: result.error };
+}
+// Shared by every Run/Submit call site that checks a whole batch of test
+// cases against the SAME wrapped program (only the per-case input differs —
+// buildExecutionPayload's `code` output never depends on the test case's
+// input). langKey is the lowercase key used elsewhere (javascript/python/
+// java/sql). Returns an array of {ok, logs, error} aligned with
+// rawInputJsons.
+//   - Java: compiles ONCE, then runs the compiled class once per case — the
+//     actual fix for "why is this so slow for only 10 cases", since
+//     compiling was previously repeated for every single case.
+//   - JavaScript: reuses one Worker across the whole batch instead of one
+//     per case.
+//   - Python/SQL: already cheap per-call (same Pyodide interpreter reused;
+//     SQL.js just opens a small in-memory DB), so they just loop.
+async function runCasesInLang(langKey, wrappedCode, rawInputJsons){
+  if(langKey === 'java'){
+    const compiled = await compileJavaOnce(wrappedCode);
+    if(!compiled.ok){
+      const err = { ok:false, logs: compiled.logs||[], error: compiled.error };
+      return rawInputJsons.map(()=>err);
+    }
+    const out = [];
+    for(const inputJson of rawInputJsons){
+      const r = await runCompiledJavaOnce(compiled.className, inputJson);
+      out.push({ ok:r.ok, logs:[...(compiled.logs||[]), ...(r.logs||[])], error:r.error });
+    }
+    return out;
+  }
+  if(langKey === 'javascript') return runJSCasesInWorker(wrappedCode, rawInputJsons);
+  const out = [];
+  for(const inputJson of rawInputJsons){
+    const result = langKey === 'sql' ? await runSQLCode(wrappedCode, inputJson) : await runPythonCode(wrappedCode, inputJson);
+    out.push(result);
+  }
+  return out;
 }
 async function runMockCode(){
   const out = document.getElementById('mockOutputPanel');
@@ -6627,13 +6717,10 @@ async function runMockCode(){
     if(harness && casesToRun.length){
       const lines = [];
       let passCount = 0;
-      for(let i=0;i<casesToRun.length;i++){
-        const tc = casesToRun[i];
-        const { code: wrappedCode, inputJson } = buildExecutionPayload(langKey, code, tc.input, harness);
-        const result = lang === 'JavaScript' ? await runJSInWorker(wrappedCode, inputJson)
-          : lang === 'SQL' ? await runSQLCode(wrappedCode, inputJson)
-          : lang === 'Java' ? await runJavaCode(wrappedCode, inputJson)
-          : await runPythonCode(wrappedCode, inputJson);
+      const { code: wrappedCode } = buildExecutionPayload(langKey, code, null, harness);
+      const results = await runCasesInLang(langKey, wrappedCode, casesToRun.map(tc=>tc.input));
+      casesToRun.forEach((tc, i)=>{
+        const result = results[i];
         if(!result.ok){
           lines.push(`Case ${i+1} — input: ${tc.input}`, `  ⚠ Error — ${formatRunError(result)}`, '');
         } else {
@@ -6642,7 +6729,7 @@ async function runMockCode(){
           if(ok) passCount++;
           lines.push(`Case ${i+1} — input: ${tc.input}`, `  Expected: ${tc.expected}`, `  Got: ${lastLine || '(no output)'}${ok ? '  ✓ Pass' : '  ✕ Fail'}`, '');
         }
-      }
+      });
       lines.push(`${passCount}/${casesToRun.length} sample case${casesToRun.length===1?'':'s'} passed — Submit checks the full ${allCases.length || MIN_SUBMIT_TEST_CASES}-case set before this counts as solved.`);
       out.textContent = lines.join('\n');
       out.classList.toggle('err', passCount < casesToRun.length);
@@ -6859,14 +6946,11 @@ async function submitMockTestCases(){
   submitBtn.disabled = true; submitBtn.textContent = 'Running…';
   const langKey = mockLangToHarnessKey(lang);
   const harness = activeMock.harness;
-  for(let i=0; i<activeMock.testCases.length; i++){
-    const tc = activeMock.testCases[i];
-    try{
-      const { code: wrappedCode, inputJson } = buildExecutionPayload(langKey, code, tc.input || null, harness);
-      const result = lang === 'JavaScript' ? await runJSInWorker(wrappedCode, inputJson)
-        : lang === 'SQL' ? await runSQLCode(wrappedCode, inputJson)
-        : lang === 'Java' ? await runJavaCode(wrappedCode, inputJson)
-        : await runPythonCode(wrappedCode, inputJson);
+  try{
+    const { code: wrappedCode } = buildExecutionPayload(langKey, code, null, harness);
+    const results = await runCasesInLang(langKey, wrappedCode, activeMock.testCases.map(tc=>tc.input || null));
+    activeMock.testCases.forEach((tc, i)=>{
+      const result = results[i];
       if(!result.ok){
         tc.status = 'error'; tc.actual = formatShortError(result);
       } else {
@@ -6874,9 +6958,9 @@ async function submitMockTestCases(){
         tc.actual = lastLine;
         tc.status = normalizeForCompare(lastLine) === normalizeForCompare(tc.expected) ? 'pass' : 'fail';
       }
-    }catch(err){
-      tc.status = 'error'; tc.actual = (err && err.message) ? err.message : String(err);
-    }
+    });
+  }catch(err){
+    activeMock.testCases.forEach(tc=>{ tc.status = 'error'; tc.actual = (err && err.message) ? err.message : String(err); });
   }
   submitBtn.disabled = false; submitBtn.textContent = '✓ Submit';
   renderMockTestCases();
