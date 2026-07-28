@@ -253,6 +253,7 @@
           <div class="lc-subtab-body" data-lc-panel="solveResult" style="display:none;">
             <div id="solveCheerBanner"></div>
             <div id="solveResultSummary" style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;"></div>
+            <div id="solveCaseTabs"></div>
             <div id="solveComplexityChart"></div>
             <div id="solveConsoleWrap" style="display:none;">
               <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.5px;text-transform:uppercase;color:var(--ink-faint);margin-bottom:4px;">Console output</div>
@@ -4504,6 +4505,77 @@ function renderAcceptedPanel(containerId, passed, total, elapsedMs, id, lang){
     </div>
   `;
 }
+// LeetCode-style "Case 1 / Case 2 / ..." tab strip shown under the
+// Accepted card (or the plain pass-count line) in the Test Result panel —
+// click a tab to see that case's Input (one field per harness param, if
+// known), Output, and Expected, instead of only a flat "N/M passed" line.
+// containerId keys a small module-level selection map so switching problems
+// or re-submitting resets which tab is shown.
+const caseTabsSelection = {};
+function renderCaseTabs(containerId, testCases, harness){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  if(!testCases || !testCases.length){ el.innerHTML = ''; return; }
+  if(caseTabsSelection[containerId] == null || caseTabsSelection[containerId] >= testCases.length){
+    // Default to the first non-passing case (so a wrong answer is visible
+    // immediately without clicking around); falls back to Case 1 on a full pass.
+    const firstBad = testCases.findIndex(tc=>tc.status && tc.status!=='pass' && tc.status!=='idle');
+    caseTabsSelection[containerId] = firstBad === -1 ? 0 : firstBad;
+  }
+  const activeIdx = caseTabsSelection[containerId];
+  const renderDetail = (tc)=>{
+    let inputFields = [];
+    if(harness && harness.params && harness.params.length){
+      try{
+        const argVals = JSON.parse(tc.input);
+        inputFields = harness.params.map((p,i)=>({ name:p.name, value: Array.isArray(argVals) ? argVals[i] : undefined }));
+      }catch(e){ inputFields = []; }
+    }
+    const inputHtml = inputFields.length
+      ? inputFields.map(f=>`
+        <div class="lc-case-field">
+          <div class="lc-case-field-label">${escapeHtml(f.name)} =</div>
+          <div class="lc-case-field-value">${escapeHtml(f.value===undefined ? '' : JSON.stringify(f.value))}</div>
+        </div>`).join('')
+      : `
+        <div class="lc-case-field">
+          <div class="lc-case-field-label">Input</div>
+          <div class="lc-case-field-value">${escapeHtml(tc.input||'')}</div>
+        </div>`;
+    const outputVal = tc.status==='tle' ? 'Time Limit Exceeded'
+      : tc.status==='error' ? (tc.actual || 'Runtime error')
+      : tc.status==='idle' ? '(not yet run)'
+      : (tc.actual || '(no output)');
+    const outputClass = !tc.status || tc.status==='idle' ? '' : (tc.status==='pass' ? 'lc-case-match' : 'lc-case-diff');
+    return `
+      ${inputHtml}
+      <div class="lc-case-field">
+        <div class="lc-case-field-label">Output</div>
+        <div class="lc-case-field-value ${outputClass}">${escapeHtml(outputVal)}</div>
+      </div>
+      <div class="lc-case-field">
+        <div class="lc-case-field-label">Expected</div>
+        <div class="lc-case-field-value">${escapeHtml(tc.expected||'')}</div>
+      </div>`;
+  };
+  const tabBarHtml = testCases.map((tc,i)=>{
+    const statusClass = tc.status==='pass' ? 'lc-case-pass' : tc.status==='fail' ? 'lc-case-fail'
+      : tc.status==='tle' ? 'lc-case-tle' : tc.status==='error' ? 'lc-case-error' : '';
+    const icon = tc.status==='pass' ? '✓ ' : tc.status==='fail' ? '✕ ' : tc.status==='tle' ? '⏱ ' : tc.status==='error' ? '⚠ ' : '';
+    return `<div class="lc-case-tab ${statusClass}${i===activeIdx?' active':''}" data-case-idx="${i}">${icon}Case ${i+1}</div>`;
+  }).join('');
+  el.innerHTML = `
+    <div class="lc-case-tabs">
+      <div class="lc-case-tab-bar">${tabBarHtml}</div>
+      <div class="lc-case-detail">${renderDetail(testCases[activeIdx])}</div>
+    </div>`;
+  el.querySelectorAll('.lc-case-tab').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      caseTabsSelection[containerId] = parseInt(btn.getAttribute('data-case-idx'), 10);
+      renderCaseTabs(containerId, testCases, harness);
+    });
+  });
+}
 bindLcResizerX('solveResizerX', 'solveLeftPane', 'solveSplit', 25, 65);
 bindLcResizerY('solveResizerY', 'solveBottomPane', 'solveRightPane', 100, 70);
 
@@ -5675,6 +5747,7 @@ function openCodeEditorModal(id){
   document.getElementById('solveVisualizeBtn').disabled = false;
   document.getElementById('solveCheerBanner').innerHTML = '';
   document.getElementById('solveResultSummary').textContent = '';
+  document.getElementById('solveCaseTabs').innerHTML = '';
   resetSolveTestCases();
   renderApiKeyWidget('solveWalkthroughKeySection');
   resetSolveWalkthroughPanel();
@@ -5905,6 +5978,7 @@ document.getElementById('solveRunBtn').addEventListener('click', async ()=>{
   setLcTab('solveBottomPane', 'solveResult');
   document.getElementById('solveCheerBanner').innerHTML = '';
   document.getElementById('solveResultSummary').textContent = '';
+  document.getElementById('solveCaseTabs').innerHTML = '';
   wrap.style.display = 'block';
   if(!code_raw.trim()){ out.textContent = 'Nothing to run yet — write some code first.'; return; }
   if(!solveLangSupportsRun()){
@@ -5924,7 +5998,7 @@ document.getElementById('solveRunBtn').addEventListener('click', async ()=>{
       const lines = [];
       let passCount = 0;
       const { code } = buildExecutionPayload(langVal, code_raw, null, solveHarness);
-      const results = await runCasesInLang(langVal, code, casesToRun.map(tc=>tc.input));
+      const { results } = await runCasesInLang(langVal, code, casesToRun.map(tc=>tc.input));
       casesToRun.forEach((tc, i)=>{
         const result = results[i];
         if(!result.ok){
@@ -6442,9 +6516,8 @@ async function submitSolveTestCases(){
   let elapsedMs = null;
   try{
     const { code } = buildExecutionPayload(langVal, rawCode, null, solveHarness);
-    const t0 = performance.now();
-    const results = await runCasesInLang(langVal, code, solveTestCases.map(tc=>tc.input || null));
-    elapsedMs = Math.round(performance.now() - t0);
+    const { results, execMs } = await runCasesInLang(langVal, code, solveTestCases.map(tc=>tc.input || null));
+    elapsedMs = execMs;
     solveTestCases.forEach((tc, i)=>{
       const result = results[i];
       if(!result.ok){
@@ -6490,6 +6563,7 @@ async function submitSolveTestCases(){
     // so it's comparable run to run).
     document.getElementById('solveResultSummary').textContent = `${passed}/${solveTestCases.length} test case${solveTestCases.length===1?'':'s'} passed` + (elapsedMs!=null ? ` · ⏱ Runtime: ${elapsedMs} ms` : '');
   }
+  renderCaseTabs('solveCaseTabs', solveTestCases, solveHarness);
 
   // Premium/no-OJ carve-out: premium LeetCode problems can't be attempted at
   // all without a paid LeetCode subscription, and no-OJ A2Z problems (theory
@@ -7494,12 +7568,19 @@ function raceTimeout(promise, ms){
     });
   });
 }
+// Returns { results, execMs }. execMs is EXECUTION time only — for Java
+// that's deliberately measured AFTER compileJavaOnce() finishes, since
+// javac compilation isn't part of what LeetCode calls "Runtime" either.
+// Before this, callers timed compile+run together with a single
+// performance.now() wrapped around the whole runCasesInLang call, which is
+// why "Runtime" included several hundred ms to ~1-2s of in-browser javac
+// compilation on top of the actual execution time.
 async function runCasesInLang(langKey, wrappedCode, rawInputJsons){
   if(langKey === 'java'){
     const compiled = await compileJavaOnce(wrappedCode);
     if(!compiled.ok){
       const err = { ok:false, logs: compiled.logs||[], error: compiled.error };
-      return rawInputJsons.map(()=>err);
+      return { results: rawInputJsons.map(()=>err), execMs: null };
     }
     // ONE cheerpjRunMain call for the whole batch (see runCompiledJavaBatch
     // / splitBatchedJavaLogs) instead of one call per case — CheerpJ's
@@ -7512,29 +7593,43 @@ async function runCasesInLang(langKey, wrappedCode, rawInputJsons){
     // ALL cases are reported as unknown/timed-out together rather than
     // isolating which one hung — that's the one thing the old per-case
     // loop could tell you that this can't.
+    const execT0 = performance.now();
     const race = await raceTimeout(runCompiledJavaBatch(compiled.className, rawInputJsons), JAVA_TLE_MS);
+    const execMs = Math.round(performance.now() - execT0);
     if(race.timedOut){
       const tleMsg = `Time Limit Exceeded — no output after ${Math.round(JAVA_TLE_MS/1000)}s. Java can't be safely interrupted mid-run in the browser, so which specific case is stuck can't be isolated — if the page feels unresponsive afterward, reload the tab.`;
-      return rawInputJsons.map(()=>({ ok:false, logs:[], error:tleMsg, tle:true }));
+      return { results: rawInputJsons.map(()=>({ ok:false, logs:[], error:tleMsg, tle:true })), execMs };
     }
     const r = race.value;
     if(!r.ok){
-      return rawInputJsons.map(()=>({ ok:false, logs:[...(compiled.logs||[])], error:r.error }));
+      return { results: rawInputJsons.map(()=>({ ok:false, logs:[...(compiled.logs||[])], error:r.error })), execMs };
     }
-    return splitBatchedJavaLogs(r.logs, rawInputJsons.length).map(res=>({
-      ok: res.ok,
-      logs: [...(compiled.logs||[]), ...res.logs],
-      error: res.error,
-    }));
+    return {
+      results: splitBatchedJavaLogs(r.logs, rawInputJsons.length).map(res=>({
+        ok: res.ok,
+        logs: [...(compiled.logs||[]), ...res.logs],
+        error: res.error,
+      })),
+      execMs,
+    };
   }
-  if(langKey === 'javascript') return runJSCasesInWorker(wrappedCode, rawInputJsons);
-  if(langKey === 'python') return runPythonCasesInWorker(wrappedCode, rawInputJsons);
+  if(langKey === 'javascript'){
+    const t0 = performance.now();
+    const results = await runJSCasesInWorker(wrappedCode, rawInputJsons);
+    return { results, execMs: Math.round(performance.now() - t0) };
+  }
+  if(langKey === 'python'){
+    const t0 = performance.now();
+    const results = await runPythonCasesInWorker(wrappedCode, rawInputJsons);
+    return { results, execMs: Math.round(performance.now() - t0) };
+  }
+  const t0 = performance.now();
   const out = [];
   for(const inputJson of rawInputJsons){
     const result = await runSQLCode(wrappedCode, inputJson);
     out.push(result);
   }
-  return out;
+  return { results: out, execMs: Math.round(performance.now() - t0) };
 }
 async function runMockCode(){
   const out = document.getElementById('mockOutputPanel');
@@ -7567,7 +7662,7 @@ async function runMockCode(){
       const lines = [];
       let passCount = 0;
       const { code: wrappedCode } = buildExecutionPayload(langKey, code, null, harness);
-      const results = await runCasesInLang(langKey, wrappedCode, casesToRun.map(tc=>tc.input));
+      const { results } = await runCasesInLang(langKey, wrappedCode, casesToRun.map(tc=>tc.input));
       casesToRun.forEach((tc, i)=>{
         const result = results[i];
         if(!result.ok){
@@ -7799,9 +7894,8 @@ async function submitMockTestCases(){
   let elapsedMs = null;
   try{
     const { code: wrappedCode } = buildExecutionPayload(langKey, code, null, harness);
-    const t0 = performance.now();
-    const results = await runCasesInLang(langKey, wrappedCode, activeMock.testCases.map(tc=>tc.input || null));
-    elapsedMs = Math.round(performance.now() - t0);
+    const { results, execMs } = await runCasesInLang(langKey, wrappedCode, activeMock.testCases.map(tc=>tc.input || null));
+    elapsedMs = execMs;
     activeMock.testCases.forEach((tc, i)=>{
       const result = results[i];
       if(!result.ok){
@@ -7832,6 +7926,7 @@ async function submitMockTestCases(){
   } else {
     document.getElementById('mockResultSummary').textContent = `${passed}/${activeMock.testCases.length} test case${activeMock.testCases.length===1?'':'s'} passed` + (elapsedMs!=null ? ` · ⏱ Runtime: ${elapsedMs} ms` : '');
   }
+  renderCaseTabs('mockCaseTabs', activeMock.testCases, activeMock.harness);
 
   // Same premium/no-OJ carve-out as the Solve editor: mark solved (tagged as
   // test-verified, not sync-verified) when a premium or no-OJ problem passes
@@ -8205,6 +8300,7 @@ function renderMockActiveView(){
             <div class="lc-subtab-body" data-lc-panel="mockResult" style="display:none;">
               <div id="mockCheerBanner"></div>
               <div id="mockResultSummary" style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;"></div>
+              <div id="mockCaseTabs"></div>
               <div id="mockComplexityChart"></div>
               <div class="mock-output-panel" id="mockOutputPanel" style="display:none;"></div>
             </div>
@@ -8329,6 +8425,7 @@ function renderMockActiveView(){
     setLcTab('mockBottomPane', 'mockResult');
     document.getElementById('mockCheerBanner').innerHTML = '';
     document.getElementById('mockResultSummary').textContent = '';
+    document.getElementById('mockCaseTabs').innerHTML = '';
     document.getElementById('mockOutputPanel').style.display = 'block';
     await runMockCode();
   });
