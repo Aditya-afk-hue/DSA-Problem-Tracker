@@ -4462,6 +4462,48 @@ function showLcCheer(bannerId){
   el.innerHTML = `<div class="lc-cheer-banner">${msg}</div>`;
   fireLcConfetti();
 }
+// The actual "Accepted" result card — separate from, and rendered above,
+// the generic Big-O reference chart. LeetCode's real version ranks a
+// submission's runtime/memory against everyone else's; there's no shared
+// backend here to do that honestly, so instead this plots the runtime of
+// every past fully-passing run of this exact problem+language, in this
+// browser, with the current run picked out — a real (if smaller-sample)
+// history rather than a faked percentile.
+function renderAcceptedPanel(containerId, passed, total, elapsedMs, id, lang){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  const history = getAcceptedRuntimeHistory(id, lang);
+  let histHtml = '';
+  if(history.length >= 2){
+    const times = history.map(h=>h.elapsedMs);
+    const maxT = Math.max(...times, elapsedMs || 0, 1);
+    const bars = history.map(h=>{
+      const isCurrent = h.elapsedMs === elapsedMs;
+      const heightPct = Math.max(6, Math.round((h.elapsedMs / maxT) * 100));
+      return `<div class="lc-runtime-hist-bar${isCurrent?' current':''}" style="height:${heightPct}%;" title="${h.elapsedMs} ms — ${new Date(h.ts).toLocaleString()}"></div>`;
+    }).join('');
+    histHtml = `
+      <div class="lc-runtime-hist">
+        <div class="lc-runtime-hist-label">Your last ${history.length} accepted ${lang} runs of this problem, oldest → newest (darker bar = this run)</div>
+        <div class="lc-runtime-hist-bars">${bars}</div>
+      </div>`;
+  }
+  el.innerHTML = `
+    <div class="lc-accepted-card">
+      <div class="lc-accepted-head">
+        <span class="lc-accepted-title">✔ Accepted</span>
+        <span class="lc-accepted-sub">${passed} / ${total} testcases passed</span>
+      </div>
+      <div class="lc-accepted-stats">
+        <div>
+          <div class="lc-accepted-stat-label">Runtime</div>
+          <div class="lc-accepted-stat-value">${elapsedMs!=null ? elapsedMs + ' ms' : '—'}</div>
+        </div>
+      </div>
+      ${histHtml}
+    </div>
+  `;
+}
 bindLcResizerX('solveResizerX', 'solveLeftPane', 'solveSplit', 25, 65);
 bindLcResizerY('solveResizerY', 'solveBottomPane', 'solveRightPane', 100, 70);
 
@@ -4858,6 +4900,10 @@ function buildSectionElement(sec, q, activeFilter, folioIndex){
   head.addEventListener('click', () => {
     const wasOpen = openSections.has(sec);
     openSections.clear();
+    // Only close other open folders if this section is itself a bare
+    // top-level entry, not one nested inside the currently open folder —
+    // otherwise clicking a section would collapse its own parent group.
+    if(!SECTION_TO_GROUP[sec]) openGroups.clear();
     if(!wasOpen) openSections.add(sec);
     renderSections();
     const target = Array.from(document.querySelectorAll('[data-section]')).find(el => el.dataset.section === sec);
@@ -4919,8 +4965,15 @@ function buildGroupElement(groupTitle, members, q, activeFilter, groupFolioIndex
     renderSummary();
   });
   groupHead.addEventListener('click', () => {
-    if(openGroups.has(groupTitle)) openGroups.delete(groupTitle);
-    else openGroups.add(groupTitle);
+    const wasOpen = openGroups.has(groupTitle);
+    // Accordion at the group level too — only one top-level "folder" open
+    // at a time, same as sections already are one level down. Switching
+    // (or collapsing) a group also clears which of its sections was open,
+    // so re-opening a group later always starts from fully collapsed
+    // instead of silently remembering a section from last time.
+    openGroups.clear();
+    openSections.clear();
+    if(!wasOpen) openGroups.add(groupTitle);
     renderSections();
     const target = Array.from(document.querySelectorAll('[data-group]')).find(el => el.dataset.group === groupTitle);
     if(target) scrollResultsIntoView(target);
@@ -6389,20 +6442,20 @@ async function submitSolveTestCases(){
   submitBtn.disabled = false; submitBtn.textContent = '✓ Submit';
   renderSolveTestCases();
   const passed = solveTestCases.filter(t=>t.status==='pass').length;
-  logSubmission(solveModalId, langVal, rawCode, passed, solveTestCases.length, 'solve');
+  logSubmission(solveModalId, langVal, rawCode, passed, solveTestCases.length, 'solve', elapsedMs);
   showToast(`${passed}/${solveTestCases.length} test cases passed`);
   setLcTab('solveBottomPane', 'solveResult');
   document.getElementById('solveConsoleWrap').style.display = 'none';
-  // Runtime here is real, measured wall-clock time for this batch of cases
-  // (execution only — Java's one-time compile isn't counted in it, so it's
-  // comparable run to run). Unlike LeetCode's "beats X%", there's no shared
-  // backend of other people's submissions to rank against here, so this is
-  // just your own number, not a percentile.
-  document.getElementById('solveResultSummary').textContent = `${passed}/${solveTestCases.length} test case${solveTestCases.length===1?'':'s'} passed` + (elapsedMs!=null ? ` · ⏱ Runtime: ${elapsedMs} ms` : '');
   const solveComplexityEl = document.getElementById('solveComplexityChart');
   if(solveComplexityEl) solveComplexityEl.innerHTML = '';
+  document.getElementById('solveCheerBanner').innerHTML = '';
   if(solveTestCases.length > 0 && passed === solveTestCases.length){
-    showLcCheer('solveCheerBanner');
+    // Full pass: show the real Accepted card (runtime + this problem's own
+    // accepted-run history) instead of the plain "X/Y passed" text line —
+    // a partial/failing run below still uses that plain text summary.
+    document.getElementById('solveResultSummary').textContent = '';
+    renderAcceptedPanel('solveCheerBanner', passed, solveTestCases.length, elapsedMs, solveModalId, langVal);
+    fireLcConfetti();
     const pForComplexity = PROBLEMS.find(x=>x.id===solveModalId);
     if(pForComplexity){
       fetchComplexityAnalysis(pForComplexity, langVal, rawCode).then(result=>{
@@ -6413,7 +6466,10 @@ async function submitSolveTestCases(){
       });
     }
   } else {
-    document.getElementById('solveCheerBanner').innerHTML = '';
+    // Runtime here is real, measured wall-clock time for this batch of
+    // cases (execution only — Java's one-time compile isn't counted in it,
+    // so it's comparable run to run).
+    document.getElementById('solveResultSummary').textContent = `${passed}/${solveTestCases.length} test case${solveTestCases.length===1?'':'s'} passed` + (elapsedMs!=null ? ` · ⏱ Runtime: ${elapsedMs} ms` : '');
   }
 
   // Premium/no-OJ carve-out: premium LeetCode problems can't be attempted at
@@ -7691,17 +7747,19 @@ async function submitMockTestCases(){
   submitBtn.disabled = false; submitBtn.textContent = '✓ Submit';
   renderMockTestCases();
   const passed = activeMock.testCases.filter(t=>t.status==='pass').length;
-  logSubmission(activeMock.problemId, lang, code, passed, activeMock.testCases.length, 'mock');
+  logSubmission(activeMock.problemId, lang, code, passed, activeMock.testCases.length, 'mock', elapsedMs);
   showToast(`${passed}/${activeMock.testCases.length} test cases passed`);
   setLcTab('mockBottomPane', 'mockResult');
   document.getElementById('mockOutputPanel').style.display = 'none';
-  document.getElementById('mockResultSummary').textContent = `${passed}/${activeMock.testCases.length} test case${activeMock.testCases.length===1?'':'s'} passed` + (elapsedMs!=null ? ` · ⏱ Runtime: ${elapsedMs} ms` : '');
   const mockComplexityEl = document.getElementById('mockComplexityChart');
   if(mockComplexityEl) mockComplexityEl.innerHTML = '';
+  document.getElementById('mockCheerBanner').innerHTML = '';
   if(activeMock.testCases.length > 0 && passed === activeMock.testCases.length){
-    showLcCheer('mockCheerBanner');
+    document.getElementById('mockResultSummary').textContent = '';
+    renderAcceptedPanel('mockCheerBanner', passed, activeMock.testCases.length, elapsedMs, activeMock.problemId, lang);
+    fireLcConfetti();
   } else {
-    document.getElementById('mockCheerBanner').innerHTML = '';
+    document.getElementById('mockResultSummary').textContent = `${passed}/${activeMock.testCases.length} test case${activeMock.testCases.length===1?'':'s'} passed` + (elapsedMs!=null ? ` · ⏱ Runtime: ${elapsedMs} ms` : '');
   }
 
   // Same premium/no-OJ carve-out as the Solve editor: mark solved (tagged as
@@ -9140,13 +9198,23 @@ function loadSubmitLog(){
 function saveSubmitLog(store){
   try{ localStorage.setItem(SUBMIT_LOG_KEY, JSON.stringify(store)); }catch(e){}
 }
-function logSubmission(id, lang, code, passed, total, source){
+function logSubmission(id, lang, code, passed, total, source, elapsedMs){
   if(id==null || !code || !code.trim()) return;
   const store = loadSubmitLog();
   if(!store[id]) store[id] = [];
-  store[id].unshift({ ts: Date.now(), lang, code, passed, total, source: source || 'solve' });
+  store[id].unshift({ ts: Date.now(), lang, code, passed, total, source: source || 'solve', elapsedMs: (typeof elapsedMs === 'number' ? elapsedMs : null) });
   if(store[id].length > 25) store[id].length = 25;
   saveSubmitLog(store);
+}
+// Past fully-passing runs for this problem, in the same language, with a
+// recorded runtime — the closest honest stand-in for LeetCode's runtime
+// histogram we can offer without a shared backend of other people's
+// submissions to rank against. Oldest first (for left-to-right plotting).
+function getAcceptedRuntimeHistory(id, lang){
+  return getSubmissions(id)
+    .filter(s => s.lang === lang && s.total > 0 && s.passed === s.total && typeof s.elapsedMs === 'number')
+    .slice(0, 20)
+    .reverse();
 }
 function getSubmissions(id){
   return (id==null) ? [] : (loadSubmitLog()[id] || []);
@@ -10449,17 +10517,32 @@ async function sendReviewMessage(){
   out.style.display = 'block';
 
   const isFirst = reviewConversation.length === 0;
-  const testCaseContext = isFirst ? reviewPendingTestContext : '';
-  reviewPendingTestContext = ''; // one-shot — already folded into this prompt (or there was none to fold in)
+  // Recomputed fresh on every send (not just the first message of the
+  // chat) — the previous version only ever folded in test-case results
+  // (and the FIXED TESTCASE protocol instructions that explain how to
+  // actually flag one as wrong) into the very first turn. That meant a
+  // later follow-up like "the tests failed, update the test cases" landed
+  // with no failing-case data and no idea the FIXED TESTCASE mechanism
+  // even existed — the only tool it had ever been told about was FIXED
+  // CODE, so it defaulted to "fixing" already-correct code instead. Live,
+  // per-turn context closes that gap, and naturally goes quiet again once
+  // a correction is applied (corrected cases reset to 'idle' until re-run).
+  reviewPendingTestContext = '';
+  const testCaseContext = buildReviewTestCaseContext(getReviewTestCaseTarget(reviewModalId));
+  const testCaseInstructions = testCaseContext
+    ? `\n\n${testCaseContext}\n\nIf you correct any test case's expected value per the rule above, add one line per corrected case at the very end of your whole reply (after everything else), in exactly this format and nothing else on that line: FIXED TESTCASE #<case number>: <the corrected expected output, exactly as it should be printed>. Only include this line for cases you're actually correcting — do not list unchanged/passing cases.`
+    : '';
   const payloadText = isFirst
     ? `You're a coding assistant helping with the LeetCode problem "${p.title}" (${p.section}). ` +
       `The user may paste their code for review, ask a question, or both in the same message — respond to whatever they actually sent, don't force a review format onto a plain question. ` +
-      `If they paste code: evaluate correctness (call out specific failing cases if any, e.g. empty input, duplicates, negative numbers), point out bugs with specific fixes, note time/space complexity, and comment on style/readability. If there are bugs, include a corrected version of their code — same language, minimal targeted changes — inside a single fenced code block (triple backticks) preceded by a line that says exactly "FIXED CODE:". If the code is already correct, say so plainly and skip the code block entirely. ` +
-      (testCaseContext ? `\n\n${testCaseContext}\n\nIf you correct any test case's expected value per the rule above, add one line per corrected case at the very end of your whole reply (after everything else), in exactly this format and nothing else on that line: FIXED TESTCASE #<case number>: <the corrected expected output, exactly as it should be printed>. Only include this line for cases you're actually correcting — do not list unchanged/passing cases.` : '') +
+      `If they paste code: evaluate correctness (call out specific failing cases if any, e.g. empty input, duplicates, negative numbers), point out bugs with specific fixes, note time/space complexity, and comment on style/readability. If there are bugs, include a corrected version of their code — same language, minimal targeted changes — inside a single fenced code block (triple backticks) preceded by a line that says exactly "FIXED CODE:". If the code is already correct, say so plainly and skip the code block entirely. Do not invent a bug to justify writing a FIXED CODE block — only produce one when you can point to a concrete input that actually breaks the given code. ` +
+      testCaseInstructions +
       `If they just ask a question with no code, answer directly and conversationally. If that question asks you to write new code (not fix what they pasted), ${lastLangPromptRule()} ` +
       `Be concise and concrete. ${MATH_NOTATION_RULE} ` +
       `Write complexity as plain text like "O(M x N)" or "O(n log n)" — never LaTeX or math markup (no $, no \\times, no \\O, no other backslash commands). Never use markdown bold/italic (no ** or _) or headers (no #) — plain text only, with one exception: ${CODE_FENCE_RULE} That covers both the FIXED CODE block and any new code written in answer to a plain question.\n\nTheir message:\n${message}`
-    : message;
+    : (testCaseInstructions
+        ? `${message}${testCaseInstructions}\n\nIf you already told the user in this conversation that their code was correct, don't reverse that verdict now unless the case data above gives you a concrete input/expected/actual mismatch to point to — a vague report of "some cases failed" is not new evidence on its own; the case data is. If the code's logic is fine, prefer correcting the test case over rewriting working code.`
+        : message);
 
   reviewConversation.push({ role:'user', parts:[{ text: payloadText }] });
   const qWrap = document.createElement('div');
@@ -10664,7 +10747,7 @@ function renderComplexityChartSvg(timeStr, spaceStr){
   const timeKey = bigOToCurveKey(timeStr);
   const spaceKey = bigOToCurveKey(spaceStr);
   if(!timeKey && !spaceKey) return ''; // nothing recognizable to plot — say nothing rather than a chart with nothing highlighted
-  const W = 460, H = 200, padL = 34, padR = 12, padT = 10, padB = 26;
+  const W = 460, H = 220, padL = 34, padR = 12, padT = 14, padB = 26;
   const plotW = W - padL - padR, plotH = H - padT - padB;
   const N = 16; // relative input-size steps plotted, not a literal problem size
   const xs = Array.from({length:N}, (_,i)=>i+1);
@@ -10673,29 +10756,41 @@ function renderComplexityChartSvg(timeStr, spaceStr){
   const xFor = n => padL + (plotW * (n-1) / (N-1));
   const yFor = v => padT + plotH - (plotH * Math.log2(v+1) / maxLog);
   const pathFor = c => xs.map((n,i)=>`${i===0?'M':'L'}${xFor(n).toFixed(1)},${yFor(c.fn(n)).toFixed(1)}`).join(' ');
+  // Non-matching curves are pushed way down in opacity (rather than the
+  // previous 0.55, which was dark enough to compete with the highlighted
+  // curve where lines cross) so there's no ambiguity about which line is
+  // actually this solution's complexity at a glance.
   const curvesSvg = BIGO_CURVES.map(c=>{
     const isTime = c.key === timeKey, isSpace = c.key === spaceKey;
     const highlighted = isTime || isSpace;
-    const color = isTime && isSpace ? 'var(--pine)' : isTime ? 'var(--pine)' : isSpace ? '#c99a2e' : 'var(--rule-soft)';
-    const width = highlighted ? 2.5 : 1.25;
+    const color = isTime && isSpace ? 'var(--pine)' : isTime ? 'var(--pine)' : isSpace ? '#c99a2e' : 'var(--ink-faint)';
+    const width = highlighted ? 2.75 : 1;
     const dash = isSpace && !isTime ? ' stroke-dasharray="4,3"' : '';
-    return `<path d="${pathFor(c)}" fill="none" stroke="${color}" stroke-width="${width}"${dash} opacity="${highlighted?1:0.55}"/>`;
+    return `<path d="${pathFor(c)}" fill="none" stroke="${color}" stroke-width="${width}"${dash} opacity="${highlighted?1:0.28}"/>`;
   }).join('');
-  const legendBits = [];
-  if(timeKey) legendBits.push(`<span style="color:var(--pine);">━ Time: ${BIGO_CURVES.find(c=>c.key===timeKey).label}</span>`);
-  if(spaceKey) legendBits.push(`<span style="color:#c99a2e;">${timeKey===spaceKey ? '(same curve)' : '┄ Space: ' + BIGO_CURVES.find(c=>c.key===spaceKey).label}</span>`);
+  // Every curve gets a legend entry (not just the matched one/two) so an
+  // unhighlighted line crossing the highlighted one is still identifiable
+  // instead of just being an unlabeled gray streak.
+  const legendBits = BIGO_CURVES.map(c=>{
+    const isTime = c.key === timeKey, isSpace = c.key === spaceKey;
+    const highlighted = isTime || isSpace;
+    const color = isTime && isSpace ? 'var(--pine)' : isTime ? 'var(--pine)' : isSpace ? '#c99a2e' : 'var(--ink-faint)';
+    const weight = highlighted ? 700 : 500;
+    const tag = isTime && isSpace ? ' (time & space)' : isTime ? ' (time)' : isSpace ? ' (space)' : '';
+    return `<span style="color:${color};font-weight:${weight};opacity:${highlighted?1:0.75};">${c.label}${tag}</span>`;
+  });
   return `
     <div style="margin:2px 0 10px;padding:10px 12px;border:1.5px solid var(--rule-soft);border-radius:10px;background:var(--card);">
-      <div style="font-size:11px;color:var(--ink-faint);margin-bottom:4px;">Growth rate vs. common complexities (log-scaled y-axis, relative input size — not this problem's real n)</div>
+      <div style="font-size:11px;color:var(--ink-faint);margin-bottom:6px;">Reference only — where this solution's complexity falls among common growth rates (log-scaled y-axis, relative input size, not this problem's real n)</div>
       <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:460px;display:block;">
         <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT+plotH}" stroke="var(--rule-soft)" stroke-width="1"/>
         <line x1="${padL}" y1="${padT+plotH}" x2="${padL+plotW}" y2="${padT+plotH}" stroke="var(--rule-soft)" stroke-width="1"/>
-        <text x="${padL}" y="${H-6}" font-size="10" fill="var(--ink-faint)">small n</text>
-        <text x="${padL+plotW}" y="${H-6}" font-size="10" fill="var(--ink-faint)" text-anchor="end">large n</text>
-        <text x="6" y="${padT+6}" font-size="10" fill="var(--ink-faint)">ops</text>
+        <text x="${padL}" y="${H-8}" font-size="10" fill="var(--ink-faint)">small n</text>
+        <text x="${padL+plotW}" y="${H-8}" font-size="10" fill="var(--ink-faint)" text-anchor="end">large n</text>
+        <text x="6" y="${padT+4}" font-size="10" fill="var(--ink-faint)">ops</text>
         ${curvesSvg}
       </svg>
-      <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;font-weight:600;margin-top:4px;">${legendBits.join('')}</div>
+      <div style="display:flex;gap:10px 14px;flex-wrap:wrap;font-size:10.5px;margin-top:8px;">${legendBits.join('')}</div>
     </div>
   `;
 }
