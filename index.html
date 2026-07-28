@@ -6260,14 +6260,33 @@ function javaHarnessFull(userCode, h){
     : h.returnType === 'String'
       ? `        System.out.println(__result);`
       : `        System.out.println(__H.toJson(__result));`;
+  // Loops over every arg (one per test case) in a SINGLE main() invocation,
+  // printing ##CASEn_START##/##CASEn_END## markers around each case's
+  // output. This is what lets a whole batch of test cases share ONE
+  // cheerpjRunMain call — CheerpJ has a large fixed per-call overhead
+  // (class loading, JIT warm-up, WASM<->JS boundary crossing) that used to
+  // dominate the reported "Runtime" for anything but a single case, since
+  // the old code called cheerpjRunMain once per case. Each case's own
+  // exception is caught individually (##CASE_ERROR##) so one bad case
+  // doesn't take down the rest of the batch. args.length===1 (the plain
+  // "Run" path) still works exactly as before, just via a loop that runs
+  // once.
   return `import java.util.*;\n\n${sanitizedUserCode}\n\n` +
 `public class Main {\n` +
 `    public static void main(String[] args) throws Exception {\n` +
-`        String raw = args.length > 0 ? args[0] : "[]";\n` +
-`        List<String> __parts = __H.splitTopLevel(raw);\n` +
+`        for (int __ci = 0; __ci < args.length; __ci++) {\n` +
+`            System.out.println("##CASE" + __ci + "_START##");\n` +
+`            try {\n` +
+`                String raw = args[__ci];\n` +
+`                List<String> __parts = __H.splitTopLevel(raw);\n` +
 `${argVars}\n` +
-`        ${h.returnType} __result = new Solution().${h.functionName}(${callArgs});\n` +
+`                ${h.returnType} __result = new Solution().${h.functionName}(${callArgs});\n` +
 `${printLine}\n` +
+`            } catch (Throwable __t) {\n` +
+`                System.out.println("##CASE_ERROR##" + __t);\n` +
+`            }\n` +
+`            System.out.println("##CASE" + __ci + "_END##");\n` +
+`        }\n` +
 `    }\n` +
 `}\n\n` +
 javaHarnessUtilSource();
@@ -7370,6 +7389,32 @@ async function runCompiledJavaOnce(className, rawInputJson){
   try{
     const runArgs = rawInputJson ? [rawInputJson] : [];
     await cheerpjRunMain(className, `${TOOLS_JAR_PATH}:/files/`, ...runArgs);
+    // The harness now always wraps output in ##CASEn_START##/##CASEn_END##
+    // markers (see javaHarnessFull) even for a single case — strip them
+    // here so this single-case path's callers see the same clean output
+    // they always have.
+    return { ok:true, logs: logs.filter(l=>!l.startsWith('##CASE')), error:null };
+  }catch(err){
+    return { ok:false, logs, error: 'CheerpJ error: ' + ((err && err.message) ? err.message : String(err)) };
+  }finally{
+    console.log = origLog;
+    console.error = origError;
+  }
+}
+// Runs an already-compiled class against MULTIPLE test cases in a SINGLE
+// cheerpjRunMain call — one JVM class-load/JIT-warmup cost for the whole
+// batch instead of one per case (see javaHarnessFull for the marker-based
+// output format this relies on, and splitBatchedJavaLogs for how the
+// interleaved stdout gets split back apart per case).
+async function runCompiledJavaBatch(className, rawInputJsons){
+  const logs = [];
+  const origLog = console.log;
+  const origError = console.error;
+  console.log = (...a)=>{ logs.push(a.map(String).join(' ')); };
+  console.error = (...a)=>{ logs.push(a.map(String).join(' ')); };
+  try{
+    const runArgs = rawInputJsons.map(j => j || '[]');
+    await cheerpjRunMain(className, `${TOOLS_JAR_PATH}:/files/`, ...runArgs);
     return { ok:true, logs, error:null };
   }catch(err){
     return { ok:false, logs, error: 'CheerpJ error: ' + ((err && err.message) ? err.message : String(err)) };
@@ -7377,6 +7422,28 @@ async function runCompiledJavaOnce(className, rawInputJson){
     console.log = origLog;
     console.error = origError;
   }
+}
+// Splits one batched Java run's interleaved stdout back into one
+// {ok, logs, error} result per test case, using the ##CASEn_START##/
+// ##CASEn_END## markers the harness prints around each case.
+function splitBatchedJavaLogs(logs, n){
+  const out = [];
+  for(let i=0; i<n; i++){
+    const startIdx = logs.indexOf(`##CASE${i}_START##`);
+    const endIdx = startIdx === -1 ? -1 : logs.indexOf(`##CASE${i}_END##`, startIdx+1);
+    if(startIdx === -1 || endIdx === -1){
+      out.push({ ok:false, logs:[], error:'No output for this case — an earlier case may have crashed the JVM (e.g. StackOverflowError/OutOfMemoryError) before this one ran.' });
+      continue;
+    }
+    const segment = logs.slice(startIdx+1, endIdx);
+    const errLine = segment.find(l=>l.startsWith('##CASE_ERROR##'));
+    if(errLine){
+      out.push({ ok:false, logs: segment.filter(l=>l!==errLine), error: errLine.slice('##CASE_ERROR##'.length) });
+    } else {
+      out.push({ ok:true, logs: segment, error:null });
+    }
+  }
+  return out;
 }
 // Single-shot convenience wrapper (compile + run in one call) for call sites
 // that only ever execute one case — behavior-identical to the old
@@ -7434,27 +7501,31 @@ async function runCasesInLang(langKey, wrappedCode, rawInputJsons){
       const err = { ok:false, logs: compiled.logs||[], error: compiled.error };
       return rawInputJsons.map(()=>err);
     }
-    const out = [];
-    for(let i=0; i<rawInputJsons.length; i++){
-      const race = await raceTimeout(runCompiledJavaOnce(compiled.className, rawInputJsons[i]), JAVA_TLE_MS);
-      if(race.timedOut){
-        // A real infinite loop in Java can't be interrupted from here —
-        // the browser's single JS thread can't preempt a synchronous call
-        // into the CheerpJ VM the way Worker.terminate() can for JS/Python.
-        // That stuck call may still be silently running in the background,
-        // so it's not safe to start another one on top of it (shared JVM
-        // state, crossed-wire stdout capture) — stop the whole batch here
-        // rather than risk corrupted results on the remaining cases.
-        out.push({ ok:false, logs:[], error:`Time Limit Exceeded — no output after ${Math.round(JAVA_TLE_MS/1000)}s. Java can't be safely interrupted mid-run in the browser, so the remaining cases were skipped rather than risk garbled results — if the page feels unresponsive afterward, reload the tab.`, tle:true });
-        for(let j=i+1; j<rawInputJsons.length; j++){
-          out.push({ ok:false, logs:[], error:'Skipped — an earlier case timed out (see above).' });
-        }
-        break;
-      }
-      const r = race.value;
-      out.push({ ok:r.ok, logs:[...(compiled.logs||[]), ...(r.logs||[])], error:r.error });
+    // ONE cheerpjRunMain call for the whole batch (see runCompiledJavaBatch
+    // / splitBatchedJavaLogs) instead of one call per case — CheerpJ's
+    // fixed per-call overhead (class load + JIT warm-up + WASM<->JS
+    // crossing) used to dominate the reported "Runtime" for every case
+    // after the first, e.g. showing ~9.8s for 10 trivial O(1) cases that
+    // are genuinely ~2ms each on a real JVM. A real infinite loop in one
+    // case still can't be interrupted mid-run in the browser (no
+    // Worker.terminate() equivalent for CheerpJ), so a timeout here means
+    // ALL cases are reported as unknown/timed-out together rather than
+    // isolating which one hung — that's the one thing the old per-case
+    // loop could tell you that this can't.
+    const race = await raceTimeout(runCompiledJavaBatch(compiled.className, rawInputJsons), JAVA_TLE_MS);
+    if(race.timedOut){
+      const tleMsg = `Time Limit Exceeded — no output after ${Math.round(JAVA_TLE_MS/1000)}s. Java can't be safely interrupted mid-run in the browser, so which specific case is stuck can't be isolated — if the page feels unresponsive afterward, reload the tab.`;
+      return rawInputJsons.map(()=>({ ok:false, logs:[], error:tleMsg, tle:true }));
     }
-    return out;
+    const r = race.value;
+    if(!r.ok){
+      return rawInputJsons.map(()=>({ ok:false, logs:[...(compiled.logs||[])], error:r.error }));
+    }
+    return splitBatchedJavaLogs(r.logs, rawInputJsons.length).map(res=>({
+      ok: res.ok,
+      logs: [...(compiled.logs||[]), ...res.logs],
+      error: res.error,
+    }));
   }
   if(langKey === 'javascript') return runJSCasesInWorker(wrappedCode, rawInputJsons);
   if(langKey === 'python') return runPythonCasesInWorker(wrappedCode, rawInputJsons);
