@@ -5975,19 +5975,23 @@ document.getElementById('solveRunBtn').addEventListener('click', async ()=>{
   const wrap = document.getElementById('solveConsoleWrap');
   const out = document.getElementById('solveConsoleOutput');
   const runBtn = document.getElementById('solveRunBtn');
+  const summaryEl = document.getElementById('solveResultSummary');
+  const solveComplexityEl = document.getElementById('solveComplexityChart');
   setLcTab('solveBottomPane', 'solveResult');
   document.getElementById('solveCheerBanner').innerHTML = '';
-  document.getElementById('solveResultSummary').textContent = '';
+  summaryEl.textContent = '';
   document.getElementById('solveCaseTabs').innerHTML = '';
-  wrap.style.display = 'block';
-  if(!code_raw.trim()){ out.textContent = 'Nothing to run yet — write some code first.'; return; }
+  if(solveComplexityEl) solveComplexityEl.innerHTML = '';
+  wrap.style.display = 'none';
+  if(!code_raw.trim()){ wrap.style.display = 'block'; out.textContent = 'Nothing to run yet — write some code first.'; return; }
   if(!solveLangSupportsRun()){
+    wrap.style.display = 'block';
     out.textContent = `Live execution isn't available for ${langKeyToLabel(langVal)} in-browser (needs a server-side compiler for C++/C#/Go). Write your solution here and use "Open on LeetCode" to actually run and submit it — or switch the language dropdown to Python, JavaScript, Java, or SQL to run code right here.`;
     return;
   }
   runBtn.disabled = true;
   runBtn.textContent = langVal === 'python' && !pyodideWorker ? 'Loading Python runtime…' : (langVal === 'sql' && !sqlJsLoadPromise ? 'Loading SQL runtime…' : (langVal === 'java' && !cheerpjLoadPromise ? 'Loading Java runtime (can take a while first time)…' : 'Running…'));
-  out.textContent = 'Running…';
+  summaryEl.textContent = 'Running…';
   // Run always checks the visible sample cases (at least the first
   // MIN_RUN_TEST_CASES, or every case there is if fewer exist) — Submit is
   // the one that grades against the full ≥MIN_SUBMIT_TEST_CASES-case set.
@@ -5995,24 +5999,44 @@ document.getElementById('solveRunBtn').addEventListener('click', async ()=>{
   const casesToRun = sampleCases.length ? sampleCases : solveTestCases.slice(0, MIN_RUN_TEST_CASES);
   try{
     if(solveHarness && casesToRun.length){
-      const lines = [];
+      // Mirrors submitSolveTestCases()'s rendering (case tabs + reference
+      // complexity chart) instead of a flat console dump — Run against the
+      // sample cases should look and feel the same as a real LeetCode Run,
+      // just without the "Accepted" card/confetti, which is Submit-only.
       let passCount = 0;
       const { code } = buildExecutionPayload(langVal, code_raw, null, solveHarness);
+      const t0 = performance.now();
       const { results } = await runCasesInLang(langVal, code, casesToRun.map(tc=>tc.input));
+      const elapsedMs = Math.round(performance.now() - t0);
       casesToRun.forEach((tc, i)=>{
         const result = results[i];
         if(!result.ok){
-          lines.push(`Case ${i+1} — input: ${tc.input}`, result.tle ? `  ⏱ Time Limit Exceeded — ${formatRunError(result)}` : `  ⚠ Error — ${formatRunError(result)}`, '');
+          tc.status = result.tle ? 'tle' : 'error'; tc.actual = formatShortError(result);
         } else {
           const lastLine = (result.logs || []).filter(l=>l.trim()).pop() || '';
+          tc.actual = lastLine;
           const ok = normalizeForCompare(lastLine) === normalizeForCompare(tc.expected);
+          tc.status = ok ? 'pass' : 'fail';
           if(ok) passCount++;
-          lines.push(`Case ${i+1} — input: ${tc.input}`, `  Expected: ${tc.expected}`, `  Got: ${lastLine || '(no output)'}${ok ? '  ✓ Pass' : '  ✕ Fail'}`, '');
         }
       });
-      lines.push(`${passCount}/${casesToRun.length} sample case${casesToRun.length===1?'':'s'} passed — Submit checks the full ${solveTestCases.length || MIN_SUBMIT_TEST_CASES}-case set before this counts as solved.`);
-      out.textContent = lines.join('\n');
+      summaryEl.textContent = `${passCount}/${casesToRun.length} sample case${casesToRun.length===1?'':'s'} passed — Submit checks the full ${solveTestCases.length || MIN_SUBMIT_TEST_CASES}-case set before this counts as solved.` + (elapsedMs!=null ? ` · ⏱ Runtime: ${elapsedMs} ms` : '');
+      renderCaseTabs('solveCaseTabs', solveTestCases, solveHarness);
+      if(passCount === casesToRun.length){
+        // Best-effort reference Big-O chart, same one shown after a full
+        // Submit — silent no-op if there's no saved Gemini key.
+        const pForComplexity = PROBLEMS.find(x=>x.id===solveModalId);
+        if(pForComplexity){
+          fetchComplexityAnalysis(pForComplexity, langVal, code_raw).then(result=>{
+            if(!result || solveModalId !== pForComplexity.id) return;
+            renderPostSubmitComplexity('solveComplexityChart', result.time_complexity, result.space_complexity);
+          });
+        }
+      }
     } else {
+      wrap.style.display = 'block';
+      out.textContent = 'Running…';
+      summaryEl.textContent = '';
       const sampleInput = (solveHarness && solveTestCases.length) ? solveTestCases[0].input : null;
       const { code, inputJson } = buildExecutionPayload(langVal, code_raw, sampleInput, solveHarness);
       const result = langVal === 'javascript' ? await runJSInWorker(code, inputJson)
@@ -6026,6 +6050,8 @@ document.getElementById('solveRunBtn').addEventListener('click', async ()=>{
       out.textContent = lines.join('\n');
     }
   }catch(err){
+    wrap.style.display = 'block';
+    summaryEl.textContent = '';
     out.textContent = '⚠ ' + ((err && err.message) ? err.message : String(err));
   }finally{
     runBtn.disabled = false;
@@ -7634,24 +7660,33 @@ async function runCasesInLang(langKey, wrappedCode, rawInputJsons){
 async function runMockCode(){
   const out = document.getElementById('mockOutputPanel');
   const runBtn = document.getElementById('mockRunBtn');
+  const summaryEl = document.getElementById('mockResultSummary');
+  const mockComplexityEl = document.getElementById('mockComplexityChart');
   if(!out) return;
   const code = getMockCode();
   if(activeMock){ activeMock.code = code; saveActiveMockSession(); }
+  setLcTab('mockBottomPane', 'mockResult');
+  document.getElementById('mockCheerBanner').innerHTML = '';
+  if(summaryEl) summaryEl.textContent = '';
+  document.getElementById('mockCaseTabs').innerHTML = '';
+  if(mockComplexityEl) mockComplexityEl.innerHTML = '';
+  out.style.display = 'none';
   if(!code.trim()){
+    out.style.display = 'block';
     out.classList.remove('err');
     out.textContent = 'Nothing to run yet — write some code first.';
     return;
   }
   const lang = activeMock ? activeMock.lang : '';
   if(lang !== 'JavaScript' && lang !== 'Python' && lang !== 'SQL' && lang !== 'Java'){
+    out.style.display = 'block';
     out.classList.remove('err');
     out.textContent = `Live execution isn't available for ${lang} in-browser (needs a server-side compiler for C++/Go). Write your solution here and self-grade below — or use the language dropdown above the editor to switch to Python, JavaScript, Java, or SQL to actually run code.`;
     return;
   }
   runBtn.disabled = true;
   runBtn.textContent = lang === 'Python' && !pyodideWorker ? 'Loading Python runtime…' : (lang === 'SQL' && !sqlJsLoadPromise ? 'Loading SQL runtime…' : (lang === 'Java' && !cheerpjLoadPromise ? 'Loading Java runtime (can take a while first time)…' : 'Running…'));
-  out.classList.remove('err');
-  out.textContent = 'Running…';
+  if(summaryEl) summaryEl.textContent = 'Running…';
   const langKey = mockLangToHarnessKey(lang);
   const harness = activeMock ? activeMock.harness : null;
   const allCases = (activeMock && activeMock.testCases) ? activeMock.testCases : [];
@@ -7659,25 +7694,42 @@ async function runMockCode(){
   const casesToRun = sampleCases.length ? sampleCases : allCases.slice(0, MIN_RUN_TEST_CASES);
   try{
     if(harness && casesToRun.length){
-      const lines = [];
+      // Mirrors the Submit rendering (case tabs + reference complexity
+      // chart) instead of a flat text dump — same treatment as the Solve
+      // editor's Run button.
       let passCount = 0;
       const { code: wrappedCode } = buildExecutionPayload(langKey, code, null, harness);
+      const t0 = performance.now();
       const { results } = await runCasesInLang(langKey, wrappedCode, casesToRun.map(tc=>tc.input));
+      const elapsedMs = Math.round(performance.now() - t0);
       casesToRun.forEach((tc, i)=>{
         const result = results[i];
         if(!result.ok){
-          lines.push(`Case ${i+1} — input: ${tc.input}`, result.tle ? `  ⏱ Time Limit Exceeded — ${formatRunError(result)}` : `  ⚠ Error — ${formatRunError(result)}`, '');
+          tc.status = result.tle ? 'tle' : 'error'; tc.actual = formatShortError(result);
         } else {
           const lastLine = (result.logs || []).filter(l=>l.trim()).pop() || '';
+          tc.actual = lastLine;
           const ok = normalizeForCompare(lastLine) === normalizeForCompare(tc.expected);
+          tc.status = ok ? 'pass' : 'fail';
           if(ok) passCount++;
-          lines.push(`Case ${i+1} — input: ${tc.input}`, `  Expected: ${tc.expected}`, `  Got: ${lastLine || '(no output)'}${ok ? '  ✓ Pass' : '  ✕ Fail'}`, '');
         }
       });
-      lines.push(`${passCount}/${casesToRun.length} sample case${casesToRun.length===1?'':'s'} passed — Submit checks the full ${allCases.length || MIN_SUBMIT_TEST_CASES}-case set before this counts as solved.`);
-      out.textContent = lines.join('\n');
-      out.classList.toggle('err', passCount < casesToRun.length);
+      if(summaryEl) summaryEl.textContent = `${passCount}/${casesToRun.length} sample case${casesToRun.length===1?'':'s'} passed — Submit checks the full ${allCases.length || MIN_SUBMIT_TEST_CASES}-case set before this counts as solved.` + (elapsedMs!=null ? ` · ⏱ Runtime: ${elapsedMs} ms` : '');
+      renderCaseTabs('mockCaseTabs', allCases, harness);
+      if(passCount === casesToRun.length && activeMock){
+        const p = PROBLEMS.find(x=>x.id===activeMock.problemId);
+        const mockProblemIdAtRun = activeMock.problemId;
+        if(p){
+          fetchComplexityAnalysis(p, lang, code).then(result=>{
+            if(!result || !activeMock || activeMock.problemId !== mockProblemIdAtRun) return;
+            renderPostSubmitComplexity('mockComplexityChart', result.time_complexity, result.space_complexity);
+          });
+        }
+      }
     } else {
+      out.style.display = 'block';
+      out.textContent = 'Running…';
+      if(summaryEl) summaryEl.textContent = '';
       const sampleInput = (harness && allCases.length) ? allCases[0].input : null;
       const { code: wrappedCode, inputJson } = buildExecutionPayload(langKey, code, sampleInput, harness);
       const result = lang === 'JavaScript' ? await runJSInWorker(wrappedCode, inputJson)
@@ -7692,6 +7744,8 @@ async function runMockCode(){
       out.classList.toggle('err', !result.ok);
     }
   }catch(err){
+    out.style.display = 'block';
+    if(summaryEl) summaryEl.textContent = '';
     out.classList.add('err');
     out.textContent = '⚠ ' + ((err && err.message) ? err.message : String(err));
   }finally{
