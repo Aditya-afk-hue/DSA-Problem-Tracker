@@ -6021,7 +6021,7 @@ document.getElementById('solveRunBtn').addEventListener('click', async ()=>{
         }
       });
       summaryEl.textContent = `${passCount}/${casesToRun.length} sample case${casesToRun.length===1?'':'s'} passed — Submit checks the full ${solveTestCases.length || MIN_SUBMIT_TEST_CASES}-case set before this counts as solved.` + (elapsedMs!=null ? ` · ⏱ Runtime: ${elapsedMs} ms` : '');
-      renderCaseTabs('solveCaseTabs', solveTestCases, solveHarness);
+      renderCaseTabs('solveCaseTabs', casesToRun, solveHarness);
       if(passCount === casesToRun.length){
         // Best-effort reference Big-O chart, same one shown after a full
         // Submit — silent no-op if there's no saved Gemini key.
@@ -7715,7 +7715,7 @@ async function runMockCode(){
         }
       });
       if(summaryEl) summaryEl.textContent = `${passCount}/${casesToRun.length} sample case${casesToRun.length===1?'':'s'} passed — Submit checks the full ${allCases.length || MIN_SUBMIT_TEST_CASES}-case set before this counts as solved.` + (elapsedMs!=null ? ` · ⏱ Runtime: ${elapsedMs} ms` : '');
-      renderCaseTabs('mockCaseTabs', allCases, harness);
+      renderCaseTabs('mockCaseTabs', casesToRun, harness);
       if(passCount === casesToRun.length && activeMock){
         const p = PROBLEMS.find(x=>x.id===activeMock.problemId);
         const mockProblemIdAtRun = activeMock.problemId;
