@@ -244,6 +244,7 @@
           <div class="lc-tabs">
             <div class="lc-tab active" data-lc-tab="solveTestcase">✅ Testcase</div>
             <div class="lc-tab" data-lc-tab="solveResult">▶_ Test Result</div>
+            <div class="lc-tab" data-lc-tab="solveWalkthrough" id="solveWalkthroughTabBtn">📖 Walkthrough</div>
           </div>
           <div class="lc-subtab-body" data-lc-panel="solveTestcase">
             <div class="modal-note" id="solveRunNote" style="margin:0 0 10px;">Autosaves as you type, per problem and per language. JavaScript, Python, Java, and SQL actually run here in-browser (Python via Pyodide, SQL via sql.js, Java via CheerpJ's in-browser JVM+compiler — first run of Python/Java loads a runtime, can take 10-30s). When test cases are generated below, the editor auto-fills a LeetCode-style starter (just write the method body) and Run/Submit handle calling it and checking the output for you — no I/O boilerplate needed. C++, C, C#, and Go can't run in-browser — write and save your solution here, then use "Open on LeetCode" to run and submit it for real.</div>
@@ -256,6 +257,20 @@
             <div id="solveConsoleWrap" style="display:none;">
               <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.5px;text-transform:uppercase;color:var(--ink-faint);margin-bottom:4px;">Console output</div>
               <pre id="solveConsoleOutput" style="background:var(--card);border:1px solid var(--rule-soft);border-radius:8px;padding:10px 12px;font-size:12.5px;white-space:pre-wrap;max-height:100%;overflow:auto;margin:0;"></pre>
+            </div>
+          </div>
+          <div class="lc-subtab-body" data-lc-panel="solveWalkthrough" style="display:none;">
+            <div class="modal-note" id="solveWalkthroughNote" style="margin:0 0 10px;">Get an animated, step-by-step walkthrough of the code currently in the editor above — same trace player as "💻 Get code", but for what you've actually written, not an AI-generated example.</div>
+            <div id="solveWalkthroughKeySection"></div>
+            <div id="solveWalkthroughOutputSection" style="display:none;">
+              <div class="code-meta" id="solveWalkthroughMeta"></div>
+              <div class="code-explain" id="solveWalkthroughExplain"></div>
+              <div class="code-visual" id="solveWalkthroughVisual"></div>
+            </div>
+            <div id="solveWalkthroughLoadingNote" class="modal-note" style="display:none;">Working through your code…</div>
+            <div class="modal-actions" style="justify-content:flex-start;margin-top:8px;">
+              <button class="btn-primary" id="solveWalkthroughGetBtn">📖 Explain this code, step by step</button>
+              <button type="button" class="code-regen-btn" id="solveWalkthroughRegenBtn" style="display:none;">🔄 Regenerate</button>
             </div>
           </div>
         </div>
@@ -1229,6 +1244,31 @@ function requireGeminiKey(widgetContainerId){
 }
 const MOCK_LANG_KEY = 'dsa-tracker-mock-lang-v1'; 
 const CODE_LANG_KEY = 'dsa-tracker-code-lang-v1'; 
+// Tracks whichever programming language the person most recently and
+// explicitly picked anywhere in the tracker (Solve editor, Get-code panel,
+// Mock Interview editor, or a snippet they inserted from a chat reply) —
+// as opposed to MOCK_LANG_KEY/CODE_LANG_KEY/SOLVE_LANG_KEY, which each only
+// remember the last language used *within that one feature*. The chatbots
+// (Hint/Core Concept/Visualize/Review follow-ups) read this so that if the
+// person asks for actual code with no language specified, they get it in
+// whatever language they were last actually working in, instead of the
+// model guessing or defaulting to something arbitrary.
+const LAST_LANG_KEY = 'dsa-tracker-last-used-lang-v1';
+function setLastUsedLanguage(label){
+  if(!label) return;
+  try{ localStorage.setItem(LAST_LANG_KEY, label); }catch(e){}
+}
+function getLastUsedLanguage(){
+  try{ return localStorage.getItem(LAST_LANG_KEY) || ''; }catch(e){ return ''; }
+}
+// Appended to chat prompts so a follow-up asking for code defaults to the
+// person's own most recent language rather than whatever the model picks.
+function lastLangPromptRule(){
+  const lang = getLastUsedLanguage();
+  return lang
+    ? `If they ask you to write or give actual code, write it in ${lang} (the language they were most recently working in) unless their message names a different language — in that case use the one they named.`
+    : `If they ask you to write or give actual code, ask which language they'd like it in unless their message already names one.`;
+}
 const MOCK_KEY = 'dsa-tracker-mock-sessions-v1';
 const MOCK_ACTIVE_KEY = 'dsa-tracker-mock-active-v1';
 // Lets a running mock-interview session hand off from the tab that started
@@ -5163,33 +5203,71 @@ function renderReviewText(raw){
   let html = '';
   let inList = false;
   let inSection = false;
+  // Fallback for when the model writes a "FIXED CODE:" label but doesn't
+  // actually wrap the code that follows in triple backticks (it does this
+  // often enough to matter) — without this, that code fell through to plain
+  // hint-line text with no code-block styling and, critically, no Insert
+  // button, which is exactly the bug this fallback exists to close. Once
+  // the "FIXED CODE" label is seen, every following raw line is buffered
+  // here (indentation preserved) until the next recognized section label or
+  // the end of the text, then flushed as a real, insertable code block —
+  // same treatment a properly-fenced block gets.
+  let inFixedCodeFallback = false;
+  let fixedCodeLines = [];
   const closeList = ()=>{ if(inList){ html += '</ol>'; inList = false; } };
-  const closeSection = ()=>{ closeList(); if(inSection){ html += '</div>'; inSection = false; } };
+  const renderCodeBlockHtml = (code, lang)=>{
+    const regId = 'cb' + (chatCodeIdSeq++);
+    chatCodeRegistry[regId] = { code, lang: lang || '' };
+    return `<div class="code-block-wrap" style="margin:8px 0 14px;">` +
+      `<div class="code-block-btns">` +
+        `<button type="button" class="insert-code-btn" data-review-insert data-insert-id="${regId}" title="Insert this code into the Solve editor or active Mock Interview">📥 Insert</button>` +
+        `<button type="button" class="copy-code-btn" data-review-copy>Copy</button>` +
+      `</div>` +
+      `<pre class="code-block"><code>${highlightCode(code)}</code></pre></div>`;
+  };
+  const flushFixedCodeFallback = ()=>{
+    if(!inFixedCodeFallback) return;
+    inFixedCodeFallback = false;
+    // Trim blank lines off both ends but keep internal blank lines/indentation intact.
+    while(fixedCodeLines.length && !fixedCodeLines[0].trim()) fixedCodeLines.shift();
+    while(fixedCodeLines.length && !fixedCodeLines[fixedCodeLines.length-1].trim()) fixedCodeLines.pop();
+    if(fixedCodeLines.length) html += renderCodeBlockHtml(fixedCodeLines.join('\n'), '');
+    fixedCodeLines = [];
+  };
+  const closeSection = ()=>{ closeList(); flushFixedCodeFallback(); if(inSection){ html += '</div>'; inSection = false; } };
   lines.forEach(line=>{
     const trimmed = line.trim();
-    if(!trimmed){ return; }
+    if(!trimmed){ if(inFixedCodeFallback) fixedCodeLines.push(''); return; }
     const codeToken = trimmed.match(/^@@CODEBLOCK(\d+)@@$/);
     if(codeToken){
+      // A real fenced block arrived — the fallback buffer (if any) was just
+      // stray prose before it, not code, so drop it rather than rendering both.
+      inFixedCodeFallback = false; fixedCodeLines = [];
       closeSection();
       const block = codeBlocks[parseInt(codeToken[1],10)] || { code:'', lang:'' };
-      const regId = 'cb' + (chatCodeIdSeq++);
-      chatCodeRegistry[regId] = block;
-      html += `<div class="code-block-wrap" style="margin:8px 0 14px;">` +
-        `<div class="code-block-btns">` +
-          `<button type="button" class="insert-code-btn" data-review-insert data-insert-id="${regId}" title="Insert this code into the Solve editor or active Mock Interview">📥 Insert</button>` +
-          `<button type="button" class="copy-code-btn" data-review-copy>Copy</button>` +
-        `</div>` +
-        `<pre class="code-block"><code>${highlightCode(block.code)}</code></pre></div>`;
+      html += renderCodeBlockHtml(block.code, block.lang);
       return;
     }
     const sectionMatch = trimmed.match(/^(VERDICT|CORRECTNESS|BUGS AND FIXES|COMPLEXITY|SUGGESTIONS|FIXED CODE)\s*:\s*(.*)$/i);
-    const stepMatch = trimmed.match(/^(\d+)[.)]\s+(.*)$/);
     if(sectionMatch){
+      flushFixedCodeFallback();
       closeList();
       const label = sectionMatch[1].replace(/\b\w/g, c=>c.toUpperCase());
       html += `<div class="hint-label">${escapeHtml(label)}</div>`;
-      if(sectionMatch[2]) html += `<div class="hint-line">${mathText(sectionMatch[2])}</div>`;
-    } else if(stepMatch){
+      if(/^fixed code$/i.test(sectionMatch[1])){
+        // Start buffering — if a real fenced block follows immediately it'll
+        // clear this out above; if not, whatever raw text follows becomes
+        // the insertable code block instead of falling through as prose.
+        inFixedCodeFallback = true;
+        if(sectionMatch[2]) fixedCodeLines.push(sectionMatch[2]);
+      } else if(sectionMatch[2]){
+        html += `<div class="hint-line">${mathText(sectionMatch[2])}</div>`;
+      }
+      return;
+    }
+    if(inFixedCodeFallback){ fixedCodeLines.push(line); return; }
+    const stepMatch = trimmed.match(/^(\d+)[.)]\s+(.*)$/);
+    if(stepMatch){
       if(!inList){ html += '<ol class="hint-steps">'; inList = true; }
       html += `<li>${mathText(stepMatch[2])}</li>`;
     } else {
@@ -5249,6 +5327,7 @@ function insertSnippetIntoEditor(code, fenceLang){
       : `Replace the code currently in the mock interview editor with this snippet? This can't be undone (though anything you've already Submitted stays in History).`;
     if(!confirm(msg)) return;
     if(switchingLang){
+    setLastUsedLanguage(targetLang);
       const wasSql = activeMock.lang === 'SQL';
       const isSql = targetLang === 'SQL';
       activeMock.lang = targetLang;
@@ -5446,6 +5525,8 @@ function openCodeEditorModal(id){
   document.getElementById('solveCheerBanner').innerHTML = '';
   document.getElementById('solveResultSummary').textContent = '';
   resetSolveTestCases();
+  renderApiKeyWidget('solveWalkthroughKeySection');
+  resetSolveWalkthroughPanel();
   setLcTab('solveBottomPane', 'solveTestcase');
   document.getElementById('codeEditorModal').classList.add('show');
   scheduleCmRefresh(solveCM);
@@ -5463,6 +5544,7 @@ document.getElementById('solveLangSel').addEventListener('change', ()=>{
   const wasSql = document.getElementById('solveCodeInput').dataset.lastLang === 'sql';
   const isSql = newLang === 'sql';
   try{ localStorage.setItem(SOLVE_LANG_KEY, newLang); }catch(e){}
+  setLastUsedLanguage(langKeyToLabel(newLang));
   preloadRuntimeForLang(newLang);
   const code = getSolveCode(solveModalId, newLang);
   setSolveEditorValue(code);
@@ -5475,12 +5557,115 @@ document.getElementById('solveLangSel').addEventListener('change', ()=>{
     renderSolveTestCases(); // same harness still applies — just refresh labels
     applySolveStarterCodeIfEmpty();
   }
+  resetSolveWalkthroughPanel();
 });
 document.getElementById('solveCodeInput').addEventListener('input', ()=>{
   if(solveModalId==null) return;
   setSolveCode(solveModalId, document.getElementById('solveLangSel').value, document.getElementById('solveCodeInput').value);
   clearTimeout(solveHistoryTimer);
   solveHistoryTimer = setTimeout(pushSolveHistorySnapshot, 500);
+});
+// ---- Code Editor "Walkthrough" tab: explain the person's OWN code, step by
+// step, with the same animated trace player "Get code" uses — see
+// renderCodeVisual's ids param and the tab markup added to #solveBottomPane. ----
+const SOLVE_WALKTHROUGH_TRACE_IDS = {
+  container:'solveWalkthroughVisual', array:'solveWalkthroughTraceArray', vars:'solveWalkthroughTraceVars',
+  desc:'solveWalkthroughTraceDesc', prev:'solveWalkthroughTracePrevBtn', next:'solveWalkthroughTraceNextBtn',
+  play:'solveWalkthroughTracePlayBtn', progress:'solveWalkthroughTraceProgress', codeBlock:null
+};
+let solveWalkthroughCache = {}; // keyed by problem id -> { code, lang, entry } — regenerated whenever the code or language actually changed
+function resetSolveWalkthroughPanel(){
+  stopTracePlay(SOLVE_WALKTHROUGH_TRACE_IDS);
+  document.getElementById('solveWalkthroughOutputSection').style.display = 'none';
+  document.getElementById('solveWalkthroughLoadingNote').style.display = 'none';
+  const btn = document.getElementById('solveWalkthroughGetBtn');
+  btn.style.display = 'inline-block';
+  btn.disabled = false;
+  document.getElementById('solveWalkthroughRegenBtn').style.display = 'none';
+  const cached = solveWalkthroughCache[solveModalId];
+  const code = document.getElementById('solveCodeInput').value;
+  const lang = document.getElementById('solveLangSel').value;
+  if(cached && cached.code === code && cached.lang === lang){
+    renderSolveWalkthroughEntry(cached.entry);
+  } else {
+    btn.textContent = '📖 Explain this code, step by step';
+  }
+}
+function renderSolveWalkthroughEntry(entry){
+  document.getElementById('solveWalkthroughOutputSection').style.display = 'block';
+  document.getElementById('solveWalkthroughGetBtn').style.display = 'none';
+  document.getElementById('solveWalkthroughRegenBtn').style.display = 'inline-flex';
+  const metaEl = document.getElementById('solveWalkthroughMeta');
+  metaEl.innerHTML = [
+    entry.pattern ? `<span class="code-chip">🧩 ${escapeHtml(entry.pattern)}</span>` : '',
+    entry.time_complexity ? `<span class="code-chip">⏱ ${escapeHtml(entry.time_complexity)}</span>` : '',
+    entry.space_complexity ? `<span class="code-chip">🗂 ${escapeHtml(entry.space_complexity)}</span>` : ''
+  ].filter(Boolean).join('');
+  document.getElementById('solveWalkthroughExplain').innerHTML = entry.explanation ? mathText(stripLatexArtifacts(entry.explanation)) : '';
+  renderCodeVisual(entry, SOLVE_WALKTHROUGH_TRACE_IDS);
+}
+async function generateSolveWalkthrough(){
+  const key = requireGeminiKey('solveWalkthroughKeySection');
+  if(!key) return;
+  if(solveModalId==null) return;
+  const code = document.getElementById('solveCodeInput').value;
+  if(!code || !code.trim()){ showToast('Write or paste some code in the editor first.'); return; }
+  const p = PROBLEMS.find(x=>x.id===solveModalId);
+  const lang = langKeyToLabel(document.getElementById('solveLangSel').value);
+  const btn = document.getElementById('solveWalkthroughGetBtn');
+  const regenBtn = document.getElementById('solveWalkthroughRegenBtn');
+  const loadingNote = document.getElementById('solveWalkthroughLoadingNote');
+  btn.disabled = true; regenBtn.disabled = true;
+  document.getElementById('solveWalkthroughOutputSection').style.display = 'none';
+  loadingNote.style.display = 'block';
+  try{
+    const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=' + encodeURIComponent(key), {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({
+        contents:[{ role:'user', parts:[{ text:
+          `Here is someone's own ${lang} code for the LeetCode problem "${p.title}" (topic: ${p.section}, difficulty: ${p.diff==='E'?'Easy':p.diff==='M'?'Medium':'Hard'}):\n\n${code}\n\n` +
+          `Do NOT rewrite, fix, or improve this code — walk through EXACTLY what it does, as written, even if it's buggy or incomplete (if it's buggy, still trace through what actually happens when it runs, don't silently trace the corrected version). ` +
+          `Respond with ONLY raw JSON, no markdown code fences, no prose outside the JSON, matching exactly this shape: ` +
+          `{"pattern": "<name of the technique this code is using>", "time_complexity": "<Big-O time, of THIS code as written>", "space_complexity": "<Big-O space, of THIS code as written>", ` +
+          `"explanation": "<2-3 plain-English sentences on how this code works, no code>", ` +
+          `"trace": {"input_label": "<one small concrete example input, e.g. nums = [2,7,11,15], target = 9>", ` +
+          `"array": <array of numbers/strings for the primary input sequence being processed, or null if the problem isn't array/string based>, ` +
+          `"steps": [ {"desc": "<one plain-English sentence on what happens at this step>", "line": <the 1-based line number IN THE CODE ABOVE whose statement this step is actually executing — count real newlines in that code starting at 1, blank/brace-only lines included>, "highlight": [<indices into array relevant this step, or empty array>], "pointers": {"<n>": <index>, ...}, "vars": {"<n>": "<value as string>", ...}} , ... 4 to 8 of these, walking through this exact code step by step on the example input ] } }. ` +
+          `The "line" numbers must correspond line-for-line to the exact code pasted above. ` +
+          `If the problem is not array/string based (tree, graph, DP table, linked list, etc.), set "array" to null and "pointers"/"highlight" to empty, but still give clear "steps" with plain-English "desc", a "line" pointer, and relevant "vars" so the flow is still easy to follow. ` +
+          `In "explanation", "input_label", and every step's "desc"/"vars": ${MATH_NOTATION_RULE}`
+        }]}],
+        generationConfig:{ maxOutputTokens:1800, thinkingConfig:{ thinkingLevel:'minimal' } }
+      })
+    });
+    if(!resp.ok){
+      const errText = await resp.text();
+      throw new Error('API error ' + resp.status + ': ' + errText.slice(0,300));
+    }
+    const data = await resp.json();
+    const candidate = data.candidates && data.candidates[0];
+    const parts = (candidate && candidate.content && candidate.content.parts) || [];
+    const text = parts.map(b=>b.text||'').join('\n').trim();
+    if(!text) throw new Error('No response text came back');
+    const jsonText = text.replace(/^```(json)?/i,'').replace(/```$/,'').trim();
+    const entry = JSON.parse(jsonText);
+    entry.stepIndex = 0;
+    solveWalkthroughCache[solveModalId] = { code, lang: document.getElementById('solveLangSel').value, entry };
+    renderSolveWalkthroughEntry(entry);
+  }catch(err){
+    document.getElementById('solveWalkthroughOutputSection').style.display = 'none';
+    alert('Could not generate a walkthrough (' + err.message + '). Double-check your Gemini API key, then try again.');
+    btn.style.display = 'inline-block';
+  }finally{
+    btn.disabled = false; regenBtn.disabled = false;
+    loadingNote.style.display = 'none';
+  }
+}
+document.getElementById('solveWalkthroughGetBtn').addEventListener('click', generateSolveWalkthrough);
+document.getElementById('solveWalkthroughRegenBtn').addEventListener('click', generateSolveWalkthrough);
+document.getElementById('solveWalkthroughTabBtn').addEventListener('click', ()=>{
+  if(solveModalId!=null) resetSolveWalkthroughPanel();
 });
 document.getElementById('solveCodeInput').addEventListener('keydown', (e)=>{
   const mod = e.ctrlKey || e.metaKey;
@@ -7657,6 +7842,7 @@ function renderMockActiveView(){
     const isSql = e.target.value === 'SQL';
     activeMock.lang = e.target.value;
     try{ localStorage.setItem(MOCK_LANG_KEY, activeMock.lang); }catch(err){}
+    setLastUsedLanguage(activeMock.lang);
     if(isSql || wasSql){
       activeMock.testCases = [];
       activeMock.testCasesGenerated = false;
@@ -9299,7 +9485,11 @@ async function sendFeatureChatMessage(feature, contextBuilder){
     thinkingEl.textContent = `⚠️ Could not reach the API (${err.message}). Double-check the key is a valid Gemini API key from aistudio.google.com/apikey.`;
   }finally{
     sendBtn.disabled = false; sendBtn.textContent = 'Ask';
-    qWrap.scrollIntoView({ behavior:'smooth', block:'start' });
+    // Scroll to the ANSWER, not the question — once the reply is in, the
+    // question has already been read (the person just typed it), so keep it
+    // scrolled past and bring the new answer to the top of the view instead,
+    // same as ChatGPT does once a response finishes streaming in.
+    thinkingEl.scrollIntoView({ behavior:'smooth', block:'start' });
   }
 }
 function hintChatContext(p, message){
@@ -9307,11 +9497,11 @@ function hintChatContext(p, message){
   return `You already gave someone this hint for the LeetCode problem "${p.title}" (${p.section}):\n\n` +
     `${hintText || '(hint text not available in this browser session — answer from the problem title/topic alone as best you can)'}\n\n` +
     `They have a follow-up question about the hint or the problem. Answer directly and plainly, digging into the specific part they're stuck on with a fresh angle — don't just repeat the hint back. Do NOT give the full solution code unless they explicitly ask for actual code. ` +
-    `Be concise and concrete. ${MATH_NOTATION_RULE} Write complexity as plain text like "O(n log n)" — never LaTeX or math markup. Never use markdown bold/italic or headers — plain text only; a short fenced code snippet is fine only if truly illustrative.\n\nTheir question:\n${message}`;
+    `Be concise and concrete. ${MATH_NOTATION_RULE} Write complexity as plain text like "O(n log n)" — never LaTeX or math markup. Never use markdown bold/italic or headers — plain text only; a short fenced code snippet is fine only if truly illustrative. ${lastLangPromptRule()}\n\nTheir question:\n${message}`;
 }
 function visualizeChatContext(p, message){
-  return `Someone was just shown a diagram walking through an example for the LeetCode problem "${p.title}" (${p.section}). They have a follow-up question about the diagram or how the example plays out. Answer directly and plainly. Do NOT give the full solution code. ` +
-    `Be concise and concrete. ${MATH_NOTATION_RULE} Write complexity as plain text — never LaTeX or math markup. Never use markdown bold/italic or headers — plain text only.\n\nTheir question:\n${message}`;
+  return `Someone was just shown a diagram walking through an example for the LeetCode problem "${p.title}" (${p.section}). They have a follow-up question about the diagram or how the example plays out. Answer directly and plainly. Do NOT give the full solution code unless they explicitly ask for actual code. ` +
+    `Be concise and concrete. ${MATH_NOTATION_RULE} Write complexity as plain text — never LaTeX or math markup. Never use markdown bold/italic or headers — plain text only. ${lastLangPromptRule()}\n\nTheir question:\n${message}`;
 }
 function codeChatContext(p, message){
   const cacheKey = codeCacheKey(codeModalId, codeModalTab, currentCodeLang());
@@ -9320,7 +9510,7 @@ function codeChatContext(p, message){
   return `You already gave someone this ${codeModalTab === 'brute' ? 'brute-force' : 'optimal'} ${currentCodeLang()} solution for the LeetCode problem "${p.title}" (${p.section}):\n\n` +
     (codeText ? '```\n' + codeText + '\n```' : '(the code isn\'t available in this browser session)') + '\n\n' +
     `They have a follow-up question about this specific code — e.g. why a line works, what a variable does, how to adapt it, or why it has its stated complexity. Answer directly about THIS code, don't give a generic answer. ` +
-    `Be concise and concrete. ${MATH_NOTATION_RULE} Write complexity as plain text — never LaTeX or math markup. Never use markdown bold/italic or headers outside of code; a fenced code block is fine for a small illustrative change.\n\nTheir question:\n${message}`;
+    `Be concise and concrete. ${MATH_NOTATION_RULE} Write complexity as plain text — never LaTeX or math markup. Never use markdown bold/italic or headers outside of code; a fenced code block is fine for a small illustrative change. If they ask for the whole thing rewritten/translated into a different language, use the language they name; otherwise keep any code in ${currentCodeLang()} to match what's already shown.\n\nTheir question:\n${message}`;
 }
 document.getElementById('hintChatSendBtn').addEventListener('click', ()=> sendFeatureChatMessage('hint', hintChatContext));
 document.getElementById('hintChatInput').addEventListener('keydown', (e)=>{
@@ -9763,7 +9953,7 @@ async function sendConceptMessage(){
     ? `You already gave someone this explanation of the general algorithmic concept/pattern behind the LeetCode problem "${p.title}" (${p.section}):\n\n${explanation || '(the person hasn\'t generated the explanation text in this browser session, so answer from the problem title/topic alone as best you can)'}\n\n` +
       `They now have a follow-up question about something in that explanation they didn't fully understand. Answer their specific question directly and plainly — don't just repeat the explanation back, dig into the part they're stuck on with a fresh angle, another analogy, or a small concrete example if that helps. Stay focused on the general CONCEPT, not this problem's actual solution code. ` +
       `Be concise and concrete. ${MATH_NOTATION_RULE} ` +
-      `Write complexity as plain text like "O(n log n)" — never LaTeX or math markup. Never use markdown bold/italic (no ** or _) or headers (no #) — plain text only, a fenced code block (triple backticks) is fine only for a short illustrative snippet, not a full solution.\n\nTheir question:\n${message}`
+      `Write complexity as plain text like "O(n log n)" — never LaTeX or math markup. Never use markdown bold/italic (no ** or _) or headers (no #) — plain text only, a fenced code block (triple backticks) is fine only for a short illustrative snippet, not a full solution. ${lastLangPromptRule()}\n\nTheir question:\n${message}`
     : message;
 
   conceptConversation.push({ role:'user', parts:[{ text: payloadText }] });
@@ -9815,7 +10005,9 @@ async function sendConceptMessage(){
     thinkingEl.textContent = `⚠️ Could not reach the API (${err.message}). Double-check the key is a valid Gemini API key from aistudio.google.com/apikey.`;
   }finally{
     sendBtn.disabled = false; sendBtn.textContent = 'Ask';
-    qWrap.scrollIntoView({ behavior:'smooth', block:'start' });
+    // Scroll to the answer, skipping past the already-read question — see
+    // sendFeatureChatMessage's matching comment for why.
+    thinkingEl.scrollIntoView({ behavior:'smooth', block:'start' });
   }
 }
 document.getElementById('conceptChatSendBtn').addEventListener('click', sendConceptMessage);
@@ -9977,7 +10169,7 @@ async function sendReviewMessage(){
       `The user may paste their code for review, ask a question, or both in the same message — respond to whatever they actually sent, don't force a review format onto a plain question. ` +
       `If they paste code: evaluate correctness (call out specific failing cases if any, e.g. empty input, duplicates, negative numbers), point out bugs with specific fixes, note time/space complexity, and comment on style/readability. If there are bugs, include a corrected version of their code — same language, minimal targeted changes — inside a single fenced code block (triple backticks) preceded by a line that says exactly "FIXED CODE:". If the code is already correct, say so plainly and skip the code block entirely. ` +
       (testCaseContext ? `\n\n${testCaseContext}\n\nIf you correct any test case's expected value per the rule above, add one line per corrected case at the very end of your whole reply (after everything else), in exactly this format and nothing else on that line: FIXED TESTCASE #<case number>: <the corrected expected output, exactly as it should be printed>. Only include this line for cases you're actually correcting — do not list unchanged/passing cases.` : '') +
-      `If they just ask a question with no code, answer directly and conversationally. ` +
+      `If they just ask a question with no code, answer directly and conversationally. If that question asks you to write new code (not fix what they pasted), ${lastLangPromptRule()} ` +
       `Be concise and concrete. ${MATH_NOTATION_RULE} ` +
       `Write complexity as plain text like "O(M x N)" or "O(n log n)" — never LaTeX or math markup (no $, no \\times, no \\O, no other backslash commands). Never use markdown bold/italic (no ** or _) or headers (no #) — plain text only, the code block for FIXED CODE is the only exception.\n\nTheir message:\n${message}`
     : message;
@@ -10069,10 +10261,11 @@ async function sendReviewMessage(){
     thinkingEl.textContent = `⚠️ Could not reach the API (${err.message}). Double-check the key is a valid Gemini API key from aistudio.google.com/apikey.`;
   }finally{
     sendBtn.disabled = false; sendBtn.textContent = 'Send';
-    // Scroll so the question and its answer are both visible together — not
-    // forced all the way to the bottom of the whole conversation, so earlier
-    // messages stay put and further scrolling is left to the person.
-    qWrap.scrollIntoView({ behavior:'smooth', block:'start' });
+    // Scroll to the answer, skipping past the already-read question, so it
+    // lands at the top of the view — same as ChatGPT does once a reply
+    // finishes, rather than leaving the person to scroll down past what
+    // they just typed.
+    thinkingEl.scrollIntoView({ behavior:'smooth', block:'start' });
   }
 }
 document.getElementById('reviewChatSendBtn').addEventListener('click', sendReviewMessage);
@@ -10097,6 +10290,7 @@ document.querySelectorAll('[data-code-tab]').forEach(tab => {
 
 document.getElementById('codeLangSel').addEventListener('change', ()=>{
   try{ localStorage.setItem(CODE_LANG_KEY, currentCodeLang()); }catch(e){}
+  setLastUsedLanguage(currentCodeLang());
   stopTracePlay();
   renderCodeModalBody();
   // Regenerate both approaches for the newly picked language automatically.
@@ -10265,8 +10459,19 @@ function renderPostSubmitComplexity(containerId, timeStr, spaceStr){
   el.innerHTML = (chips || chart) ? `<div class="code-meta" style="margin:8px 0 6px;">${chips}</div>${chart}` : '';
 }
 
-function renderCodeVisual(entry){
-  const container = document.getElementById('codeVisual');
+// Default element IDs used by the "Get code" panel's trace player. A second
+// caller (the Code Editor's own "Walkthrough" tab) passes a different ids
+// object so the two players never collide, even though only one can ever
+// animate (tracePlayTimer is a single shared timer — acceptable since the
+// two panels are never both visible at once).
+const DEFAULT_TRACE_IDS = {
+  container:'codeVisual', array:'traceArray', vars:'traceVars', desc:'traceDesc',
+  prev:'tracePrevBtn', next:'traceNextBtn', play:'tracePlayBtn', progress:'traceProgress',
+  codeBlock:'codeBlockText'
+};
+function renderCodeVisual(entry, ids){
+  ids = ids || DEFAULT_TRACE_IDS;
+  const container = document.getElementById(ids.container);
   const trace = entry.trace;
   if(!trace || !Array.isArray(trace.steps) || !trace.steps.length){
     container.innerHTML = '<div class="trace-desc">No step-by-step walkthrough available for this one — read the code below.</div>';
@@ -10276,51 +10481,55 @@ function renderCodeVisual(entry){
   const hasArray = Array.isArray(trace.array) && trace.array.length > 0;
   container.innerHTML = `
     ${trace.input_label ? `<div class="trace-input">${mathText(stripLatexArtifacts(trace.input_label))}</div>` : ''}
-    ${hasArray ? `<div class="trace-array" id="traceArray"></div>` : ''}
-    <div class="trace-vars" id="traceVars"></div>
-    <div class="trace-desc" id="traceDesc"></div>
+    ${hasArray ? `<div class="trace-array" id="${ids.array}"></div>` : ''}
+    <div class="trace-vars" id="${ids.vars}"></div>
+    <div class="trace-desc" id="${ids.desc}"></div>
     <div class="trace-controls">
-      <button type="button" id="tracePrevBtn">◀ Prev</button>
-      <span class="trace-progress" id="traceProgress"></span>
-      <button type="button" id="traceNextBtn">Next ▶</button>
-      <button type="button" id="tracePlayBtn">▶ Play</button>
+      <button type="button" id="${ids.prev}">◀ Prev</button>
+      <span class="trace-progress" id="${ids.progress}"></span>
+      <button type="button" id="${ids.next}">Next ▶</button>
+      <button type="button" id="${ids.play}">▶ Play</button>
     </div>
   `;
-  document.getElementById('tracePrevBtn').addEventListener('click', ()=>{ stopTracePlay(); stepTrace(entry, -1); });
-  document.getElementById('traceNextBtn').addEventListener('click', ()=>{ stopTracePlay(); stepTrace(entry, 1); });
-  document.getElementById('tracePlayBtn').addEventListener('click', ()=> toggleTracePlay(entry));
-  renderTraceStep(entry);
+  document.getElementById(ids.prev).addEventListener('click', ()=>{ stopTracePlay(ids); stepTrace(entry, -1, ids); });
+  document.getElementById(ids.next).addEventListener('click', ()=>{ stopTracePlay(ids); stepTrace(entry, 1, ids); });
+  document.getElementById(ids.play).addEventListener('click', ()=> toggleTracePlay(entry, ids));
+  renderTraceStep(entry, ids);
 }
 
-function stepTrace(entry, delta){
+function stepTrace(entry, delta, ids){
+  ids = ids || DEFAULT_TRACE_IDS;
   const total = entry.trace.steps.length;
   entry.stepIndex = Math.max(0, Math.min(total-1, entry.stepIndex + delta));
-  renderTraceStep(entry);
+  renderTraceStep(entry, ids);
 }
 
-function toggleTracePlay(entry){
-  const btn = document.getElementById('tracePlayBtn');
-  if(tracePlayTimer){ stopTracePlay(); return; }
+function toggleTracePlay(entry, ids){
+  ids = ids || DEFAULT_TRACE_IDS;
+  const btn = document.getElementById(ids.play);
+  if(tracePlayTimer){ stopTracePlay(ids); return; }
   btn.textContent = '⏸ Pause';
   tracePlayTimer = setInterval(()=>{
     const total = entry.trace.steps.length;
-    if(entry.stepIndex >= total-1){ stopTracePlay(); return; }
+    if(entry.stepIndex >= total-1){ stopTracePlay(ids); return; }
     entry.stepIndex++;
-    renderTraceStep(entry);
+    renderTraceStep(entry, ids);
   }, 1400);
 }
-function stopTracePlay(){
+function stopTracePlay(ids){
+  ids = ids || DEFAULT_TRACE_IDS;
   if(tracePlayTimer){ clearInterval(tracePlayTimer); tracePlayTimer = null; }
-  const btn = document.getElementById('tracePlayBtn');
+  const btn = document.getElementById(ids.play);
   if(btn) btn.textContent = '▶ Play';
 }
 
-function renderTraceStep(entry){
+function renderTraceStep(entry, ids){
+  ids = ids || DEFAULT_TRACE_IDS;
   const trace = entry.trace;
   const step = trace.steps[entry.stepIndex] || {};
   const hasArray = Array.isArray(trace.array) && trace.array.length > 0;
   if(hasArray){
-    const arrEl = document.getElementById('traceArray');
+    const arrEl = document.getElementById(ids.array);
     const highlight = new Set(step.highlight || []);
     const pointers = step.pointers || {};
     const ptrByIdx = {};
@@ -10329,25 +10538,32 @@ function renderTraceStep(entry){
       if(!ptrByIdx[idx]) ptrByIdx[idx] = [];
       ptrByIdx[idx].push(name);
     });
-    arrEl.innerHTML = trace.array.map((v,i)=>`
+    if(arrEl) arrEl.innerHTML = trace.array.map((v,i)=>`
       <div class="trace-cell ${highlight.has(i)?'hi':''}">
         <span class="trace-idx">${i}</span>${escapeHtml(String(v))}
         ${ptrByIdx[i] ? `<span class="trace-ptr">${escapeHtml(ptrByIdx[i].join(','))}</span>` : ''}
       </div>
     `).join('');
   }
-  const varsEl = document.getElementById('traceVars');
+  const varsEl = document.getElementById(ids.vars);
   const vars = step.vars || {};
-  varsEl.innerHTML = Object.keys(vars).map(k=>`<span class="trace-var-chip">${escapeHtml(k)} = ${mathText(stripLatexArtifacts(String(vars[k])))}</span>`).join('');
+  if(varsEl) varsEl.innerHTML = Object.keys(vars).map(k=>`<span class="trace-var-chip">${escapeHtml(k)} = ${mathText(stripLatexArtifacts(String(vars[k])))}</span>`).join('');
   const lineTag = (typeof step.line === 'number' && step.line > 0) ? `<span class="trace-line-tag">Line ${step.line} ▸</span> ` : '';
-  document.getElementById('traceDesc').innerHTML = step.desc ? (lineTag + mathText(stripLatexArtifacts(step.desc))) : '';
-  document.getElementById('traceProgress').textContent = `Step ${entry.stepIndex+1} / ${trace.steps.length}`;
-  document.getElementById('tracePrevBtn').disabled = entry.stepIndex === 0;
-  document.getElementById('traceNextBtn').disabled = entry.stepIndex === trace.steps.length - 1;
+  const descEl = document.getElementById(ids.desc);
+  if(descEl) descEl.innerHTML = step.desc ? (lineTag + mathText(stripLatexArtifacts(step.desc))) : '';
+  const progressEl = document.getElementById(ids.progress);
+  if(progressEl) progressEl.textContent = `Step ${entry.stepIndex+1} / ${trace.steps.length}`;
+  const prevBtn = document.getElementById(ids.prev);
+  const nextBtn = document.getElementById(ids.next);
+  if(prevBtn) prevBtn.disabled = entry.stepIndex === 0;
+  if(nextBtn) nextBtn.disabled = entry.stepIndex === trace.steps.length - 1;
   // Point at the actual line of the code shown below this trace — clears
   // any previously-highlighted line first since the code block is reused
   // across steps (only one line should ever be marked active at a time).
-  const codeEl = document.getElementById('codeBlockText');
+  // Only the "Get code" panel has a matching line-numbered code block
+  // (ids.codeBlock is left unset for the Code Editor's own walkthrough,
+  // whose code lives in the CodeMirror editor instead), so this is a no-op there.
+  const codeEl = ids.codeBlock ? document.getElementById(ids.codeBlock) : null;
   if(codeEl){
     codeEl.querySelectorAll('.code-line.active-line').forEach(el=>el.classList.remove('active-line'));
     if(typeof step.line === 'number' && step.line > 0){
@@ -10459,6 +10675,7 @@ document.getElementById('codeInsertBtn').addEventListener('click', ()=>{
       : `Replace the code currently in the mock interview editor with this generated ${codeModalTab === 'brute' ? 'brute-force' : 'optimal'} solution? This can't be undone (though anything you've already Submitted stays in History).`;
     if(!confirm(msg)) return;
     if(switchingLang){
+    setLastUsedLanguage(targetLang);
       const wasSql = activeMock.lang === 'SQL';
       const isSql = targetLang === 'SQL';
       activeMock.lang = targetLang;
