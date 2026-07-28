@@ -372,7 +372,7 @@
           <div class="code-visual" id="codeVisual"></div>
           <div class="code-block-wrap">
             <button type="button" class="copy-code-btn" id="codeCopyBtn">Copy</button>
-            <pre class="code-block"><code id="codeBlockText"></code></pre>
+            <pre class="code-block code-block-lined"><code id="codeBlockText"></code></pre>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
             <button type="button" class="code-regen-btn" id="codeRegenBtn">🔄 Regenerate this approach</button>
@@ -5083,6 +5083,20 @@ function highlightCode(code){
   out += escapeHtml(code.slice(lastIndex));
   return out;
 }
+// Same tokenizing as highlightCode, but wraps each source line in its own
+// <div data-line="N"> so a trace step can point at a specific line (used by
+// the "Get code" panel's step-by-step visual walkthrough — see
+// renderTraceStep, which toggles .active-line on the div matching the
+// current step's "line" field). Kept as a separate function from
+// highlightCode rather than a flag, since every OTHER caller of
+// highlightCode (review-code fenced snippets, etc.) has no line-pointer UI
+// and shouldn't pay for the extra markup.
+function highlightCodeLines(code){
+  return code.split('\n').map((line, i)=>{
+    const n = i + 1;
+    return `<div class="code-line" data-line="${n}"><span class="line-no">${n}</span><span class="line-pointer">▶</span><span class="line-content">${highlightCode(line)}</span></div>`;
+  }).join('');
+}
 // The paraphrase prompt is explicitly told to admit uncertainty in plain
 // prose rather than guess ("say so plainly instead of guessing"). This
 // catches that admission and surfaces it as a visible flag instead of
@@ -5125,12 +5139,23 @@ function stripLatexArtifacts(text){
     .replace(/__([^_]+)__/g, '$1')
     .replace(/^#{1,6}\s+/gm, ''));
 }
+// Registry backing the 📥 Insert button on chat-rendered code blocks (see
+// renderReviewText below) — keyed by a throwaway id rather than a data-*
+// attribute holding the raw code, since code can contain quotes/newlines
+// that are awkward and easy to get wrong to round-trip through an HTML
+// attribute. Grows for the life of the page; that's an acceptable trade for
+// simplicity given everything else this tracker already keeps in memory.
+const chatCodeRegistry = {};
+let chatCodeIdSeq = 0;
 function renderReviewText(raw){
   // Pull out fenced code blocks first so they render as real code blocks
-  // (with a copy button) instead of being swallowed into plain text lines.
+  // (with copy/insert buttons) instead of being swallowed into plain text
+  // lines. Captures the fence's language annotation (e.g. ```python) too, if
+  // the model included one, so Insert can offer to switch the target editor
+  // to match instead of always leaving it on whatever language it's already set to.
   const codeBlocks = [];
-  const withoutCode = stripLatexArtifacts(raw.replace(/```[a-zA-Z0-9+#]*\n?([\s\S]*?)```/g, (m, code) => {
-    codeBlocks.push(code.replace(/\n$/, ''));
+  const withoutCode = stripLatexArtifacts(raw.replace(/```([a-zA-Z0-9+#]*)\n?([\s\S]*?)```/g, (m, lang, code) => {
+    codeBlocks.push({ code: code.replace(/\n$/, ''), lang: (lang||'').trim() });
     return `\n@@CODEBLOCK${codeBlocks.length - 1}@@\n`;
   }));
 
@@ -5146,8 +5171,15 @@ function renderReviewText(raw){
     const codeToken = trimmed.match(/^@@CODEBLOCK(\d+)@@$/);
     if(codeToken){
       closeSection();
-      const code = codeBlocks[parseInt(codeToken[1],10)] || '';
-      html += `<div class="code-block-wrap" style="margin:8px 0 14px;"><button type="button" class="copy-code-btn" data-review-copy>Copy</button><pre class="code-block"><code>${highlightCode(code)}</code></pre></div>`;
+      const block = codeBlocks[parseInt(codeToken[1],10)] || { code:'', lang:'' };
+      const regId = 'cb' + (chatCodeIdSeq++);
+      chatCodeRegistry[regId] = block;
+      html += `<div class="code-block-wrap" style="margin:8px 0 14px;">` +
+        `<div class="code-block-btns">` +
+          `<button type="button" class="insert-code-btn" data-review-insert data-insert-id="${regId}" title="Insert this code into the Solve editor or active Mock Interview">📥 Insert</button>` +
+          `<button type="button" class="copy-code-btn" data-review-copy>Copy</button>` +
+        `</div>` +
+        `<pre class="code-block"><code>${highlightCode(block.code)}</code></pre></div>`;
       return;
     }
     const sectionMatch = trimmed.match(/^(VERDICT|CORRECTNESS|BUGS AND FIXES|COMPLEXITY|SUGGESTIONS|FIXED CODE)\s*:\s*(.*)$/i);
@@ -5168,12 +5200,98 @@ function renderReviewText(raw){
   closeSection();
   return html || mathText(raw);
 }
+// Maps a fenced code block's language annotation (lowercase, whatever the
+// model wrote after the triple backtick — "python", "py", "cpp", "c++", ...)
+// onto the Solve editor's <select> values and the Mock Interview editor's
+// language labels respectively. Unrecognized/missing → Insert just leaves
+// the target editor's language alone rather than guessing.
+const FENCE_LANG_TO_SOLVE_LANG = {
+  javascript:'javascript', js:'javascript',
+  python:'python', py:'python', python3:'python',
+  java:'java',
+  cpp:'cpp', 'c++':'cpp', cplusplus:'cpp',
+  c:'c',
+  go:'go', golang:'go',
+  typescript:'typescript', ts:'typescript',
+  csharp:'csharp', 'c#':'csharp', cs:'csharp',
+  sql:'sql'
+};
+const FENCE_LANG_TO_MOCK_LANG = {
+  javascript:'JavaScript', js:'JavaScript',
+  python:'Python', py:'Python', python3:'Python',
+  java:'Java',
+  cpp:'C++', 'c++':'C++', cplusplus:'C++',
+  go:'Go', golang:'Go',
+  sql:'SQL'
+};
+// Insert-into-editor for a single code snippet from ANY chatbot response
+// (Hint follow-up, Core Concept follow-up, Get-code follow-up, Review code)
+// — as opposed to codeInsertBtn below, which is the dedicated button for the
+// main "Get code" brute/optimal panel's own generated solution. Both write
+// into whichever of the Solve editor / active Mock Interview session is
+// actually showing this exact problem, same targeting rule as codeInsertBtn.
+function insertSnippetIntoEditor(code, fenceLang){
+  if(!code || !code.trim()){ showToast('Nothing to insert.'); return; }
+  const targetIsMock = !!(activeMock && activeMock.problemId === aiModalActiveId);
+  const targetIsSolve = !targetIsMock && solveModalId != null && solveModalId === aiModalActiveId;
+  if(!targetIsMock && !targetIsSolve){
+    alert('Open this exact problem in the Solve editor, or start a Mock Interview on it, then use Insert.');
+    return;
+  }
+  const langKey = (fenceLang || '').trim().toLowerCase();
+
+  if(targetIsMock){
+    const mappedLang = FENCE_LANG_TO_MOCK_LANG[langKey];
+    const targetLang = (mappedLang && MOCK_EDITOR_LANGS.includes(mappedLang)) ? mappedLang : activeMock.lang;
+    const switchingLang = targetLang !== activeMock.lang;
+    const msg = switchingLang
+      ? `Switch the mock interview editor to ${targetLang} and replace its code with this snippet? Your current code stays saved under its own language and won't be lost.`
+      : `Replace the code currently in the mock interview editor with this snippet? This can't be undone (though anything you've already Submitted stays in History).`;
+    if(!confirm(msg)) return;
+    if(switchingLang){
+      const wasSql = activeMock.lang === 'SQL';
+      const isSql = targetLang === 'SQL';
+      activeMock.lang = targetLang;
+      try{ localStorage.setItem(MOCK_LANG_KEY, activeMock.lang); }catch(err){}
+      if(isSql || wasSql){
+        activeMock.testCases = [];
+        activeMock.testCasesGenerated = false;
+        activeMock.harness = null;
+      }
+      activeMock.code = code;
+      saveActiveMockSession();
+      renderMockActiveView();
+    } else {
+      setMockCode(code);
+    }
+    showToast('Inserted into the mock interview editor.');
+    return;
+  }
+
+  const langSel = document.getElementById('solveLangSel');
+  const mappedLang = FENCE_LANG_TO_SOLVE_LANG[langKey];
+  const switchingLang = !!(mappedLang && langSel.value !== mappedLang);
+  const msg = switchingLang
+    ? `Switch the editor to ${fenceLang} and replace its code with this snippet? Your current code stays saved under its own language and won't be lost.`
+    : `Replace the code currently in the editor with this snippet? This can't be undone (though anything you've already Submitted stays in History).`;
+  if(!confirm(msg)) return;
+  if(switchingLang){
+    langSel.value = mappedLang;
+    langSel.dispatchEvent(new Event('change'));
+  }
+  setSolveEditorValue(code);
+  setSolveCode(solveModalId, langSel.value, code);
+  resetSolveHistory(code);
+  showToast('Inserted into the editor.');
+}
 function attachReviewCodeCopyButtons(container){
   container.querySelectorAll('[data-review-copy]').forEach(btn=>{
     if(btn.dataset.wired) return;
     btn.dataset.wired = '1';
     btn.addEventListener('click', ()=>{
-      const code = btn.nextElementSibling.textContent;
+      const wrap = btn.closest('.code-block-wrap');
+      const codeEl = wrap && wrap.querySelector('pre code');
+      const code = codeEl ? codeEl.textContent : '';
       navigator.clipboard.writeText(code).then(()=>{
         const old = btn.textContent;
         btn.textContent = 'Copied!';
@@ -5181,7 +5299,17 @@ function attachReviewCodeCopyButtons(container){
       }).catch(()=>{ alert('Could not copy — select and copy manually.'); });
     });
   });
+  container.querySelectorAll('[data-review-insert]').forEach(btn=>{
+    if(btn.dataset.wired) return;
+    btn.dataset.wired = '1';
+    btn.addEventListener('click', ()=>{
+      const entry = chatCodeRegistry[btn.dataset.insertId];
+      if(!entry){ showToast('Nothing to insert.'); return; }
+      insertSnippetIntoEditor(entry.code, entry.lang);
+    });
+  });
 }
+
 
 let notesModalId = null;
 function openNotesModal(id){
@@ -9479,7 +9607,7 @@ function buildReviewTestCaseContext(target){
     return `Case ${idx} — input: ${tc.input} — expected: ${tc.expected} — actual: ${actualText}`;
   }).join('\n');
   return `Test case results from the last Run/Submit (${ran.length - failing.length}/${ran.length} passed):\n${lines}\n\n` +
-    `For each failing case above, explain why the code produces that actual output for that input. Only if — based on the problem's own stated rules and examples — you're confident a case's "expected" value is itself wrong (not the code), correct it using the FIXED TESTCASE protocol described below. This should be rare; assume the code is the bug unless the problem statement clearly says otherwise.`;
+    `For each failing case above, work out independently — from the problem's own stated rules and examples — what the correct output for that exact input actually is, then compare it to both the code's actual output and the case's expected value. Judge the two on equal footing; do not default to assuming the code is at fault. If the code's logic is right and it's the case's "expected" value that's wrong (or the input is malformed/ambiguous), say so plainly and correct it using the FIXED TESTCASE protocol described below. If the code's logic is actually wrong, say so plainly and explain the bug instead. Only leave a case uncorrected if you're genuinely unsure which side is wrong.`;
 }
 let reviewPendingTestContext = '';
 function openReviewModal(id, opts){
@@ -10011,7 +10139,9 @@ function renderCodeEntry(entry){
     entry.space_complexity ? `<span class="code-chip">🗂 ${escapeHtml(entry.space_complexity)}</span>` : ''
   ].filter(Boolean).join('');
   document.getElementById('codeExplain').innerHTML = entry.explanation ? mathText(stripLatexArtifacts(entry.explanation)) : '';
-  document.getElementById('codeBlockText').innerHTML = entry.code ? highlightCode(entry.code) : '';
+  const codeEl = document.getElementById('codeBlockText');
+  codeEl.innerHTML = entry.code ? highlightCodeLines(entry.code) : '';
+  codeEl.dataset.raw = entry.code || ''; // Copy/Insert read this, not textContent — see below
   renderCodeVisual(entry);
 }
 
@@ -10209,10 +10339,25 @@ function renderTraceStep(entry){
   const varsEl = document.getElementById('traceVars');
   const vars = step.vars || {};
   varsEl.innerHTML = Object.keys(vars).map(k=>`<span class="trace-var-chip">${escapeHtml(k)} = ${mathText(stripLatexArtifacts(String(vars[k])))}</span>`).join('');
-  document.getElementById('traceDesc').innerHTML = step.desc ? mathText(stripLatexArtifacts(step.desc)) : '';
+  const lineTag = (typeof step.line === 'number' && step.line > 0) ? `<span class="trace-line-tag">Line ${step.line} ▸</span> ` : '';
+  document.getElementById('traceDesc').innerHTML = step.desc ? (lineTag + mathText(stripLatexArtifacts(step.desc))) : '';
   document.getElementById('traceProgress').textContent = `Step ${entry.stepIndex+1} / ${trace.steps.length}`;
   document.getElementById('tracePrevBtn').disabled = entry.stepIndex === 0;
   document.getElementById('traceNextBtn').disabled = entry.stepIndex === trace.steps.length - 1;
+  // Point at the actual line of the code shown below this trace — clears
+  // any previously-highlighted line first since the code block is reused
+  // across steps (only one line should ever be marked active at a time).
+  const codeEl = document.getElementById('codeBlockText');
+  if(codeEl){
+    codeEl.querySelectorAll('.code-line.active-line').forEach(el=>el.classList.remove('active-line'));
+    if(typeof step.line === 'number' && step.line > 0){
+      const lineEl = codeEl.querySelector(`.code-line[data-line="${step.line}"]`);
+      if(lineEl){
+        lineEl.classList.add('active-line');
+        lineEl.scrollIntoView({ block:'nearest', behavior:'smooth' });
+      }
+    }
+  }
 }
 
 const codeLoading = new Set(); // codeCacheKey() values currently being generated
@@ -10240,8 +10385,9 @@ async function fetchCodeApproach(tabArg, isBackground){
           `"code": "<complete, directly runnable ${lang} function/program solving the problem, properly formatted with real newlines and correct ${lang} syntax and conventions>", ` +
           `"trace": {"input_label": "<one small concrete example input, e.g. nums = [2,7,11,15], target = 9>", ` +
           `"array": <array of numbers/strings for the primary input sequence being processed, or null if the problem isn't array/string based>, ` +
-          `"steps": [ {"desc": "<one plain-English sentence on what happens at this step>", "highlight": [<indices into array relevant this step, or empty array>], "pointers": {"<name>": <index>, ...}, "vars": {"<name>": "<value as string>", ...}} , ... 4 to 8 of these, walking through the ${tabLabel} algorithm step by step on the example input ] } }. ` +
-          `If the problem is not array/string based (tree, graph, DP table, linked list, etc.), set "array" to null and "pointers"/"highlight" to empty, but still give clear "steps" with plain-English "desc" and relevant "vars" so the flow is still easy to follow without a code editor. ` +
+          `"steps": [ {"desc": "<one plain-English sentence on what happens at this step>", "line": <the 1-based line number IN THE "code" FIELD ABOVE whose statement this step is actually executing — count real newlines in "code" starting at 1, blank/brace-only lines included>, "highlight": [<indices into array relevant this step, or empty array>], "pointers": {"<name>": <index>, ...}, "vars": {"<name>": "<value as string>", ...}} , ... 4 to 8 of these, walking through the ${tabLabel} algorithm step by step on the example input ] } }. ` +
+          `The "line" numbers must correspond line-for-line to the exact "code" string you write — if a step spans a loop body executed repeatedly, point to the specific line inside the loop that's relevant to what that step's "desc" describes, not the loop header every time. ` +
+          `If the problem is not array/string based (tree, graph, DP table, linked list, etc.), set "array" to null and "pointers"/"highlight" to empty, but still give clear "steps" with plain-English "desc", a "line" pointer, and relevant "vars" so the flow is still easy to follow without a code editor. ` +
           `The "code" field must be actual ${lang} source code (not pseudocode, not another language) that actually implements the ${tabLabel} approach specifically${tab==='brute' ? ' (even if inefficient)' : ' (the best known approach)'} — use idiomatic ${lang} naming, types, and standard library calls. ` +
           `In "explanation", "input_label", and every step's "desc"/"vars" (all plain-English fields, not the "code" field): ${MATH_NOTATION_RULE}`
         }]}],
@@ -10275,7 +10421,7 @@ document.getElementById('codeRegenBtn').addEventListener('click', ()=>{
   fetchCodeApproach(codeModalTab, false);
 });
 document.getElementById('codeCopyBtn').addEventListener('click', ()=>{
-  const text = document.getElementById('codeBlockText').textContent;
+  const text = document.getElementById('codeBlockText').dataset.raw || '';
   navigator.clipboard.writeText(text).then(()=>{
     const btn = document.getElementById('codeCopyBtn');
     const old = btn.textContent;

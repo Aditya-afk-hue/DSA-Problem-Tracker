@@ -854,10 +854,37 @@
     border:1.5px solid var(--rule);background:var(--card);color:var(--ink-soft);
   }
   .copy-code-btn:hover{border-color:var(--pine);color:var(--pine);}
+  /* Chat-rendered code blocks (Hint/Concept/Review/Get-code follow-ups) show
+     Insert + Copy together — .code-block-btns takes over the absolute
+     top-right slot that .copy-code-btn normally claims alone, so its child
+     buttons sit side by side instead of both trying to be position:absolute. */
+  .code-block-btns{position:absolute;top:8px;right:8px;display:flex;gap:6px;}
+  .code-block-btns .copy-code-btn{position:static;top:auto;right:auto;}
+  .insert-code-btn{
+    font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;
+    padding:5px 10px;border-radius:6px;cursor:pointer;
+    border:1.5px solid var(--pine);background:var(--pine-glow);color:var(--pine-deep);
+  }
+  .insert-code-btn:hover{background:var(--pine);color:var(--paper);}
   .tok-keyword{color:var(--pine);font-weight:600;}
   .tok-string{color:var(--medium);}
   .tok-number{color:var(--stamp);}
   .tok-comment{color:var(--ink-faint);font-style:italic;}
+  /* Get-code panel: line-numbered source with a per-step active-line pointer
+     driven by renderTraceStep(), so the trace visual above literally points
+     at the line of code it's describing. */
+  .code-block-lined{white-space:normal;}
+  .code-line{display:flex;gap:8px;white-space:pre;border-radius:4px;padding:0 4px;transition:background .2s ease;}
+  .code-line .line-no{color:var(--ink-faint);width:22px;flex-shrink:0;text-align:right;user-select:none;}
+  .code-line .line-pointer{width:13px;flex-shrink:0;color:var(--pine);visibility:hidden;}
+  .code-line .line-content{white-space:pre;}
+  .code-line.active-line{background:var(--pine-glow);}
+  .code-line.active-line .line-pointer{visibility:visible;}
+  .code-line.active-line .line-no{color:var(--pine);font-weight:700;}
+  .trace-line-tag{
+    font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;color:var(--pine);
+    margin-right:2px;white-space:nowrap;
+  }
   .confidence-flag{
     display:flex;gap:6px;align-items:flex-start;margin:0 0 8px;padding:7px 10px;
     background:var(--medium-bg);border:1px solid var(--medium);border-radius:6px;
