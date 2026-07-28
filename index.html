@@ -950,18 +950,22 @@ function buildLcFormatPrompt(p){
       `Do not include any solution approach or code. ` +
       `Reply in exactly this structure, plain text, no markdown asterisks:\n\n` +
       `DESCRIPTION: <2-4 sentence plain-English statement of the task, including the input and output/expected-result format>\n\n` +
-      `EXAMPLE 1:\nInput: <a small concrete input, e.g. n = 4>\nOutput: <the concrete expected output for that input — spell it out fully, e.g. the exact lines of a printed pattern>\nExplanation: <one sentence — omit this line entirely if not needed>\n\n` +
-      `EXAMPLE 2:\n<a second example in the same Input/Output/Explanation format — omit this whole block if one example is already enough to understand the drill>\n\n` +
+      `EXAMPLE 1:\nInput: <a small concrete input, e.g. n = 4>\nOutput: <the concrete expected output for that input — spell it out fully, e.g. the exact lines of a printed pattern>\nExplanation: <a step-by-step walkthrough of exactly how the output is built from the input, written as one continuous line using inline "Step 1: ... Step 2: ... Step 3: ..." markers — concrete enough that someone could trace it by hand, the way LeetCode visually walks through its own examples>\n\n` +
+      `EXAMPLE 2:\n<a second example, same Input/Output/Explanation format with the same step-by-step style, using a different concrete n/input so it exercises a different case>\n\n` +
+      `EXAMPLE 3:\n<a third example, same format — ideally a small edge case, e.g. the smallest valid n>\n\n` +
+      `Always include all 3 examples (EXAMPLE 1, EXAMPLE 2, EXAMPLE 3) with a full step-by-step Explanation each — never omit one for brevity. ` +
       `CONSTRAINTS:\n- <bullet, a reasonable bound for this kind of drill, e.g. 1 <= n <= 20>\n- <bullet>\n(1-4 bullets total)\n\n` +
-      `Make a confident, specific best-effort call rather than hedging — do NOT say you're unsure, not confident, or unable to verify; a concrete reasonable guess is far more useful here than a refusal. Keep the whole reply under 220 words. ${MATH_NOTATION_RULE}`;
+      `Make a confident, specific best-effort call rather than hedging — do NOT say you're unsure, not confident, or unable to verify; a concrete reasonable guess is far more useful here than a refusal. Keep the whole reply under 380 words, but never at the cost of dropping an example or its step-by-step explanation. ${MATH_NOTATION_RULE}`;
   }
   return `Restate the LeetCode problem "${p.title}" (topic: ${p.section}, difficulty: ${diffWord}) the way LeetCode's own problem page is laid out, in your own words — do not quote LeetCode's text, and do not include any solution approach or code. ` +
     `Reply in exactly this structure, plain text, no markdown asterisks:\n\n` +
     `DESCRIPTION: <2-4 sentence plain-English statement of the task, including the input and output format>\n\n` +
-    `EXAMPLE 1:\nInput: <input in LeetCode's own argument-style notation, e.g. nums = [2,7,11,15], target = 9>\nOutput: <the output value>\nExplanation: <one sentence — omit this line entirely if not needed>\n\n` +
-    `EXAMPLE 2:\n<a second example in the same Input/Output/Explanation format — omit this whole block if one example is already enough to understand the problem>\n\n` +
+    `EXAMPLE 1:\nInput: <input in LeetCode's own argument-style notation, e.g. nums = [2,7,11,15], target = 9>\nOutput: <the output value>\nExplanation: <a detailed, step-by-step walkthrough of exactly how that output is reached from that input, written as one continuous line using inline "Step 1: ... Step 2: ... Step 3: ..." markers (e.g. "Step 1: compare nums[0]=2 and nums[1]=7, sum=9 ≠ target... Step 2: ...") — concrete enough to trace by hand, the way LeetCode visually walks through its own examples>\n\n` +
+    `EXAMPLE 2:\n<a second example, same Input/Output/Explanation format and same step-by-step style, using a genuinely different concrete input that exercises a different path through the problem>\n\n` +
+    `EXAMPLE 3:\n<a third example, same format — ideally a small edge case, e.g. the smallest valid input, all-equal values, or a case with no valid answer if the problem allows one>\n\n` +
+    `Always include all 3 examples (EXAMPLE 1, EXAMPLE 2, EXAMPLE 3) with a full step-by-step Explanation each — never omit one for brevity, and add a 4th only if it's a genuinely distinct edge case worth showing. ` +
     `CONSTRAINTS:\n- <bullet, using real LeetCode-style bounds like 1 <= n <= 10^5>\n- <bullet>\n(2-5 bullets total, only ones you're confident are accurate)\n\n` +
-    `If you're not confident of the exact details for this specific problem, say so plainly in the DESCRIPTION line instead of guessing. Keep the whole reply under 220 words. ${MATH_NOTATION_RULE}`;
+    `If you're not confident of the exact details for this specific problem, say so plainly in the DESCRIPTION line instead of guessing. Keep the whole reply under 380 words, but never at the cost of dropping an example or its step-by-step explanation. ${MATH_NOTATION_RULE}`;
 }
 // Parses the DESCRIPTION / EXAMPLE N / CONSTRAINTS structure above into
 // LeetCode-styled HTML (bordered monospace example boxes, bulleted
@@ -1264,10 +1268,11 @@ function getLastUsedLanguage(){
 // Appended to chat prompts so a follow-up asking for code defaults to the
 // person's own most recent language rather than whatever the model picks.
 function lastLangPromptRule(){
-  const lang = getLastUsedLanguage();
-  return lang
-    ? `If they ask you to write or give actual code, write it in ${lang} (the language they were most recently working in) unless their message names a different language — in that case use the one they named.`
-    : `If they ask you to write or give actual code, ask which language they'd like it in unless their message already names one.`;
+  // Always resolve to a concrete language — default to Java when nothing has
+  // been recorded yet — so the model never has to stop and ask which
+  // language to use.
+  const lang = getLastUsedLanguage() || 'Java';
+  return `If they ask you to write or give actual code, write it in ${lang} (the language they were most recently working in, or Java by default) unless their message names a different language — in that case use the one they named. Do not ask which language to use; just pick one per this rule and proceed.`;
 }
 const MOCK_KEY = 'dsa-tracker-mock-sessions-v1';
 const MOCK_ACTIVE_KEY = 'dsa-tracker-mock-active-v1';
@@ -5506,6 +5511,11 @@ function openCodeEditorModal(id){
   const lang = (p.section === 'Database & SQL') ? 'sql' : savedLang;
   document.getElementById('solveLangSel').value = lang;
   document.getElementById('solveCodeInput').dataset.lastLang = lang;
+  // Record this as the most-recently-used language even if the person never
+  // touches the dropdown (e.g. they just start typing in the default Java
+  // editor) — otherwise the chatbots have no last-used language to fall
+  // back on the very first time someone opens the code editor.
+  setLastUsedLanguage(langKeyToLabel(lang));
   preloadRuntimeForLang(lang);
   const code = getSolveCode(id, lang);
   setSolveEditorValue(code);
@@ -5567,15 +5577,48 @@ document.getElementById('solveCodeInput').addEventListener('input', ()=>{
 });
 // ---- Code Editor "Walkthrough" tab: explain the person's OWN code, step by
 // step, with the same animated trace player "Get code" uses — see
-// renderCodeVisual's ids param and the tab markup added to #solveBottomPane. ----
+// renderCodeVisual's ids param and the tab markup added to #solveBottomPane.
+// The same mechanism is reused by Mock Interview's own Walkthrough tab
+// below (MOCK_WALKTHROUGH_TRACE_IDS), just pointed at mockCM instead. ----
 const SOLVE_WALKTHROUGH_TRACE_IDS = {
   container:'solveWalkthroughVisual', array:'solveWalkthroughTraceArray', vars:'solveWalkthroughTraceVars',
   desc:'solveWalkthroughTraceDesc', prev:'solveWalkthroughTracePrevBtn', next:'solveWalkthroughTraceNextBtn',
-  play:'solveWalkthroughTracePlayBtn', progress:'solveWalkthroughTraceProgress', codeBlock:null
+  play:'solveWalkthroughTracePlayBtn', progress:'solveWalkthroughTraceProgress', codeBlock:null,
+  // There's no static, line-numbered code block for this tab (unlike the
+  // "Get code" panel) — the code lives in a live CodeMirror editor instead —
+  // so renderTraceStep highlights the active line directly inside it.
+  getCm: ()=> solveCM
 };
+// Tracks whichever CodeMirror instance/line is currently highlighted so it
+// can be cleared before the next one is applied (CodeMirror doesn't offer a
+// "get all lines with this class" query), shared across both the Solve
+// editor's and Mock Interview's Walkthrough tabs since only one is ever
+// visible/animating at a time.
+let cmWalkthroughActiveLine = { cm: null, idx: null };
+function clearCmWalkthroughActiveLine(){
+  const { cm, idx } = cmWalkthroughActiveLine;
+  if(cm && idx != null){
+    try{
+      cm.removeLineClass(idx, 'background', 'solve-walkthrough-active-line');
+      cm.removeLineClass(idx, 'gutter', 'solve-walkthrough-active-line');
+    }catch(e){}
+  }
+  cmWalkthroughActiveLine = { cm: null, idx: null };
+}
+function highlightCmWalkthroughLine(cm, line){
+  clearCmWalkthroughActiveLine();
+  if(!cm || typeof line !== 'number' || line <= 0) return;
+  const idx = line - 1; // CodeMirror lines are 0-based
+  if(idx < 0 || idx >= cm.lineCount()) return;
+  cm.addLineClass(idx, 'background', 'solve-walkthrough-active-line');
+  cm.addLineClass(idx, 'gutter', 'solve-walkthrough-active-line');
+  cmWalkthroughActiveLine = { cm, idx };
+  cm.scrollIntoView({ line: idx, ch: 0 }, 60);
+}
 let solveWalkthroughCache = {}; // keyed by problem id -> { code, lang, entry } — regenerated whenever the code or language actually changed
 function resetSolveWalkthroughPanel(){
   stopTracePlay(SOLVE_WALKTHROUGH_TRACE_IDS);
+  clearCmWalkthroughActiveLine();
   document.getElementById('solveWalkthroughOutputSection').style.display = 'none';
   document.getElementById('solveWalkthroughLoadingNote').style.display = 'none';
   const btn = document.getElementById('solveWalkthroughGetBtn');
@@ -5665,7 +5708,19 @@ async function generateSolveWalkthrough(){
 document.getElementById('solveWalkthroughGetBtn').addEventListener('click', generateSolveWalkthrough);
 document.getElementById('solveWalkthroughRegenBtn').addEventListener('click', generateSolveWalkthrough);
 document.getElementById('solveWalkthroughTabBtn').addEventListener('click', ()=>{
-  if(solveModalId!=null) resetSolveWalkthroughPanel();
+  if(solveModalId==null) return;
+  resetSolveWalkthroughPanel();
+  // Auto-run the walkthrough the moment this tab is opened, instead of
+  // making the person click "Explain this code, step by step" separately —
+  // but only if there isn't already a cached result showing for this exact
+  // code/language, and there's actually code in the editor to explain.
+  const cached = solveWalkthroughCache[solveModalId];
+  const code = document.getElementById('solveCodeInput').value;
+  const lang = document.getElementById('solveLangSel').value;
+  const alreadyShowing = cached && cached.code === code && cached.lang === lang;
+  if(!alreadyShowing && code && code.trim()){
+    generateSolveWalkthrough();
+  }
 });
 document.getElementById('solveCodeInput').addEventListener('keydown', (e)=>{
   const mod = e.ctrlKey || e.metaKey;
@@ -5778,7 +5833,7 @@ async function generateSolveProblemSummary(auto){
       headers:{ 'Content-Type':'application/json' },
       body: JSON.stringify({
         contents:[{ role:'user', parts:[{ text: buildLcFormatPrompt(p) }]}],
-        generationConfig:{ maxOutputTokens:600, thinkingConfig:{ thinkingLevel:'minimal' } }
+        generationConfig:{ maxOutputTokens:1400, thinkingConfig:{ thinkingLevel:'minimal' } }
       })
     });
     if(!resp.ok){
@@ -7610,7 +7665,7 @@ async function generateMockProblemSummary(auto){
       headers:{ 'Content-Type':'application/json' },
       body: JSON.stringify({
         contents:[{ role:'user', parts:[{ text: buildLcFormatPrompt(p) }]}],
-        generationConfig:{ maxOutputTokens:600, thinkingConfig:{ thinkingLevel:'minimal' } }
+        generationConfig:{ maxOutputTokens:1400, thinkingConfig:{ thinkingLevel:'minimal' } }
       })
     });
     if(!resp.ok){
@@ -7733,6 +7788,129 @@ function startMockTimer(){
     }
   }, 1000);
 }
+// ---- Mock Interview's own "Walkthrough" tab: same idea as the Solve
+// editor's (explain the person's OWN code, step by step, with the active
+// line highlighted directly in mockCM) — see SOLVE_WALKTHROUGH_TRACE_IDS
+// and the shared helpers (renderCodeVisual/highlightCmWalkthroughLine)
+// above for the mechanism this reuses. ----
+const MOCK_WALKTHROUGH_TRACE_IDS = {
+  container:'mockWalkthroughVisual', array:'mockWalkthroughTraceArray', vars:'mockWalkthroughTraceVars',
+  desc:'mockWalkthroughTraceDesc', prev:'mockWalkthroughTracePrevBtn', next:'mockWalkthroughTraceNextBtn',
+  play:'mockWalkthroughTracePlayBtn', progress:'mockWalkthroughTraceProgress', codeBlock:null,
+  getCm: ()=> mockCM
+};
+let mockWalkthroughCache = {}; // keyed by problem id -> { code, lang, entry } — regenerated whenever the code or language actually changed
+function resetMockWalkthroughPanel(){
+  if(!activeMock) return;
+  stopTracePlay(MOCK_WALKTHROUGH_TRACE_IDS);
+  clearCmWalkthroughActiveLine();
+  const outSection = document.getElementById('mockWalkthroughOutputSection');
+  const loadingNote = document.getElementById('mockWalkthroughLoadingNote');
+  const btn = document.getElementById('mockWalkthroughGetBtn');
+  const regenBtn = document.getElementById('mockWalkthroughRegenBtn');
+  if(!outSection || !loadingNote || !btn || !regenBtn) return;
+  outSection.style.display = 'none';
+  loadingNote.style.display = 'none';
+  btn.style.display = 'inline-block';
+  btn.disabled = false;
+  regenBtn.style.display = 'none';
+  const cached = mockWalkthroughCache[activeMock.problemId];
+  const code = getMockCode();
+  const lang = activeMock.lang;
+  if(cached && cached.code === code && cached.lang === lang){
+    renderMockWalkthroughEntry(cached.entry);
+  } else {
+    btn.textContent = '📖 Explain this code, step by step';
+  }
+}
+function renderMockWalkthroughEntry(entry){
+  document.getElementById('mockWalkthroughOutputSection').style.display = 'block';
+  document.getElementById('mockWalkthroughGetBtn').style.display = 'none';
+  document.getElementById('mockWalkthroughRegenBtn').style.display = 'inline-flex';
+  const metaEl = document.getElementById('mockWalkthroughMeta');
+  metaEl.innerHTML = [
+    entry.pattern ? `<span class="code-chip">🧩 ${escapeHtml(entry.pattern)}</span>` : '',
+    entry.time_complexity ? `<span class="code-chip">⏱ ${escapeHtml(entry.time_complexity)}</span>` : '',
+    entry.space_complexity ? `<span class="code-chip">🗂 ${escapeHtml(entry.space_complexity)}</span>` : ''
+  ].filter(Boolean).join('');
+  document.getElementById('mockWalkthroughExplain').innerHTML = entry.explanation ? mathText(stripLatexArtifacts(entry.explanation)) : '';
+  renderCodeVisual(entry, MOCK_WALKTHROUGH_TRACE_IDS);
+}
+async function generateMockWalkthrough(){
+  const key = requireGeminiKey('mockWalkthroughKeySection');
+  if(!key) return;
+  if(!activeMock) return;
+  const code = getMockCode();
+  if(!code || !code.trim()){ showToast('Write or paste some code in the editor first.'); return; }
+  const p = PROBLEMS.find(x=>x.id===activeMock.problemId);
+  const lang = activeMock.lang;
+  const btn = document.getElementById('mockWalkthroughGetBtn');
+  const regenBtn = document.getElementById('mockWalkthroughRegenBtn');
+  const loadingNote = document.getElementById('mockWalkthroughLoadingNote');
+  btn.disabled = true; regenBtn.disabled = true;
+  document.getElementById('mockWalkthroughOutputSection').style.display = 'none';
+  loadingNote.style.display = 'block';
+  try{
+    const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=' + encodeURIComponent(key), {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({
+        contents:[{ role:'user', parts:[{ text:
+          `Here is someone's own ${lang} code for the LeetCode problem "${p.title}" (topic: ${p.section}, difficulty: ${p.diff==='E'?'Easy':p.diff==='M'?'Medium':'Hard'}):\n\n${code}\n\n` +
+          `Do NOT rewrite, fix, or improve this code — walk through EXACTLY what it does, as written, even if it's buggy or incomplete (if it's buggy, still trace through what actually happens when it runs, don't silently trace the corrected version). ` +
+          `Respond with ONLY raw JSON, no markdown code fences, no prose outside the JSON, matching exactly this shape: ` +
+          `{"pattern": "<name of the technique this code is using>", "time_complexity": "<Big-O time, of THIS code as written>", "space_complexity": "<Big-O space, of THIS code as written>", ` +
+          `"explanation": "<2-3 plain-English sentences on how this code works, no code>", ` +
+          `"trace": {"input_label": "<one small concrete example input, e.g. nums = [2,7,11,15], target = 9>", ` +
+          `"array": <array of numbers/strings for the primary input sequence being processed, or null if the problem isn't array/string based>, ` +
+          `"steps": [ {"desc": "<one plain-English sentence on what happens at this step>", "line": <the 1-based line number IN THE CODE ABOVE whose statement this step is actually executing — count real newlines in that code starting at 1, blank/brace-only lines included>, "highlight": [<indices into array relevant this step, or empty array>], "pointers": {"<n>": <index>, ...}, "vars": {"<n>": "<value as string>", ...}} , ... 4 to 8 of these, walking through this exact code step by step on the example input ] } }. ` +
+          `The "line" numbers must correspond line-for-line to the exact code pasted above. ` +
+          `If the problem is not array/string based (tree, graph, DP table, linked list, etc.), set "array" to null and "pointers"/"highlight" to empty, but still give clear "steps" with plain-English "desc", a "line" pointer, and relevant "vars" so the flow is still easy to follow. ` +
+          `In "explanation", "input_label", and every step's "desc"/"vars": ${MATH_NOTATION_RULE}`
+        }]}],
+        generationConfig:{ maxOutputTokens:1800, thinkingConfig:{ thinkingLevel:'minimal' } }
+      })
+    });
+    if(!resp.ok){
+      const errText = await resp.text();
+      throw new Error('API error ' + resp.status + ': ' + errText.slice(0,300));
+    }
+    const data = await resp.json();
+    const candidate = data.candidates && data.candidates[0];
+    const parts = (candidate && candidate.content && candidate.content.parts) || [];
+    const text = parts.map(b=>b.text||'').join('\n').trim();
+    if(!text) throw new Error('No response text came back');
+    const jsonText = text.replace(/^```(json)?/i,'').replace(/```$/,'').trim();
+    const entry = JSON.parse(jsonText);
+    entry.stepIndex = 0;
+    mockWalkthroughCache[activeMock.problemId] = { code, lang, entry };
+    renderMockWalkthroughEntry(entry);
+  }catch(err){
+    document.getElementById('mockWalkthroughOutputSection').style.display = 'none';
+    alert('Could not generate a walkthrough (' + err.message + '). Double-check your Gemini API key, then try again.');
+    btn.style.display = 'inline-block';
+  }finally{
+    btn.disabled = false; regenBtn.disabled = false;
+    loadingNote.style.display = 'none';
+  }
+}
+function bindMockWalkthroughTab(){
+  document.getElementById('mockWalkthroughGetBtn').addEventListener('click', generateMockWalkthrough);
+  document.getElementById('mockWalkthroughRegenBtn').addEventListener('click', generateMockWalkthrough);
+  document.getElementById('mockWalkthroughTabBtn').addEventListener('click', ()=>{
+    if(!activeMock) return;
+    resetMockWalkthroughPanel();
+    // Auto-run the walkthrough the moment this tab is opened, same as the
+    // Solve editor's — no need to also click "Explain this code" separately.
+    const cached = mockWalkthroughCache[activeMock.problemId];
+    const code = getMockCode();
+    const lang = activeMock.lang;
+    const alreadyShowing = cached && cached.code === code && cached.lang === lang;
+    if(!alreadyShowing && code && code.trim()){
+      generateMockWalkthrough();
+    }
+  });
+}
 function renderMockActiveView(){
   preloadRuntimeForLang(activeMock.lang);
   const p = PROBLEMS.find(x=>x.id===activeMock.problemId);
@@ -7801,6 +7979,7 @@ function renderMockActiveView(){
             <div class="lc-tabs">
               <div class="lc-tab active" data-lc-tab="mockTestcase">✅ Testcase</div>
               <div class="lc-tab" data-lc-tab="mockResult">▶_ Test Result</div>
+              <div class="lc-tab" data-lc-tab="mockWalkthrough" id="mockWalkthroughTabBtn">📖 Walkthrough</div>
             </div>
             <div class="lc-subtab-body" data-lc-panel="mockTestcase">
               <div class="modal-note" style="margin:0 0 10px;">Autosaves as you type, kept if you switch languages. When test cases are generated below, the editor auto-fills a LeetCode-style starter and Run/Submit call it for you — no I/O boilerplate needed. Python, JavaScript, Java, and SQL actually run here in-browser; C++ and Go can't — write your solution and use "Open on LeetCode" to run and submit it for real.</div>
@@ -7811,6 +7990,20 @@ function renderMockActiveView(){
               <div id="mockResultSummary" style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;"></div>
               <div id="mockComplexityChart"></div>
               <div class="mock-output-panel" id="mockOutputPanel" style="display:none;"></div>
+            </div>
+            <div class="lc-subtab-body" data-lc-panel="mockWalkthrough" style="display:none;">
+              <div class="modal-note" id="mockWalkthroughNote" style="margin:0 0 10px;">Get an animated, step-by-step walkthrough of the code currently in the editor above — same trace player as "💻 Get code", but for what you've actually written, not an AI-generated example.</div>
+              <div id="mockWalkthroughKeySection"></div>
+              <div id="mockWalkthroughOutputSection" style="display:none;">
+                <div class="code-meta" id="mockWalkthroughMeta"></div>
+                <div class="code-explain" id="mockWalkthroughExplain"></div>
+                <div class="code-visual" id="mockWalkthroughVisual"></div>
+              </div>
+              <div id="mockWalkthroughLoadingNote" class="modal-note" style="display:none;">Working through your code…</div>
+              <div class="modal-actions" style="justify-content:flex-start;margin-top:8px;">
+                <button class="btn-primary" id="mockWalkthroughGetBtn">📖 Explain this code, step by step</button>
+                <button type="button" class="code-regen-btn" id="mockWalkthroughRegenBtn" style="display:none;">🔄 Regenerate</button>
+              </div>
             </div>
           </div>
         </div>
@@ -7851,8 +8044,10 @@ function renderMockActiveView(){
     saveActiveMockSession();
     renderMockActiveView();
   });
-  initMockCodeEditor();
+  initMockCodeEditor().then(resetMockWalkthroughPanel);
   renderApiKeyWidget('mockKeySection');
+  renderApiKeyWidget('mockWalkthroughKeySection');
+  bindMockWalkthroughTab();
   renderMockTestCases();
   bindLcResizerX('mockResizerX', 'mockLeftPane', 'mockSplit', 25, 65);
   bindLcResizerY('mockResizerY', 'mockBottomPane', 'mockRightPane', 100, 70);
@@ -10573,6 +10768,12 @@ function renderTraceStep(entry, ids){
         lineEl.scrollIntoView({ block:'nearest', behavior:'smooth' });
       }
     }
+  }
+  // Code Editor's / Mock Interview's own Walkthrough tab: no static code
+  // block, so highlight the matching line directly inside whichever live
+  // CodeMirror editor this trace player belongs to.
+  if(ids.getCm){
+    highlightCmWalkthroughLine(ids.getCm(), typeof step.line === 'number' ? step.line : null);
   }
 }
 
