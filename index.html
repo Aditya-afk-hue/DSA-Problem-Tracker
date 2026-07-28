@@ -932,6 +932,24 @@ const GEMINI_KEY_LINK = 'https://aistudio.google.com/api-keys';
 // times three divided by two, plus one". A client-side safety net
 // (normalizeMathNotation in stripLatexArtifacts) also catches slip-ups.
 const MATH_NOTATION_RULE = 'Always write numbers as digits (e.g. 19, 82), never spelled out as words. Always write arithmetic and comparisons with symbols, never spelled out as words: use +, -, *, /, %, ^, =, <, > — never "plus", "minus", "times"/"multiplied by", "divided by", "modulo", "to the power of", "equals". Write exponents as "n^2", never "n squared".';
+// Shared by every chat prompt below that might return code (Hint/Visualize/
+// Concept/Code/Review follow-ups). The UI's Copy/Insert buttons only appear
+// on code wrapped in a ```fenced``` block — earlier prompt wording that
+// reserved fencing for "short illustrative" snippets caused the model to
+// hand back full, requested solutions as plain unformatted text (no Copy,
+// no Insert) whenever someone explicitly asked for real code in a
+// follow-up. This rule applies regardless of the code's length or whether
+// it's illustrative or a full solution.
+const CODE_FENCE_RULE = 'Any code you include in your reply, of any length — a one-line snippet or a full solution — must always be wrapped in a triple-backtick fenced code block with a language tag right after the opening backticks (e.g. ```python ... ```), never written as plain unfenced text.';
+// Real LeetCode example explanations are short and conversational — usually
+// one sentence, occasionally two — stating the key fact or comparison that
+// justifies the output, not a mechanical trace of every loop iteration.
+// The problem-summary prompt used to ask for an inline "Step 1: ... Step 2:
+// ... Step 3: ..." walkthrough, which produced a dense wall of text nothing
+// like LeetCode's own examples (e.g. compare "Because nums[0] + nums[1] ==
+// 2 + 7 == 9, we return [0, 1]." against a 5-step blow-by-blow trace of the
+// same problem). This rule replaces that instruction everywhere it's used.
+const LC_EXPLANATION_RULE = '<a short, natural explanation of why that output is correct — 1 sentence, 2 at most, written the way LeetCode itself writes explanations (e.g. "Because nums[0] + nums[1] == 2 + 7 == 9, we return [0, 1]." or "The longest common prefix is \'fl\' since it is the longest string that is a prefix of every word in the list."). State the key fact or comparison that justifies the answer, in plain language. Do NOT produce a numbered "Step 1: ... Step 2: ... Step 3: ..." trace of every intermediate iteration — that reads like a debug log, not a problem statement, and is not how LeetCode writes its own explanations. Keep it to one continuous line with no line breaks>';
 
 // Shared by the Solve editor and Mock Interview panel so both ask for (and
 // render) a problem statement structured exactly like LeetCode's own page —
@@ -950,22 +968,22 @@ function buildLcFormatPrompt(p){
       `Do not include any solution approach or code. ` +
       `Reply in exactly this structure, plain text, no markdown asterisks:\n\n` +
       `DESCRIPTION: <2-4 sentence plain-English statement of the task, including the input and output/expected-result format>\n\n` +
-      `EXAMPLE 1:\nInput: <a small concrete input, e.g. n = 4>\nOutput: <the concrete expected output for that input — spell it out fully, e.g. the exact lines of a printed pattern>\nExplanation: <a step-by-step walkthrough of exactly how the output is built from the input, written as one continuous line using inline "Step 1: ... Step 2: ... Step 3: ..." markers — concrete enough that someone could trace it by hand, the way LeetCode visually walks through its own examples>\n\n` +
-      `EXAMPLE 2:\n<a second example, same Input/Output/Explanation format with the same step-by-step style, using a different concrete n/input so it exercises a different case>\n\n` +
+      `EXAMPLE 1:\nInput: <a small concrete input, e.g. n = 4>\nOutput: <the concrete expected output for that input — spell it out fully, e.g. the exact lines of a printed pattern>\nExplanation: ${LC_EXPLANATION_RULE}\n\n` +
+      `EXAMPLE 2:\n<a second example, same Input/Output/Explanation format and the same short, natural explanation style, using a different concrete n/input so it exercises a different case>\n\n` +
       `EXAMPLE 3:\n<a third example, same format — ideally a small edge case, e.g. the smallest valid n>\n\n` +
-      `Always include all 3 examples (EXAMPLE 1, EXAMPLE 2, EXAMPLE 3) with a full step-by-step Explanation each — never omit one for brevity. ` +
+      `Always include all 3 examples (EXAMPLE 1, EXAMPLE 2, EXAMPLE 3) with a short Explanation each — never omit one for brevity. ` +
       `CONSTRAINTS:\n- <bullet, a reasonable bound for this kind of drill, e.g. 1 <= n <= 20>\n- <bullet>\n(1-4 bullets total)\n\n` +
-      `Make a confident, specific best-effort call rather than hedging — do NOT say you're unsure, not confident, or unable to verify; a concrete reasonable guess is far more useful here than a refusal. Keep the whole reply under 380 words, but never at the cost of dropping an example or its step-by-step explanation. ${MATH_NOTATION_RULE}`;
+      `Make a confident, specific best-effort call rather than hedging — do NOT say you're unsure, not confident, or unable to verify; a concrete reasonable guess is far more useful here than a refusal. Keep the whole reply under 380 words, but never at the cost of dropping an example or its explanation. ${MATH_NOTATION_RULE}`;
   }
   return `Restate the LeetCode problem "${p.title}" (topic: ${p.section}, difficulty: ${diffWord}) the way LeetCode's own problem page is laid out, in your own words — do not quote LeetCode's text, and do not include any solution approach or code. ` +
     `Reply in exactly this structure, plain text, no markdown asterisks:\n\n` +
     `DESCRIPTION: <2-4 sentence plain-English statement of the task, including the input and output format>\n\n` +
-    `EXAMPLE 1:\nInput: <input in LeetCode's own argument-style notation, e.g. nums = [2,7,11,15], target = 9>\nOutput: <the output value>\nExplanation: <a detailed, step-by-step walkthrough of exactly how that output is reached from that input, written as one continuous line using inline "Step 1: ... Step 2: ... Step 3: ..." markers (e.g. "Step 1: compare nums[0]=2 and nums[1]=7, sum=9 ≠ target... Step 2: ...") — concrete enough to trace by hand, the way LeetCode visually walks through its own examples>\n\n` +
-    `EXAMPLE 2:\n<a second example, same Input/Output/Explanation format and same step-by-step style, using a genuinely different concrete input that exercises a different path through the problem>\n\n` +
+    `EXAMPLE 1:\nInput: <input in LeetCode's own argument-style notation, e.g. nums = [2,7,11,15], target = 9>\nOutput: <the output value>\nExplanation: ${LC_EXPLANATION_RULE}\n\n` +
+    `EXAMPLE 2:\n<a second example, same Input/Output/Explanation format and the same short, natural explanation style, using a genuinely different concrete input that exercises a different path through the problem>\n\n` +
     `EXAMPLE 3:\n<a third example, same format — ideally a small edge case, e.g. the smallest valid input, all-equal values, or a case with no valid answer if the problem allows one>\n\n` +
-    `Always include all 3 examples (EXAMPLE 1, EXAMPLE 2, EXAMPLE 3) with a full step-by-step Explanation each — never omit one for brevity, and add a 4th only if it's a genuinely distinct edge case worth showing. ` +
+    `Always include all 3 examples (EXAMPLE 1, EXAMPLE 2, EXAMPLE 3) with a short Explanation each — never omit one for brevity, and add a 4th only if it's a genuinely distinct edge case worth showing. ` +
     `CONSTRAINTS:\n- <bullet, using real LeetCode-style bounds like 1 <= n <= 10^5>\n- <bullet>\n(2-5 bullets total, only ones you're confident are accurate)\n\n` +
-    `If you're not confident of the exact details for this specific problem, say so plainly in the DESCRIPTION line instead of guessing. Keep the whole reply under 380 words, but never at the cost of dropping an example or its step-by-step explanation. ${MATH_NOTATION_RULE}`;
+    `If you're not confident of the exact details for this specific problem, say so plainly in the DESCRIPTION line instead of guessing. Keep the whole reply under 380 words, but never at the cost of dropping an example or its explanation. ${MATH_NOTATION_RULE}`;
 }
 // Parses the DESCRIPTION / EXAMPLE N / CONSTRAINTS structure above into
 // LeetCode-styled HTML (bordered monospace example boxes, bulleted
@@ -4982,7 +5000,12 @@ function escapeHtml(s){
 }
 
 function renderHintText(raw){
-  const lines = stripLatexArtifacts(raw).split('\n');
+  // Pull out any fenced (or accidentally-unfenced) code first, same as
+  // renderReviewText — a hint occasionally includes a short illustrative
+  // snippet, and it should get Copy/Insert buttons just like everywhere else.
+  const extracted = extractCodeBlocks(raw);
+  const codeBlocks = extracted.codeBlocks;
+  const lines = extracted.text.split('\n');
   let html = '';
   let inList = false;
   let inSection = false;
@@ -4991,6 +5014,13 @@ function renderHintText(raw){
   lines.forEach(line=>{
     const trimmed = line.trim();
     if(!trimmed){ return; }
+    const codeToken = trimmed.match(/^@@CODEBLOCK(\d+)@@$/);
+    if(codeToken){
+      closeSection();
+      const block = codeBlocks[parseInt(codeToken[1],10)] || { code:'', lang:'' };
+      html += renderCodeBlockHtml(block.code, block.lang);
+      return;
+    }
     const sectionMatch = trimmed.match(/^(BRUTE FORCE APPROACH|OPTIMAL APPROACH)\s*:?\s*(.*)$/i);
     const analogyMatch = trimmed.match(/^ANALOGY\s*:\s*(.*)$/i);
     const labelMatch = trimmed.match(/^(PATTERN|KEY INSIGHT|APPROACH|EDGE CASES|COMPLEXITY|EXAMPLE WALKTHROUGH)\s*:\s*(.*)$/i);
@@ -5027,7 +5057,11 @@ function renderHintText(raw){
 // different label set (CONCEPT NAME / WHY IT WORKS / HOW TO RECOGNIZE IT /
 // GENERAL TEMPLATE / WORKED MINI-EXAMPLE / COMMON VARIATIONS / COMPLEXITY).
 function renderConceptText(raw){
-  const lines = stripLatexArtifacts(raw).split('\n');
+  // Same code-extraction treatment as renderHintText/renderReviewText — the
+  // WORKED MINI-EXAMPLE section sometimes includes a small code snippet.
+  const extracted = extractCodeBlocks(raw);
+  const codeBlocks = extracted.codeBlocks;
+  const lines = extracted.text.split('\n');
   let html = '';
   let inList = false;
   let inSection = false;
@@ -5036,6 +5070,13 @@ function renderConceptText(raw){
   lines.forEach(line=>{
     const trimmed = line.trim();
     if(!trimmed){ return; }
+    const codeToken = trimmed.match(/^@@CODEBLOCK(\d+)@@$/);
+    if(codeToken){
+      closeSection();
+      const block = codeBlocks[parseInt(codeToken[1],10)] || { code:'', lang:'' };
+      html += renderCodeBlockHtml(block.code, block.lang);
+      return;
+    }
     const nameMatch = trimmed.match(/^CONCEPT NAME\s*:\s*(.*)$/i);
     const analogyMatch = trimmed.match(/^ANALOGY\s*:\s*(.*)$/i);
     const sectionMatch = trimmed.match(/^(GENERAL TEMPLATE|WORKED MINI-EXAMPLE)\s*:?\s*(.*)$/i);
@@ -5192,17 +5233,74 @@ function stripLatexArtifacts(text){
 // simplicity given everything else this tracker already keeps in memory.
 const chatCodeRegistry = {};
 let chatCodeIdSeq = 0;
+// Renders a single code snippet with the same 📥 Insert / Copy buttons
+// everywhere the AI tools show generated code — the "Get code" panel's own
+// solution (codeInsertBtn, defined separately below), and every fenced code
+// block that shows up inside any chatbot-style text response (Hint, Core
+// Concept, Get-code follow-up, Review, Visualize follow-up). Hoisted to
+// module scope (rather than living only inside renderReviewText) so all of
+// those renderers share one implementation instead of each needing its own
+// copy of the button markup.
+function renderCodeBlockHtml(code, lang){
+  const regId = 'cb' + (chatCodeIdSeq++);
+  chatCodeRegistry[regId] = { code, lang: lang || '' };
+  return `<div class="code-block-wrap" style="margin:8px 0 14px;">` +
+    `<div class="code-block-btns">` +
+      `<button type="button" class="insert-code-btn" data-review-insert data-insert-id="${regId}" title="Insert this code into the Solve editor or active Mock Interview">📥 Insert</button>` +
+      `<button type="button" class="copy-code-btn" data-review-copy>Copy</button>` +
+    `</div>` +
+    `<pre class="code-block"><code>${highlightCode(code)}</code></pre></div>`;
+}
+// Pulls fenced ```code``` blocks out of a raw AI response and replaces each
+// with an @@CODEBLOCKn@@ placeholder line, so a text renderer can process
+// the rest as plain prose/labels/lists and drop in a real Insert/Copy code
+// block wherever the placeholder lands. Shared by renderReviewText,
+// renderHintText, and renderConceptText — every AI tool that can hand back
+// code should treat it the same way, not just the Review panel.
+//
+// Also catches code the model forgot to fence at all: every prompt now
+// tells it to always use triple backticks (see CODE_FENCE_RULE), but as a
+// safety net, a run of 2+ consecutive lines that look like real code
+// (braces/semicolons, or start with common code keywords) gets treated the
+// same way even with no backticks — this is the same trick the old
+// Review-only "FIXED CODE:" fallback used, generalized to any AI response.
+const LOOSE_CODE_LINE_RE = /[{};]\s*$|^\s*(def |class |function\s|public\s|private\s|protected\s|static\s|import\s|from\s|package\s|using\s|namespace\s|#include|struct\s|enum\s|for\s*\(|while\s*\(|if\s*\(|return\b|const\s|let\s|var\s)/;
+function extractCodeBlocks(raw){
+  const codeBlocks = [];
+  let text = stripLatexArtifacts(raw.replace(/```([a-zA-Z0-9+#]*)\n?([\s\S]*?)```/g, (m, lang, code) => {
+    codeBlocks.push({ code: code.replace(/\n$/, ''), lang: (lang||'').trim() });
+    return `\n@@CODEBLOCK${codeBlocks.length - 1}@@\n`;
+  }));
+  const lines = text.split('\n');
+  const outLines = [];
+  let buf = [];
+  const flushBuf = ()=>{
+    if(buf.length >= 2 && buf.some(l=>l.trim())){
+      const code = buf.join('\n').replace(/^\n+|\n+$/g, '');
+      codeBlocks.push({ code, lang: '' });
+      outLines.push(`@@CODEBLOCK${codeBlocks.length - 1}@@`);
+    } else {
+      outLines.push(...buf);
+    }
+    buf = [];
+  };
+  lines.forEach(line=>{
+    if(/^@@CODEBLOCK\d+@@$/.test(line.trim())){ flushBuf(); outLines.push(line); return; }
+    if(line.trim() && LOOSE_CODE_LINE_RE.test(line)){ buf.push(line); }
+    else { flushBuf(); outLines.push(line); }
+  });
+  flushBuf();
+  return { text: outLines.join('\n'), codeBlocks };
+}
 function renderReviewText(raw){
   // Pull out fenced code blocks first so they render as real code blocks
   // (with copy/insert buttons) instead of being swallowed into plain text
   // lines. Captures the fence's language annotation (e.g. ```python) too, if
   // the model included one, so Insert can offer to switch the target editor
   // to match instead of always leaving it on whatever language it's already set to.
-  const codeBlocks = [];
-  const withoutCode = stripLatexArtifacts(raw.replace(/```([a-zA-Z0-9+#]*)\n?([\s\S]*?)```/g, (m, lang, code) => {
-    codeBlocks.push({ code: code.replace(/\n$/, ''), lang: (lang||'').trim() });
-    return `\n@@CODEBLOCK${codeBlocks.length - 1}@@\n`;
-  }));
+  const extracted = extractCodeBlocks(raw);
+  const codeBlocks = extracted.codeBlocks;
+  const withoutCode = extracted.text;
 
   const lines = withoutCode.split('\n');
   let html = '';
@@ -5220,16 +5318,6 @@ function renderReviewText(raw){
   let inFixedCodeFallback = false;
   let fixedCodeLines = [];
   const closeList = ()=>{ if(inList){ html += '</ol>'; inList = false; } };
-  const renderCodeBlockHtml = (code, lang)=>{
-    const regId = 'cb' + (chatCodeIdSeq++);
-    chatCodeRegistry[regId] = { code, lang: lang || '' };
-    return `<div class="code-block-wrap" style="margin:8px 0 14px;">` +
-      `<div class="code-block-btns">` +
-        `<button type="button" class="insert-code-btn" data-review-insert data-insert-id="${regId}" title="Insert this code into the Solve editor or active Mock Interview">📥 Insert</button>` +
-        `<button type="button" class="copy-code-btn" data-review-copy>Copy</button>` +
-      `</div>` +
-      `<pre class="code-block"><code>${highlightCode(code)}</code></pre></div>`;
-  };
   const flushFixedCodeFallback = ()=>{
     if(!inFixedCodeFallback) return;
     inFixedCodeFallback = false;
@@ -9692,11 +9780,11 @@ function hintChatContext(p, message){
   return `You already gave someone this hint for the LeetCode problem "${p.title}" (${p.section}):\n\n` +
     `${hintText || '(hint text not available in this browser session — answer from the problem title/topic alone as best you can)'}\n\n` +
     `They have a follow-up question about the hint or the problem. Answer directly and plainly, digging into the specific part they're stuck on with a fresh angle — don't just repeat the hint back. Do NOT give the full solution code unless they explicitly ask for actual code. ` +
-    `Be concise and concrete. ${MATH_NOTATION_RULE} Write complexity as plain text like "O(n log n)" — never LaTeX or math markup. Never use markdown bold/italic or headers — plain text only; a short fenced code snippet is fine only if truly illustrative. ${lastLangPromptRule()}\n\nTheir question:\n${message}`;
+    `Be concise and concrete. ${MATH_NOTATION_RULE} Write complexity as plain text like "O(n log n)" — never LaTeX or math markup. Never use markdown bold/italic or headers — plain text only, with one exception: ${CODE_FENCE_RULE} ${lastLangPromptRule()}\n\nTheir question:\n${message}`;
 }
 function visualizeChatContext(p, message){
   return `Someone was just shown a diagram walking through an example for the LeetCode problem "${p.title}" (${p.section}). They have a follow-up question about the diagram or how the example plays out. Answer directly and plainly. Do NOT give the full solution code unless they explicitly ask for actual code. ` +
-    `Be concise and concrete. ${MATH_NOTATION_RULE} Write complexity as plain text — never LaTeX or math markup. Never use markdown bold/italic or headers — plain text only. ${lastLangPromptRule()}\n\nTheir question:\n${message}`;
+    `Be concise and concrete. ${MATH_NOTATION_RULE} Write complexity as plain text — never LaTeX or math markup. Never use markdown bold/italic or headers — plain text only, with one exception: ${CODE_FENCE_RULE} ${lastLangPromptRule()}\n\nTheir question:\n${message}`;
 }
 function codeChatContext(p, message){
   const cacheKey = codeCacheKey(codeModalId, codeModalTab, currentCodeLang());
@@ -9705,7 +9793,7 @@ function codeChatContext(p, message){
   return `You already gave someone this ${codeModalTab === 'brute' ? 'brute-force' : 'optimal'} ${currentCodeLang()} solution for the LeetCode problem "${p.title}" (${p.section}):\n\n` +
     (codeText ? '```\n' + codeText + '\n```' : '(the code isn\'t available in this browser session)') + '\n\n' +
     `They have a follow-up question about this specific code — e.g. why a line works, what a variable does, how to adapt it, or why it has its stated complexity. Answer directly about THIS code, don't give a generic answer. ` +
-    `Be concise and concrete. ${MATH_NOTATION_RULE} Write complexity as plain text — never LaTeX or math markup. Never use markdown bold/italic or headers outside of code; a fenced code block is fine for a small illustrative change. If they ask for the whole thing rewritten/translated into a different language, use the language they name; otherwise keep any code in ${currentCodeLang()} to match what's already shown.\n\nTheir question:\n${message}`;
+    `Be concise and concrete. ${MATH_NOTATION_RULE} Write complexity as plain text — never LaTeX or math markup. Never use markdown bold/italic or headers outside of code. ${CODE_FENCE_RULE} That applies whether it's a small illustrative change or the whole thing rewritten. If they ask for the whole thing rewritten/translated into a different language, use the language they name; otherwise keep any code in ${currentCodeLang()} to match what's already shown.\n\nTheir question:\n${message}`;
 }
 document.getElementById('hintChatSendBtn').addEventListener('click', ()=> sendFeatureChatMessage('hint', hintChatContext));
 document.getElementById('hintChatInput').addEventListener('keydown', (e)=>{
@@ -9772,6 +9860,7 @@ function openHintModal(id){
   if(hasHint){
     outSection.style.display = 'block';
     out.innerHTML = hintCache[id].html;
+    attachReviewCodeCopyButtons(out);
   } else {
     outSection.style.display = 'none';
     out.textContent = '';
@@ -9843,6 +9932,7 @@ function openConceptModal(id){
     visualBox.style.display = conceptCache[id].svg ? 'block' : 'none';
     visualBox.innerHTML = conceptCache[id].svg ? `<div class="lcviz-box">${conceptCache[id].svg}</div>` : '';
     out.innerHTML = conceptCache[id].html;
+    attachReviewCodeCopyButtons(out);
   } else {
     outSection.style.display = 'none';
     visualBox.style.display = 'none';
@@ -10088,6 +10178,7 @@ async function generateHint(){
     const visualHtml = svg ? `<div class="hint-visual">${svg}</div>` : '';
     const html = visualHtml + wrapCollapsible(renderHintText(text));
     out.innerHTML = html;
+    attachReviewCodeCopyButtons(out);
     hintCache[p.id] = { html, text };
     document.getElementById('hintChatSection').style.display = 'block';
   }catch(err){
@@ -10121,6 +10212,7 @@ async function generateConceptExplanation(){
     }
     const html = wrapCollapsible(renderConceptText(text));
     out.innerHTML = html;
+    attachReviewCodeCopyButtons(out);
     conceptCache[p.id] = { html, svg, text };
     document.getElementById('conceptChatSection').style.display = 'block';
   }catch(err){
@@ -10146,9 +10238,9 @@ async function sendConceptMessage(){
   const explanation = conceptCache[p.id] && conceptCache[p.id].text;
   const payloadText = isFirst
     ? `You already gave someone this explanation of the general algorithmic concept/pattern behind the LeetCode problem "${p.title}" (${p.section}):\n\n${explanation || '(the person hasn\'t generated the explanation text in this browser session, so answer from the problem title/topic alone as best you can)'}\n\n` +
-      `They now have a follow-up question about something in that explanation they didn't fully understand. Answer their specific question directly and plainly — don't just repeat the explanation back, dig into the part they're stuck on with a fresh angle, another analogy, or a small concrete example if that helps. Stay focused on the general CONCEPT, not this problem's actual solution code. ` +
+      `They now have a follow-up question about something in that explanation they didn't fully understand. Answer their specific question directly and plainly — don't just repeat the explanation back, dig into the part they're stuck on with a fresh angle, another analogy, or a small concrete example if that helps. Stay focused on the general CONCEPT, not this problem's actual solution code, unless they explicitly ask you to write code. ` +
       `Be concise and concrete. ${MATH_NOTATION_RULE} ` +
-      `Write complexity as plain text like "O(n log n)" — never LaTeX or math markup. Never use markdown bold/italic (no ** or _) or headers (no #) — plain text only, a fenced code block (triple backticks) is fine only for a short illustrative snippet, not a full solution. ${lastLangPromptRule()}\n\nTheir question:\n${message}`
+      `Write complexity as plain text like "O(n log n)" — never LaTeX or math markup. Never use markdown bold/italic (no ** or _) or headers (no #) — plain text only, with one exception: ${CODE_FENCE_RULE} ${lastLangPromptRule()}\n\nTheir question:\n${message}`
     : message;
 
   conceptConversation.push({ role:'user', parts:[{ text: payloadText }] });
@@ -10366,7 +10458,7 @@ async function sendReviewMessage(){
       (testCaseContext ? `\n\n${testCaseContext}\n\nIf you correct any test case's expected value per the rule above, add one line per corrected case at the very end of your whole reply (after everything else), in exactly this format and nothing else on that line: FIXED TESTCASE #<case number>: <the corrected expected output, exactly as it should be printed>. Only include this line for cases you're actually correcting — do not list unchanged/passing cases.` : '') +
       `If they just ask a question with no code, answer directly and conversationally. If that question asks you to write new code (not fix what they pasted), ${lastLangPromptRule()} ` +
       `Be concise and concrete. ${MATH_NOTATION_RULE} ` +
-      `Write complexity as plain text like "O(M x N)" or "O(n log n)" — never LaTeX or math markup (no $, no \\times, no \\O, no other backslash commands). Never use markdown bold/italic (no ** or _) or headers (no #) — plain text only, the code block for FIXED CODE is the only exception.\n\nTheir message:\n${message}`
+      `Write complexity as plain text like "O(M x N)" or "O(n log n)" — never LaTeX or math markup (no $, no \\times, no \\O, no other backslash commands). Never use markdown bold/italic (no ** or _) or headers (no #) — plain text only, with one exception: ${CODE_FENCE_RULE} That covers both the FIXED CODE block and any new code written in answer to a plain question.\n\nTheir message:\n${message}`
     : message;
 
   reviewConversation.push({ role:'user', parts:[{ text: payloadText }] });

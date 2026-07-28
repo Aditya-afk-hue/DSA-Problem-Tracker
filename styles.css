@@ -1040,8 +1040,16 @@
   .mock-editor-lang-select:hover{border-color:var(--pine);}
   .mock-editor-lang-select:focus{outline:none;border-color:var(--pine);}
   .mock-editor-host{border:1.5px solid var(--rule);border-radius:10px;overflow:hidden;min-height:320px;height:100%;}
-  .mock-editor-host .CodeMirror{height:100%;font-family:'IBM Plex Mono',monospace;font-size:13px;
-    line-height:1.55;}
+  .mock-editor-host .CodeMirror{height:100%;font-family:'IBM Plex Mono',monospace;font-size:14px;
+    line-height:1.65;}
+  .mock-editor-host .CodeMirror-lines{padding:10px 0;}
+  .mock-editor-host .CodeMirror pre.CodeMirror-line{padding:0 6px;}
+  .mock-editor-host .CodeMirror-gutters{padding-right:8px;}
+  /* Active line pointer for the code editor's own "Walkthrough" tab (same
+     idea as .code-line.active-line above, but applied to a live CodeMirror
+     line instead of a static <pre> block). */
+  .CodeMirror .solve-walkthrough-active-line{background:var(--pine-glow) !important;}
+  .CodeMirror-gutter-elt.solve-walkthrough-active-line{background:var(--pine-glow) !important;}
   .CodeMirror-hints{font-family:'IBM Plex Mono',monospace;font-size:12.5px;border:1.5px solid var(--rule);
     border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.25);background:var(--card);color:var(--ink);z-index:10000;}
   .CodeMirror-hint{padding:3px 10px;}
