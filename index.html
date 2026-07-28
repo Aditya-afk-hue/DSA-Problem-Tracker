@@ -6840,66 +6840,27 @@ async function ensureCodeMirror(modeInfo){
 }
 // Options shared by both the Mock Interview and Solve editors so their
 // behavior (and the LeetCode-parity features below) never drifts apart.
-// Explicit Enter handler so indentation is computed the same way a real
-// editor does it: hand off to the loaded language mode's own bracket-aware
-// indent function (cm.indentLine(..., 'smart')) whenever a mode actually
-// loaded, rather than a "copy the previous line's leading whitespace, plus
-// one more unit after an opening bracket" heuristic. That heuristic only
-// ever ADDED indent — it had no way to dedent back after a closing brace —
-// so indentation ratcheted up permanently through any block that closed
-// (e.g. a for-loop's body indent would "leak" into every line after it).
+// Explicit Enter handler so a new line always starts aligned with the
+// line it came from (plus one extra indent level right after an opening
+// bracket) — this doesn't rely on a language mode's indent hints being
+// loaded, so it stays correct even on a slow/failed CDN fetch for that
+// mode's script.
 function cmIndentedNewline(cm){
   const cur = cm.getCursor();
   const line = cm.getLine(cur.line);
-  const ch = cur.ch !== undefined ? cur.ch : cur.col;
-  const before = line.slice(0, ch);
-  const after = line.slice(ch);
-  const trimmedBefore = before.trim();
-  const trimmedAfter = after.trim();
-  const mode = cm.getMode && cm.getMode();
-  const hasSmartIndent = !!(mode && mode.name !== 'null' && typeof mode.indent === 'function');
-  // autoCloseBrackets means typing "{" already inserted the matching "}"
-  // right after the cursor, so at this point the line reads e.g.
-  // "public int f() {|}" (| = cursor) as ONE line. Enter here needs to open
-  // up into three lines — body on its own indented line, closer dedented
-  // back to the opening line's level — not just push the "}" down onto the
-  // new line unchanged, which is where the reported extra indentation was
-  // actually coming from.
-  const opensThenCloses = /[{(\[]$/.test(trimmedBefore) && /^[)\]}]/.test(trimmedAfter);
-
-  if(hasSmartIndent){
-    if(opensThenCloses){
-      cm.replaceSelection('\n\n', 'end');
-      cm.indentLine(cur.line + 1, 'smart');
-      cm.indentLine(cur.line + 2, 'smart');
-      cm.setCursor({ line: cur.line + 1, ch: cm.getLine(cur.line + 1).length });
-    } else {
-      cm.replaceSelection('\n', 'end');
-      cm.indentLine(cur.line + 1, 'smart');
-    }
-    return;
-  }
-
-  // Fallback only for the rare case a language mode script failed to load
-  // (e.g. a dropped CDN request) — no bracket-aware indent function to
-  // lean on, so best-effort copy-forward, same idea as before.
+  const before = line.slice(0, cur.col !== undefined ? cur.col : cur.ch);
   const indentMatch = line.match(/^[ \t]*/);
   let indent = indentMatch ? indentMatch[0] : '';
-  const unit = ' '.repeat(cm.getOption('indentUnit') || 4);
+  const trimmedBefore = before.trim();
+  const unit = ' '.repeat(cm.getOption('indentUnit') || 2);
   if(/[{(\[:]$/.test(trimmedBefore)) indent += unit;
-  if(opensThenCloses){
-    const closeIndent = indent.slice(0, Math.max(0, indent.length - unit.length));
-    cm.replaceSelection('\n' + indent + '\n' + closeIndent, 'end');
-    cm.setCursor({ line: cur.line + 1, ch: indent.length });
-  } else {
-    cm.replaceSelection('\n' + indent, 'end');
-  }
+  cm.replaceSelection('\n' + indent, 'end');
 }
 function cmSharedOptions(){
   return {
     lineNumbers: true,
-    indentUnit: 4,
-    tabSize: 4,
+    indentUnit: 2,
+    tabSize: 2,
     indentWithTabs: false,
     autoCloseBrackets: true,
     matchBrackets: true,
