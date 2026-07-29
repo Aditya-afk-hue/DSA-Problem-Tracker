@@ -11671,8 +11671,8 @@ refreshProStatus();
 // the rest of the page's own startup work.
 setTimeout(()=>{
   try{
-    preloadRuntimeForLang(localStorage.getItem(SOLVE_LANG_KEY));
-    preloadRuntimeForLang(localStorage.getItem(MOCK_LANG_KEY));
+    preloadRuntimeForLang(localStorage.getItem(SOLVE_LANG_KEY) || 'java');
+    preloadRuntimeForLang(localStorage.getItem(MOCK_LANG_KEY) || 'Python');
   }catch(e){}
 }, 1200);
 
