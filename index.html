@@ -4359,11 +4359,28 @@ function showToast(msg){
 }
 
 // ---- LeetCode-style tabs, resizable split panes, and pass "cheer" ----
+// Walkthrough's trace-player (autoplay timer + the highlighted active line
+// in the code editor above) lives independently of which bottom-pane tab is
+// currently visible — switching tabs only used to toggle panel display, so
+// leaving the Walkthrough tab for e.g. Test Result left the timer running
+// and the line still highlighted with nothing on screen explaining why.
+// Stop it whenever a tab switch moves away from the Walkthrough tab.
+function leaveWalkthroughTabIfNeeded(groupParentId, newTab){
+  if(groupParentId === 'solveBottomPane' && newTab !== 'solveWalkthrough'){
+    stopTracePlay(SOLVE_WALKTHROUGH_TRACE_IDS);
+    clearCmWalkthroughActiveLine();
+  }
+  if(groupParentId === 'mockBottomPane' && newTab !== 'mockWalkthrough'){
+    stopTracePlay(MOCK_WALKTHROUGH_TRACE_IDS);
+    clearCmWalkthroughActiveLine();
+  }
+}
 function setLcTab(groupParentId, tabName){
   const parent = document.getElementById(groupParentId);
   if(!parent) return;
   const group = parent.querySelector(':scope > .lc-tabs');
   if(!group) return;
+  leaveWalkthroughTabIfNeeded(groupParentId, tabName);
   group.querySelectorAll('.lc-tab').forEach(t=>{
     t.classList.toggle('active', t.getAttribute('data-lc-tab') === tabName);
   });
@@ -4377,9 +4394,10 @@ document.addEventListener('click', (e)=>{
   const group = tab.closest('.lc-tabs');
   if(!group) return;
   const parent = group.parentElement;
+  const target = tab.getAttribute('data-lc-tab');
+  leaveWalkthroughTabIfNeeded(parent.id, target);
   group.querySelectorAll('.lc-tab').forEach(t=>t.classList.remove('active'));
   tab.classList.add('active');
-  const target = tab.getAttribute('data-lc-tab');
   parent.querySelectorAll(':scope > [data-lc-panel]').forEach(p=>{
     p.style.display = (p.getAttribute('data-lc-panel') === target) ? '' : 'none';
   });
@@ -6235,7 +6253,8 @@ async function generateSolveTestCases(auto){
           `"params": [{"name":"<param name>","type":"<one of: ${JAVA_TYPE_VOCAB.join(', ')}>"}, ...in order...], ` +
           `"returnType": "<one of: ${JAVA_TYPE_VOCAB.join(', ')}>", ` +
           `"testCases": [{"input": [<param 1 value>, <param 2 value>, ...], "expected": "<exact plain value the return should equal — a bare number/word, or compact JSON like [1,2,3] for arrays, true/false for booleans>"}, ...exactly ${MIN_SUBMIT_TEST_CASES} of these, unique...]}\n` +
-          `"input" must always be a JSON array with exactly one element per parameter, in the same order as "params". Only use types from the given vocabulary (use int[] for any integer list/array regardless of what LeetCode calls it, int[][] for a 2D grid, etc — pick the closest match).`
+          `"input" must always be a JSON array with exactly one element per parameter, in the same order as "params". Only use types from the given vocabulary (use int[] for any integer list/array regardless of what LeetCode calls it, int[][] for a 2D grid, etc — pick the closest match). ` +
+          `If the return value is naturally a multi-line printed shape/pattern (e.g. a triangle, pyramid, or grid of characters across several rows), "expected" MUST be a single JSON string containing a literal \\n between each row and the EXACT leading spaces for that row's indentation/centering — never join rows with a plain space and never drop leading spaces, since that silently changes the shape.`
         )}]}],
         generationConfig:{ maxOutputTokens:3000, thinkingConfig:{ thinkingLevel:'minimal' } }
       })
@@ -6454,6 +6473,11 @@ function javaHarnessUtilSource(){
 }`;
 }
 
+function tcFieldRows(s){
+  if(!s) return 1;
+  const n = (String(s).match(/\n/g)||[]).length + 1;
+  return Math.max(1, Math.min(8, n));
+}
 function renderSolveTestCases(){
   const box = document.getElementById('solveTestCasesBox');
   if(!box) return;
@@ -6487,11 +6511,11 @@ function renderSolveTestCases(){
     <div class="mock-tc-row" data-idx="${i}">
       <div class="mock-tc-fields">
         <div><label>Input (JSON, becomes <code>INPUT</code>)</label>
-          <input type="text" class="solve-tc-input" data-idx="${i}" data-field="input" placeholder='e.g. [[1,2],[2,3],[4,2]]' value="${escapeHtml(tc.input)}"></div>
+          <textarea class="solve-tc-input" data-idx="${i}" data-field="input" rows="${tcFieldRows(tc.input)}" placeholder='e.g. [[1,2],[2,3],[4,2]]'>${escapeHtml(tc.input)}</textarea></div>
         <div><label>Expected output</label>
-          <input type="text" class="solve-tc-input" data-idx="${i}" data-field="expected" placeholder="e.g. 2" value="${escapeHtml(tc.expected)}"></div>
+          <textarea class="solve-tc-input" data-idx="${i}" data-field="expected" rows="${tcFieldRows(tc.expected)}" placeholder="e.g. 2">${escapeHtml(tc.expected)}</textarea></div>
       </div>
-      <div class="mock-tc-status ${tc.status}">${
+      <div class="mock-tc-status ${tc.status}" ${(tc.actual||'').includes('\n') ? 'style="white-space:pre-wrap;max-width:100%;overflow:visible;text-overflow:clip;"' : ''}>${
         tc.status==='pass' ? '✓ Pass' : tc.status==='fail' ? `✕ Fail — got: ${escapeHtml(tc.actual||'(no output)')}` :
         tc.status==='tle' ? `⏱ Time Limit Exceeded` :
         tc.status==='error' ? `⚠ Error — ${escapeHtml(tc.actual||'')}` : ''
@@ -7799,7 +7823,8 @@ async function generateMockTestCases(auto){
           `"params": [{"name":"<param name>","type":"<one of: ${JAVA_TYPE_VOCAB.join(', ')}>"}, ...in order...], ` +
           `"returnType": "<one of: ${JAVA_TYPE_VOCAB.join(', ')}>", ` +
           `"testCases": [{"input": [<param 1 value>, <param 2 value>, ...], "expected": "<exact plain value the return should equal — a bare number/word, or compact JSON like [1,2,3] for arrays, true/false for booleans>"}, ...exactly ${MIN_SUBMIT_TEST_CASES} of these, unique...]}\n` +
-          `"input" must always be a JSON array with exactly one element per parameter, in the same order as "params". Only use types from the given vocabulary.`
+          `"input" must always be a JSON array with exactly one element per parameter, in the same order as "params". Only use types from the given vocabulary. ` +
+          `If the return value is naturally a multi-line printed shape/pattern (e.g. a triangle, pyramid, or grid of characters across several rows), "expected" MUST be a single JSON string containing a literal \\n between each row and the EXACT leading spaces for that row's indentation/centering — never join rows with a plain space and never drop leading spaces, since that silently changes the shape.`
         }]}],
         generationConfig:{ maxOutputTokens:3000, thinkingConfig:{ thinkingLevel:'minimal' } }
       })
@@ -7887,11 +7912,11 @@ function renderMockTestCases(){
     <div class="mock-tc-row" data-idx="${i}">
       <div class="mock-tc-fields">
         <div><label>Input (JSON, becomes <code>INPUT</code>)</label>
-          <input type="text" class="mock-tc-input" data-idx="${i}" data-field="input" placeholder='e.g. [[1,2],[2,3],[4,2]]' value="${escapeHtml(tc.input)}"></div>
+          <textarea class="mock-tc-input" data-idx="${i}" data-field="input" rows="${tcFieldRows(tc.input)}" placeholder='e.g. [[1,2],[2,3],[4,2]]'>${escapeHtml(tc.input)}</textarea></div>
         <div><label>Expected output</label>
-          <input type="text" class="mock-tc-input" data-idx="${i}" data-field="expected" placeholder="e.g. 2" value="${escapeHtml(tc.expected)}"></div>
+          <textarea class="mock-tc-input" data-idx="${i}" data-field="expected" rows="${tcFieldRows(tc.expected)}" placeholder="e.g. 2">${escapeHtml(tc.expected)}</textarea></div>
       </div>
-      <div class="mock-tc-status ${tc.status}">${
+      <div class="mock-tc-status ${tc.status}" ${(tc.actual||'').includes('\n') ? 'style="white-space:pre-wrap;max-width:100%;overflow:visible;text-overflow:clip;"' : ''}>${
         tc.status==='pass' ? '✓ Pass' : tc.status==='fail' ? `✕ Fail — got: ${escapeHtml(tc.actual||'(no output)')}` :
         tc.status==='tle' ? `⏱ Time Limit Exceeded` :
         tc.status==='error' ? `⚠ Error — ${escapeHtml(tc.actual||'')}` : ''
