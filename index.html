@@ -6065,19 +6065,25 @@ document.getElementById('solveRunBtn').addEventListener('click', async ()=>{
       const t0 = performance.now();
       const { results } = await runCasesInLang(langVal, code, casesToRun.map(tc=>tc.input));
       const elapsedMs = Math.round(performance.now() - t0);
-      // NOTE: take the raw last log line — do NOT filter out blank lines
-      // first. The harness's println is the last thing printed for a case,
-      // and for some problems (e.g. minWindow's "no valid window") the
-      // CORRECT answer is the empty string, which prints as a blank line.
-      // Filtering blanks before picking the last line used to throw that
-      // real (blank) answer away and fall back to whatever line happened to
-      // be left — showing an unrelated line as if it were the actual output.
+      // NOTE: filter-then-pop is correct here, and doesn't lose a genuinely
+      // blank ("") correct answer — CheerpJ's stdout redirection appears to
+      // emit a trailing blank entry after real printed content, so this
+      // filter is what skips that artifact and grabs the real line. Taking
+      // the raw last log entry (no filtering) was tried and made things
+      // WORSE — it grabbed that trailing blank artifact instead of the real
+      // output for every case, not just blank-answer ones. What actually
+      // caused the empty-string-answer display bug was compiled.logs (the
+      // one-time CheerpJ boot/compile noise) being prepended to every case's
+      // logs below in runCasesInLang — once a case's own logs are ALL blank
+      // (a genuinely blank answer), filtering leaves nothing and this
+      // correctly falls back to ''; it only broke before because leftover
+      // boot-noise lines were sitting in there too.
       casesToRun.forEach((tc, i)=>{
         const result = results[i];
         if(!result.ok){
           tc.status = result.tle ? 'tle' : 'error'; tc.actual = formatShortError(result);
         } else {
-          const lastLine = (result.logs && result.logs.length) ? result.logs[result.logs.length - 1] : '';
+          const lastLine = (result.logs || []).filter(l=>l.trim()).pop() || '';
           tc.actual = lastLine;
           const ok = normalizeForCompare(lastLine) === normalizeForCompare(tc.expected);
           tc.status = ok ? 'pass' : 'fail';
@@ -6664,7 +6670,7 @@ async function submitSolveTestCases(){
       if(!result.ok){
         tc.status = result.tle ? 'tle' : 'error'; tc.actual = formatShortError(result);
       } else {
-        const lastLine = (result.logs && result.logs.length) ? result.logs[result.logs.length - 1] : '';
+        const lastLine = (result.logs || []).filter(l=>l.trim()).pop() || '';
         tc.actual = lastLine;
         tc.status = normalizeForCompare(lastLine) === normalizeForCompare(tc.expected) ? 'pass' : 'fail';
       }
@@ -7830,7 +7836,7 @@ async function runMockCode(){
         if(!result.ok){
           tc.status = result.tle ? 'tle' : 'error'; tc.actual = formatShortError(result);
         } else {
-          const lastLine = (result.logs && result.logs.length) ? result.logs[result.logs.length - 1] : '';
+          const lastLine = (result.logs || []).filter(l=>l.trim()).pop() || '';
           tc.actual = lastLine;
           const ok = normalizeForCompare(lastLine) === normalizeForCompare(tc.expected);
           tc.status = ok ? 'pass' : 'fail';
@@ -8079,7 +8085,7 @@ async function submitMockTestCases(){
       if(!result.ok){
         tc.status = result.tle ? 'tle' : 'error'; tc.actual = formatShortError(result);
       } else {
-        const lastLine = (result.logs && result.logs.length) ? result.logs[result.logs.length - 1] : '';
+        const lastLine = (result.logs || []).filter(l=>l.trim()).pop() || '';
         tc.actual = lastLine;
         tc.status = normalizeForCompare(lastLine) === normalizeForCompare(tc.expected) ? 'pass' : 'fail';
       }
