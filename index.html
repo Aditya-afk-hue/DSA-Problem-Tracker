@@ -951,6 +951,14 @@ const CODE_FENCE_RULE = 'Any code you include in your reply, of any length — a
 // 2 + 7 == 9, we return [0, 1]." against a 5-step blow-by-blow trace of the
 // same problem). This rule replaces that instruction everywhere it's used.
 const LC_EXPLANATION_RULE = '<a concrete, specific explanation of why that output is correct, written the way LeetCode itself writes explanations. When the output is a count or a set of matches, spell out the actual items involved, e.g. "The substrings containing at least one occurrence of the characters a, b and c are abc, abca, abcab, abcabc, bca, bcab, bcabc, cab, cabc and abc (again)." When it is a single value, name the exact values/indices being compared, e.g. "Because nums[0] + nums[1] == 2 + 7 == 9, we return [0, 1]." Be as concrete and complete as the example calls for — list every matching value when there are a handful of them, do not summarize them away with a vague phrase like the key fact justifies it. What this must NOT be is a numbered "Step 1: ... Step 2: ... Step 3: ..." trace of the algorithm execution (comparing indices one at a time, moving pointers, etc.) — that reads like a debug log, not a problem statement, and real LeetCode explanations never read that way even when they are long. Keep it to one continuous line with no line breaks>';
+// Every example lives on a single physical "Output: ..." line in the reply
+// (the parser below extracts it with a single-line regex), so a multi-row
+// printed shape can't just contain a real line break. Instead the model is
+// told to spell row breaks out as a literal two-character "\n" marker with
+// exact leading spaces kept intact, which renderLcFormattedSummary later
+// converts into real line breaks for display — same convention already
+// used for AI-generated test cases, so the two stay consistent with each other.
+const LC_MULTILINE_OUTPUT_RULE = 'If the output is naturally printed across multiple rows (e.g. a triangle, pyramid, or grid of characters), write it all on this one Output line using a literal \\n between rows and the EXACT leading spaces for each row\'s indentation — e.g. Output: *****\\n ***\\n  * — never collapse rows onto one line without the \\n markers and never drop leading spaces.';
 
 // Shared by the Solve editor and Mock Interview panel so both ask for (and
 // render) a problem statement structured exactly like LeetCode's own page —
@@ -969,7 +977,7 @@ function buildLcFormatPrompt(p){
       `Do not include any solution approach or code. ` +
       `Reply in exactly this structure, plain text, no markdown asterisks:\n\n` +
       `DESCRIPTION: <2-4 sentence plain-English statement of the task, including the input and output/expected-result format>\n\n` +
-      `EXAMPLE 1:\nInput: <a small concrete input, e.g. n = 4>\nOutput: <the concrete expected output for that input — spell it out fully, e.g. the exact lines of a printed pattern>\nExplanation: ${LC_EXPLANATION_RULE}\n\n` +
+      `EXAMPLE 1:\nInput: <a small concrete input, e.g. n = 4>\nOutput: <the concrete expected output for that input — spell it out fully, e.g. the exact lines of a printed pattern. ${LC_MULTILINE_OUTPUT_RULE}>\nExplanation: ${LC_EXPLANATION_RULE}\n\n` +
       `EXAMPLE 2:\n<a second example, same Input/Output/Explanation format and the same short, natural explanation style, using a different concrete n/input so it exercises a different case>\n\n` +
       `EXAMPLE 3:\n<a third example, same format — ideally a small edge case, e.g. the smallest valid n>\n\n` +
       `Always include all 3 examples (EXAMPLE 1, EXAMPLE 2, EXAMPLE 3) with a short Explanation each — never omit one for brevity. ` +
@@ -979,7 +987,7 @@ function buildLcFormatPrompt(p){
   return `Restate the LeetCode problem "${p.title}" (topic: ${p.section}, difficulty: ${diffWord}) the way LeetCode's own problem page is laid out, in your own words — do not quote LeetCode's text, and do not include any solution approach or code. ` +
     `Reply in exactly this structure, plain text, no markdown asterisks:\n\n` +
     `DESCRIPTION: <2-4 sentence plain-English statement of the task, including the input and output format>\n\n` +
-    `EXAMPLE 1:\nInput: <input in LeetCode's own argument-style notation, e.g. nums = [2,7,11,15], target = 9>\nOutput: <the output value>\nExplanation: ${LC_EXPLANATION_RULE}\n\n` +
+    `EXAMPLE 1:\nInput: <input in LeetCode's own argument-style notation, e.g. nums = [2,7,11,15], target = 9>\nOutput: <the output value. ${LC_MULTILINE_OUTPUT_RULE}>\nExplanation: ${LC_EXPLANATION_RULE}\n\n` +
     `EXAMPLE 2:\n<a second example, same Input/Output/Explanation format and the same short, natural explanation style, using a genuinely different concrete input that exercises a different path through the problem>\n\n` +
     `EXAMPLE 3:\n<a third example, same format — ideally a small edge case, e.g. the smallest valid input, all-equal values, or a case with no valid answer if the problem allows one>\n\n` +
     `Always include all 3 examples (EXAMPLE 1, EXAMPLE 2, EXAMPLE 3) with a short Explanation each — never omit one for brevity, and add a 4th only if it's a genuinely distinct edge case worth showing. ` +
@@ -1005,7 +1013,7 @@ function renderLcFormattedSummary(raw){
     if(!inputMatch && !outputMatch) return;
     html += `<div class="lcfmt-example"><div class="lcfmt-example-title">Example ${escapeHtml(numMatch[1])}:</div>`;
     if(inputMatch) html += `<div class="lcfmt-example-line"><b>Input:</b> ${mathText(inputMatch[1].trim())}</div>`;
-    if(outputMatch) html += `<div class="lcfmt-example-line"><b>Output:</b> ${mathText(outputMatch[1].trim())}</div>`;
+    if(outputMatch) html += `<div class="lcfmt-example-line"><b>Output:</b> ${mathText(outputMatch[1].trim().replace(/\\n/g, '\n'))}</div>`;
     if(explMatch && explMatch[1].trim()) html += `<div class="lcfmt-example-line"><b>Explanation:</b> ${mathText(explMatch[1].trim())}</div>`;
     html += `</div>`;
   });
