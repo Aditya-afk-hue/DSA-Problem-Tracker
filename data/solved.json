@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-29T03:22:02.619Z",
+  "updatedAt": "2026-07-29T08:51:28.661Z",
   "slugs": [
     "two-sum",
     "longest-substring-without-repeating-characters",
@@ -32,6 +32,7 @@
     "climbing-stairs",
     "search-a-2d-matrix",
     "sort-colors",
+    "minimum-window-substring",
     "subsets",
     "remove-duplicates-from-sorted-array-ii",
     "search-in-rotated-sorted-array-ii",
