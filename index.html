@@ -5516,9 +5516,18 @@ function renderReviewText(raw){
     fixedCodeLines = [];
   };
   const closeSection = ()=>{ closeList(); flushFixedCodeFallback(); if(inSection){ html += '</div>'; inSection = false; } };
-  lines.forEach(line=>{
+  // "Line N: <desc>" / "Before: <code>" / "After: <code>" — the per-bug
+  // triple the review prompt asks for (see sendReviewMessage) — renders as
+  // a small diff card (line badge + red/green before/after rows) instead of
+  // three plain hint-line rows, so the exact buggy line and its fix are
+  // visually distinct rather than blending into the surrounding prose.
+  const LINE_RE = /^Lines?\s+([\d,\-–\s]+?)\s*:\s*(.*)$/i;
+  const BEFORE_RE = /^Before:\s*(.*)$/i;
+  const AFTER_RE = /^After:\s*(.*)$/i;
+  for(let i = 0; i < lines.length; i++){
+    const line = lines[i];
     const trimmed = line.trim();
-    if(!trimmed){ if(inFixedCodeFallback) fixedCodeLines.push(''); return; }
+    if(!trimmed){ if(inFixedCodeFallback) fixedCodeLines.push(''); continue; }
     const codeToken = trimmed.match(/^@@CODEBLOCK(\d+)@@$/);
     if(codeToken){
       // A real fenced block arrived — the fallback buffer (if any) was just
@@ -5527,7 +5536,26 @@ function renderReviewText(raw){
       closeSection();
       const block = codeBlocks[parseInt(codeToken[1],10)] || { code:'', lang:'' };
       html += renderCodeBlockHtml(block.code, block.lang);
-      return;
+      continue;
+    }
+    if(!inFixedCodeFallback){
+      const lineMatch = trimmed.match(LINE_RE);
+      if(lineMatch){
+        const nextBefore = (lines[i+1] || '').trim().match(BEFORE_RE);
+        const nextAfter = (lines[i+2] || '').trim().match(AFTER_RE);
+        if(nextBefore && nextAfter){
+          closeList();
+          html += `<div class="bugfix-card">` +
+            `<div class="bugfix-head"><span class="bugfix-line-badge">Line ${escapeHtml(lineMatch[1].trim())}</span>` +
+            `<span class="bugfix-desc">${mathText(lineMatch[2])}</span></div>` +
+            `<div class="bugfix-diff">` +
+              `<div class="bugfix-diff-row before"><span class="diff-tag">−</span><code>${highlightCode(nextBefore[1])}</code></div>` +
+              `<div class="bugfix-diff-row after"><span class="diff-tag">+</span><code>${highlightCode(nextAfter[1])}</code></div>` +
+            `</div></div>`;
+          i += 2;
+          continue;
+        }
+      }
     }
     const sectionMatch = trimmed.match(/^(VERDICT|CORRECTNESS|BUGS AND FIXES|COMPLEXITY|SUGGESTIONS|FIXED CODE)\s*:\s*(.*)$/i);
     if(sectionMatch){
@@ -5544,9 +5572,9 @@ function renderReviewText(raw){
       } else if(sectionMatch[2]){
         html += `<div class="hint-line">${mathText(sectionMatch[2])}</div>`;
       }
-      return;
+      continue;
     }
-    if(inFixedCodeFallback){ fixedCodeLines.push(line); return; }
+    if(inFixedCodeFallback){ fixedCodeLines.push(line); continue; }
     const stepMatch = trimmed.match(/^(\d+)[.)]\s+(.*)$/);
     if(stepMatch){
       if(!inList){ html += '<ol class="hint-steps">'; inList = true; }
@@ -5555,7 +5583,7 @@ function renderReviewText(raw){
       closeList();
       html += `<div class="hint-line">${mathText(trimmed)}</div>`;
     }
-  });
+  }
   closeSection();
   return html || mathText(raw);
 }
@@ -7306,6 +7334,15 @@ async function initSolveCodeEditor(langVal){
     ta.style.display = '';
   }
 }
+// Hard time limit for every problem, every language — one shared constant so
+// there's a single source of truth instead of three independently-drifted
+// per-language numbers (JS used to default to 5s, Python 8s, Java 10s). A
+// runaway loop pinned CPU for that entire window before anything even
+// noticed it was stuck, and for Java specifically that window is real
+// unrecoverable background work (see javaRunLocked below) — cutting it to
+// 1s everywhere shrinks that exposure far more than any single language's
+// old default did.
+const RUN_TLE_MS = 1000;
 function runJSInWorker(code, rawInputJson, timeoutMs){
   return runJSCasesInWorker(code, [rawInputJson], timeoutMs).then(rs=>rs[0]);
 }
@@ -7314,7 +7351,7 @@ function runJSInWorker(code, rawInputJson, timeoutMs){
 // fresh one per test case — the per-case overhead was small individually
 // but adds up across a full submit-sized case set.
 function runJSCasesInWorker(code, rawInputJsons, timeoutMs){
-  timeoutMs = timeoutMs || 5000;
+  timeoutMs = timeoutMs || RUN_TLE_MS;
   const workerSrc = `
     let logs = [];
     const push = (...args)=>logs.push(args.map(a=>{
@@ -7368,7 +7405,7 @@ function runJSCasesInWorker(code, rawInputJsons, timeoutMs){
       if(idx >= rawInputJsons.length){ finish(); return; }
       clearTimeout(timer);
       timer = setTimeout(()=>{
-        results.push({ ok:false, logs:[], error: `Timed out after ${timeoutMs/1000}s (infinite loop?)` });
+        results.push({ ok:false, logs:[], error: `Time Limit Exceeded — no output after ${timeoutMs/1000}s (infinite loop?)`, tle:true });
         idx++;
         // A hung case is still blocking this worker's thread — postMessage
         // to it would just queue forever, so terminate and start fresh
@@ -7396,7 +7433,7 @@ function preloadRuntimeForLang(lang){
   if(l === 'java') ensureCheerpJ().catch(()=>{});
   else if(l === 'python') ensurePyodideWorker();
 }
-const PY_TLE_MS = 8000; // Python/Pyodide has more interpreter overhead than raw JS, so it gets a bit more rope before being called TLE
+const PY_TLE_MS = RUN_TLE_MS; // was 8000 — Python got extra rope for interpreter overhead, but the fix here is one hard 1s cap for every language
 let pyodideWorker = null;
 function pyodideWorkerSrc(){
   return `
@@ -7708,7 +7745,20 @@ async function runJavaCode(code, rawInputJson){
 //     per case.
 //   - Python/SQL: already cheap per-call (same Pyodide interpreter reused;
 //     SQL.js just opens a small in-memory DB), so they just loop.
-const JAVA_TLE_MS = 10000; // CheerpJ has real per-call JVM overhead on top of the code itself, so it gets more rope than JS/Python
+const JAVA_TLE_MS = RUN_TLE_MS; // was 10000 — same reasoning as PY_TLE_MS above
+// CheerpJ genuinely cannot be interrupted mid-run from JS (no Worker.
+// terminate() equivalent — see raceTimeout below), so a timed-out Java call
+// is still spinning in the background for real, consuming real CPU, even
+// after raceTimeout gives up waiting on it. Without this lock, clicking
+// Run/Submit again right after a TLE would start a SECOND cheerpjRunMain
+// call on top of the still-running first one — two calls racing inside the
+// same JVM instance, stepping on each other's static state/output streams.
+// That's the actual "crash": not one runaway loop (which now gets cut off
+// at 1s same as JS/Python), but a pile-up of overlapping JVM calls that
+// corrupts output for every run after it and can lock the tab up for good.
+// This flag blocks a new Java run from starting at all until the original
+// call actually settles, so at most one cheerpjRunMain is ever in flight.
+let javaRunLocked = false;
 // Races a promise against a timeout WITHOUT cancelling the underlying work —
 // only usable when it's safe for that work to keep running unobserved in
 // the background (true for CheerpJ, since there's no way to actually kill
@@ -7744,6 +7794,10 @@ function raceTimeout(promise, ms){
 // compilation on top of the actual execution time.
 async function runCasesInLang(langKey, wrappedCode, rawInputJsons){
   if(langKey === 'java'){
+    if(javaRunLocked){
+      const err = { ok:false, logs:[], error: "A previous Java run timed out and is still finishing in the background — CheerpJ can't be safely interrupted, so a second run can't start until it settles (this avoids two runs corrupting each other's output). Wait a few seconds and try again, or reload the tab if it's been stuck a while." };
+      return { results: rawInputJsons.map(()=>err), execMs: null };
+    }
     const compiled = await compileJavaOnce(wrappedCode);
     if(!compiled.ok){
       const err = { ok:false, logs: compiled.logs||[], error: compiled.error };
@@ -7784,11 +7838,21 @@ async function runCasesInLang(langKey, wrappedCode, rawInputJsons){
     const floorRace = await raceTimeout(runCompiledJavaBatch(compiled.className, []), JAVA_TLE_MS);
     const floorMs = floorRace.timedOut ? 0 : Math.round(performance.now() - floorT0);
     const execT0 = performance.now();
-    const race = await raceTimeout(runCompiledJavaBatch(compiled.className, rawInputJsons), JAVA_TLE_MS);
+    // The empty-args "floor" call above can't hang (0 loop iterations), so
+    // it's not lock-guarded — only this real call, with the user's actual
+    // inputs, is the one that can still be spinning after raceTimeout gives
+    // up on it. Lock before starting it, and release the lock off the REAL
+    // promise settling (not off raceTimeout's result), so a run that's still
+    // silently working in the background keeps the lock held for exactly as
+    // long as it's actually still running.
+    const realJavaCall = runCompiledJavaBatch(compiled.className, rawInputJsons);
+    javaRunLocked = true;
+    realJavaCall.finally(()=>{ javaRunLocked = false; });
+    const race = await raceTimeout(realJavaCall, JAVA_TLE_MS);
     const rawExecMs = Math.round(performance.now() - execT0);
     const execMs = Math.max(1, rawExecMs - floorMs);
     if(race.timedOut){
-      const tleMsg = `Time Limit Exceeded — no output after ${Math.round(JAVA_TLE_MS/1000)}s. Java can't be safely interrupted mid-run in the browser, so which specific case is stuck can't be isolated — if the page feels unresponsive afterward, reload the tab.`;
+      const tleMsg = `Time Limit Exceeded — no output after ${(JAVA_TLE_MS/1000)}s. Java can't be safely interrupted mid-run in the browser, so which specific case is stuck can't be isolated. It's still finishing in the background — Run/Submit will refuse to start a new Java attempt until it does, to avoid two runs colliding.`;
       return { results: rawInputJsons.map(()=>({ ok:false, logs:[], error:tleMsg, tle:true })), execMs };
     }
     const r = race.value;
@@ -10989,6 +11053,15 @@ let tracePlayTimer = null;
 function codeCacheKey(id, tab, lang){ return id + '-' + tab + '-' + (lang || 'JavaScript'); }
 function currentCodeLang(){ return document.getElementById('codeLangSel').value; }
 
+// Prefixes every line of the user's raw message with "N| " before it goes to
+// the model — purely so the review prompt can ask for bug locations by exact
+// line number and get back numbers that actually match what's in the user's
+// editor, instead of the model re-counting (and often miscounting) lines
+// itself. Never shown to the user — only used inside the API payload text;
+// the chat bubble still displays their original, unprefixed message.
+function numberLinesForReview(text){
+  return text.split('\n').map((l, i) => `${i+1}| ${l}`).join('\n');
+}
 async function sendReviewMessage(){
   const key = requireGeminiKey('reviewKeySection');
   if(!key) return;
@@ -11017,17 +11090,28 @@ async function sendReviewMessage(){
   const testCaseInstructions = testCaseContext
     ? `\n\n${testCaseContext}\n\nIf you correct any test case's expected value per the rule above, add one line per corrected case at the very end of your whole reply (after everything else), in exactly this format and nothing else on that line: FIXED TESTCASE #<case number>: <the corrected expected output, exactly as it should be printed>. Only include this line for cases you're actually correcting — do not list unchanged/passing cases.`
     : '';
+  const numberedMessage = numberLinesForReview(message);
   const payloadText = isFirst
     ? `You're a coding assistant helping with the LeetCode problem "${p.title}" (${p.section}). ` +
       `The user may paste their code for review, ask a question, or both in the same message — respond to whatever they actually sent, don't force a review format onto a plain question. ` +
-      `If they paste code: evaluate correctness (call out specific failing cases if any, e.g. empty input, duplicates, negative numbers), point out bugs with specific fixes, note time/space complexity, and comment on style/readability. If there are bugs, include a corrected version of their code — same language, minimal targeted changes — inside a single fenced code block (triple backticks) preceded by a line that says exactly "FIXED CODE:". If the code is already correct, say so plainly and skip the code block entirely. Do not invent a bug to justify writing a FIXED CODE block — only produce one when you can point to a concrete input that actually breaks the given code. ` +
+      `Their message below has every line prefixed with its line number and a pipe, like "3| return x" — that numbering is only so you can cite exact lines accurately; never write that "N| " prefix yourself, in prose or in any code block. ` +
+      `If they paste code, structure your reply using exactly these plain-text labels, each starting its own line, in this order — omit a whole label if it doesn't apply (e.g. omit BUGS AND FIXES if the code has none):\n` +
+      `VERDICT: exactly one of "Correct", "Correct but not optimal", or "Has bugs" — plus a one-sentence reason.\n` +
+      `BUGS AND FIXES: only include this if there's at least one real bug — a concrete input must actually break the code, never invent one just to fill this section. For EVERY bug, output exactly this three-line shape, one bug right after another, using the line numbers from the "N| " prefixes in their message:\n` +
+      `Line <N>: <what's wrong on that exact line, one sentence, naming the concrete input that breaks it>\n` +
+      `Before: <that exact original line's code, verbatim, no "N| " prefix>\n` +
+      `After: <the corrected version of that same line, verbatim, minimal fix only>\n` +
+      `(If a single bug genuinely needs more than one line changed, still give its main "Line <N>:" line, then put the small multi-line snippet after "Before:"/"After:" instead of a single line.)\n` +
+      `COMPLEXITY: the CURRENT code's time and space complexity, plain text, one line.\n` +
+      `SUGGESTIONS: if VERDICT was "Correct but not optimal", this is required — name the optimal technique/pattern, explain in 1-2 sentences why it beats the current approach, give its time/space complexity, and include a short fenced code block with the optimal implementation. If the code is already optimal, either omit this section or use it only for minor style/readability notes (no invented bugs, no restating BUGS AND FIXES). ` +
+      `FIXED CODE: only if BUGS AND FIXES was non-empty — the user's FULL original code with every one of those fixes applied, same language, everything else left exactly as they wrote it, inside a single fenced code block (triple backticks). Omit this whole label if the code was already correct — do not repeat the optimal-approach code here, that belongs under SUGGESTIONS. ` +
       testCaseInstructions +
-      `If they just ask a question with no code, answer directly and conversationally. If that question asks you to write new code (not fix what they pasted), ${lastLangPromptRule()} ` +
+      `If they just ask a plain question with no code to review, ignore all of the structure above and just answer directly and conversationally. If that question asks you to write new code (not fix what they pasted), ${lastLangPromptRule()} ` +
       `Be concise and concrete. ${MATH_NOTATION_RULE} ` +
-      `Write complexity as plain text like "O(M x N)" or "O(n log n)" — never LaTeX or math markup (no $, no \\times, no \\O, no other backslash commands). Never use markdown bold/italic (no ** or _) or headers (no #) — plain text only, with one exception: ${CODE_FENCE_RULE} That covers both the FIXED CODE block and any new code written in answer to a plain question.\n\nTheir message:\n${message}`
+      `Write complexity as plain text like "O(M x N)" or "O(n log n)" — never LaTeX or math markup (no $, no \\times, no \\O, no other backslash commands). Never use markdown bold/italic (no ** or _) or headers (no #) — plain text only, with one exception: ${CODE_FENCE_RULE} That covers every fenced code block above (FIXED CODE, the SUGGESTIONS snippet) and any new code written in answer to a plain question.\n\nTheir message:\n${numberedMessage}`
     : (testCaseInstructions
-        ? `${message}${testCaseInstructions}\n\nIf you already told the user in this conversation that their code was correct, don't reverse that verdict now unless the case data above gives you a concrete input/expected/actual mismatch to point to — a vague report of "some cases failed" is not new evidence on its own; the case data is. If the code's logic is fine, prefer correcting the test case over rewriting working code.`
-        : message);
+        ? `${numberedMessage}${testCaseInstructions}\n\nIf you already told the user in this conversation that their code was correct, don't reverse that verdict now unless the case data above gives you a concrete input/expected/actual mismatch to point to — a vague report of "some cases failed" is not new evidence on its own; the case data is. If the code's logic is fine, prefer correcting the test case over rewriting working code.`
+        : numberedMessage);
 
   reviewConversation.push({ role:'user', parts:[{ text: payloadText }] });
   const qWrap = document.createElement('div');
