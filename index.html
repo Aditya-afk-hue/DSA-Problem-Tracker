@@ -6062,9 +6062,14 @@ document.getElementById('solveRunBtn').addEventListener('click', async ()=>{
       // just without the "Accepted" card/confetti, which is Submit-only.
       let passCount = 0;
       const { code } = buildExecutionPayload(langVal, code_raw, null, solveHarness);
-      const t0 = performance.now();
-      const { results } = await runCasesInLang(langVal, code, casesToRun.map(tc=>tc.input));
-      const elapsedMs = Math.round(performance.now() - t0);
+      // Use runCasesInLang's own execMs (same field Submit uses) instead of
+      // a wall-clock timer wrapped around the whole call — for Java, timing
+      // the whole call here included javac compilation + CheerpJ's per-call
+      // invocation overhead, which is exactly what execMs already excludes
+      // (see the comment above runCasesInLang). That mismatch is why Run
+      // used to show multi-second numbers on the same code that Submit
+      // reported at 1-3ms.
+      const { results, execMs: elapsedMs } = await runCasesInLang(langVal, code, casesToRun.map(tc=>tc.input));
       // NOTE: filter-then-pop is correct here, and doesn't lose a genuinely
       // blank ("") correct answer — CheerpJ's stdout redirection appears to
       // emit a trailing blank entry after real printed content, so this
@@ -7852,9 +7857,10 @@ async function runMockCode(){
       // editor's Run button.
       let passCount = 0;
       const { code: wrappedCode } = buildExecutionPayload(langKey, code, null, harness);
-      const t0 = performance.now();
-      const { results } = await runCasesInLang(langKey, wrappedCode, casesToRun.map(tc=>tc.input));
-      const elapsedMs = Math.round(performance.now() - t0);
+      // Same fix as the Solve editor's Run button: use runCasesInLang's own
+      // execMs instead of timing the whole call, which for Java would double
+      // count compilation + CheerpJ per-call overhead already excluded there.
+      const { results, execMs: elapsedMs } = await runCasesInLang(langKey, wrappedCode, casesToRun.map(tc=>tc.input));
       casesToRun.forEach((tc, i)=>{
         const result = results[i];
         if(!result.ok){
