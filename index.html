@@ -961,7 +961,7 @@ const LC_EXPLANATION_RULE = "<a concrete, specific explanation of why that outpu
 // — there's no valid way to write a raw line break in a JSON string, so the
 // model can't skip it without producing invalid JSON that fails to parse.
 // Switching the summary format to real JSON borrows that same guarantee.
-const LC_OUTPUT_FIELD_RULE = 'the exact expected output for that input as a JSON string. If it is naturally printed across multiple rows (e.g. a triangle, pyramid, diamond, or grid of characters), this string must contain a real embedded newline between each row, written with standard JSON escaping (i.e. \\n inside the string), with the exact leading spaces preserved for each row — never concatenate all the rows together with no separator.';
+const LC_OUTPUT_FIELD_RULE = 'the exact expected output for that input as a JSON string. If it is naturally printed across multiple rows (e.g. a triangle, pyramid, diamond, or grid of characters), this string must contain a real embedded newline between each row, written with standard JSON escaping (i.e. \\n inside the string), with the exact leading spaces preserved for each row — never concatenate all the rows together with no separator. CRITICAL ACCURACY CHECK: the character count of every row you write here MUST exactly match the count you are about to state for that same row in the "explanation" field below — before finalizing, go row by row and verify e.g. row 2 really does have the number of characters the explanation says it has; a row with the wrong count is a hard error even if the overall shape looks right at a glance.';
 
 // Shared by the Solve editor and Mock Interview panel so both ask for (and
 // render) a problem statement structured exactly like LeetCode's own page —
@@ -1005,7 +1005,11 @@ function renderLcFormattedSummary(parsed){
     if(!ex || (!ex.input && !ex.output)) return;
     html += `<div class="lcfmt-example"><div class="lcfmt-example-title">Example ${i+1}:</div>`;
     if(ex.input) html += `<div class="lcfmt-example-line"><b>Input:</b> ${mathText(stripLatexArtifacts(String(ex.input)).trim())}</div>`;
-    if(ex.output) html += `<div class="lcfmt-example-line"><b>Output:</b> ${mathText(stripLatexArtifacts(String(ex.output)))}</div>`;
+    if(ex.output){
+      const outVal = mathText(stripLatexArtifacts(String(ex.output)));
+      const isMultiRow = String(ex.output).includes('\n');
+      html += `<div class="lcfmt-example-line"><b>Output:</b>${isMultiRow ? '<br>' : ' '}${outVal}</div>`;
+    }
     if(ex.explanation && String(ex.explanation).trim()) html += `<div class="lcfmt-example-line"><b>Explanation:</b> ${mathText(stripLatexArtifacts(String(ex.explanation)).trim())}</div>`;
     html += `</div>`;
   });
