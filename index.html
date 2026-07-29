@@ -993,6 +993,41 @@ function buildLcFormatPrompt(p){
     `"constraints": ["<bullet, using real LeetCode-style bounds like 1 <= n <= 10^5>", ...2-5 of these, only ones you're confident are accurate]}\n` +
     `If you're not confident of the exact details for this specific problem, say so plainly in the "description" field instead of guessing. Keep it concise but never at the cost of dropping an example or its explanation. ${MATH_NOTATION_RULE}`;
 }
+// Turns a test case's raw JSON-array input (e.g. "[4]") into LeetCode-style
+// argument notation (e.g. "n = 4") using the harness's own param names, so
+// the grounded-explanation prompt below can show the model realistic input
+// text without asking it to author anything itself.
+function formatTcInputForDisplay(tc, harness){
+  if(!harness || !Array.isArray(harness.params)) return tc.input;
+  try{
+    const vals = JSON.parse(tc.input);
+    if(!Array.isArray(vals) || vals.length !== harness.params.length) return tc.input;
+    return harness.params.map((prm,i)=> prm.name + ' = ' + JSON.stringify(vals[i])).join(', ');
+  }catch(e){ return tc.input; }
+}
+// The description's own examples used to ask the model to independently
+// re-type input/output values that had ALREADY been generated (correctly,
+// thanks to the forced-JSON fix) for the test cases — the exact same
+// redundant-second-guess pattern that caused the description and test
+// cases to disagree with each other earlier in this file's history. This
+// builds examples straight from those already-verified test cases instead,
+// so the model is only ever asked to explain given values, never invent or
+// recompute them — it becomes structurally impossible for the numbers in
+// the description to disagree with the numbers actually being tested.
+function buildLcExplainOnlyPrompt(p, examples){
+  const diffWord = p.diff==='E'?'Easy':p.diff==='M'?'Medium':'Hard';
+  const introLine = p.noOJ
+    ? `This is a coding-practice-sheet drill titled "${p.title}" from the "${p.section}" section (topic difficulty tier: ${diffWord}) — a pattern-printing or implementation exercise of the kind found in Striver's A2Z DSA sheet and similar courses, not an official LeetCode problem.`
+    : `This is the LeetCode problem "${p.title}" (topic: ${p.section}, difficulty: ${diffWord}).`;
+  const examplesBlock = examples.map((ex,i)=>`Example ${i+1} — Input: ${ex.input} | Output: ${JSON.stringify(ex.output)}`).join('\n');
+  return `${introLine} The input/output pairs below are ALREADY VERIFIED CORRECT for this problem — do NOT alter, re-derive, recompute, second-guess, or contradict any value in them. Your only job is to (1) describe the task in a way that is consistent with exactly what these examples show, and (2) explain, for each example, why its given output is correct for its given input, treating the given numbers as ground truth throughout:\n${examplesBlock}\n\n` +
+    `Do not include any solution approach or code. ` +
+    `Respond with ONLY a raw JSON object, no markdown fences, no prose outside the JSON, exactly this shape:\n` +
+    `{"description": "<2-4 sentence plain-English statement of the task, written to match the exact examples given above, including the input and output format>", ` +
+    `"explanations": ["${LC_EXPLANATION_RULE}", ...exactly ${examples.length} of these, one per example above IN THE SAME ORDER, each one referencing only that example's own given input/output values — never a different number than what was given], ` +
+    `"constraints": ["<bullet, a reasonable bound consistent with the examples given, e.g. 1 <= n <= 20>", ...1-4 of these]}\n` +
+    `${MATH_NOTATION_RULE}`;
+}
 // Renders the parsed {description, examples, constraints} object into
 // LeetCode-styled HTML (bordered monospace example boxes, bulleted
 // constraints). "output" arrives with real embedded newlines already
@@ -5779,8 +5814,8 @@ function openCodeEditorModal(id){
   try{ hasKey = !!localStorage.getItem(APIKEY_KEY); }catch(e){}
   if(hasKey){
     (async ()=>{
-      if(!cachedSummary) await generateSolveProblemSummary(true);
-      generateSolveTestCases(true);
+      await generateSolveTestCases(true);
+      if(!cachedSummary) generateSolveProblemSummary(true);
     })();
   }
 }
@@ -6090,12 +6125,26 @@ async function generateSolveProblemSummary(auto){
   btn.disabled = true; btn.textContent = 'Summarizing…';
   box.style.display = 'block';
   box.innerHTML = `<span class="ai-tag">AI paraphrase — verify against the real problem</span>\nAsking for a summary…`;
+  // Prefer grounding on already-generated test cases (reliable, forced-JSON
+  // newlines, already what Run/Submit actually checks against) rather than
+  // asking the model to independently re-type its own input/output values —
+  // that redundant second attempt is exactly what let the description drift
+  // out of sync with the test cases. Only available when the harness (non-
+  // SQL) and at least 2 test cases already exist for this exact problem.
+  const groundedSamples = solveHarness
+    ? (solveTestCases.filter(tc=>tc.sample).slice(0,3).length >= 2
+        ? solveTestCases.filter(tc=>tc.sample).slice(0,3)
+        : solveTestCases.slice(0, Math.min(3, solveTestCases.length)))
+    : [];
+  const groundedExamples = groundedSamples.length >= 2
+    ? groundedSamples.map(tc => ({ input: formatTcInputForDisplay(tc, solveHarness), output: tc.expected }))
+    : null;
   try{
     const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=' + encodeURIComponent(key), {
       method:'POST',
       headers:{ 'Content-Type':'application/json' },
       body: JSON.stringify({
-        contents:[{ role:'user', parts:[{ text: buildLcFormatPrompt(p) }]}],
+        contents:[{ role:'user', parts:[{ text: groundedExamples ? buildLcExplainOnlyPrompt(p, groundedExamples) : buildLcFormatPrompt(p) }]}],
         generationConfig:{ maxOutputTokens:1400, thinkingConfig:{ thinkingLevel:'minimal' } }
       })
     });
@@ -6113,7 +6162,11 @@ async function generateSolveProblemSummary(auto){
     if(text){
       try{
         const jsonText = text.replace(/^```(json)?/i,'').replace(/```$/,'').trim();
-        const parsed = JSON.parse(jsonText);
+        const aiParsed = JSON.parse(jsonText);
+        const parsed = groundedExamples
+          ? { description: aiParsed.description, constraints: aiParsed.constraints,
+              examples: groundedExamples.map((ex,i)=>({ input: ex.input, output: ex.output, explanation: (aiParsed.explanations||[])[i] || '' })) }
+          : aiParsed;
         bodyHtml = renderLcFormattedSummary(parsed);
         groundingText = JSON.stringify(parsed);
       }catch(parseErr){
@@ -8081,12 +8134,20 @@ async function generateMockProblemSummary(auto){
   btn.disabled = true; btn.textContent = 'Summarizing…';
   box.style.display = 'block';
   box.innerHTML = `<span class="ai-tag">AI paraphrase — verify against the real problem</span>\nAsking for a summary…`;
+  const mockSamples = activeMock.harness
+    ? (activeMock.testCases.filter(tc=>tc.sample).slice(0,3).length >= 2
+        ? activeMock.testCases.filter(tc=>tc.sample).slice(0,3)
+        : activeMock.testCases.slice(0, Math.min(3, activeMock.testCases.length)))
+    : [];
+  const groundedExamples = mockSamples.length >= 2
+    ? mockSamples.map(tc => ({ input: formatTcInputForDisplay(tc, activeMock.harness), output: tc.expected }))
+    : null;
   try{
     const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=' + encodeURIComponent(key), {
       method:'POST',
       headers:{ 'Content-Type':'application/json' },
       body: JSON.stringify({
-        contents:[{ role:'user', parts:[{ text: buildLcFormatPrompt(p) }]}],
+        contents:[{ role:'user', parts:[{ text: groundedExamples ? buildLcExplainOnlyPrompt(p, groundedExamples) : buildLcFormatPrompt(p) }]}],
         generationConfig:{ maxOutputTokens:1400, thinkingConfig:{ thinkingLevel:'minimal' } }
       })
     });
@@ -8103,7 +8164,12 @@ async function generateMockProblemSummary(auto){
     if(text){
       try{
         const jsonText = text.replace(/^```(json)?/i,'').replace(/```$/,'').trim();
-        bodyHtml = renderLcFormattedSummary(JSON.parse(jsonText));
+        const aiParsed = JSON.parse(jsonText);
+        const parsed = groundedExamples
+          ? { description: aiParsed.description, constraints: aiParsed.constraints,
+              examples: groundedExamples.map((ex,i)=>({ input: ex.input, output: ex.output, explanation: (aiParsed.explanations||[])[i] || '' })) }
+          : aiParsed;
+        bodyHtml = renderLcFormattedSummary(parsed);
       }catch(parseErr){
         bodyHtml = `<div class="lcfmt-note">${mathText(stripLatexArtifacts(text))}</div>`;
       }
@@ -8492,7 +8558,12 @@ function renderMockActiveView(){
   if(!activeMock.summaryHtml){
     let hasKeyForSummary = false;
     try{ hasKeyForSummary = !!localStorage.getItem(APIKEY_KEY); }catch(e){}
-    if(hasKeyForSummary) generateMockProblemSummary(true);
+    if(hasKeyForSummary){
+      (async ()=>{
+        if(!activeMock.testCasesGenerated && !activeMock.testCasesAutoTried) await generateMockTestCases(true);
+        if(!activeMock.summaryHtml) generateMockProblemSummary(true);
+      })();
+    }
   }
   document.getElementById('mockConceptBtn').addEventListener('click', ()=>{
     const key = requireGeminiKey('mockKeySection');
@@ -11571,8 +11642,10 @@ function handleMockDeepLink(){
     let hasKey = false;
     try{ hasKey = !!localStorage.getItem(APIKEY_KEY); }catch(e){}
     if(hasKey){
-      if(!activeMock.testCasesGenerated && !activeMock.testCasesAutoTried) generateMockTestCases(true);
-      if(!activeMock.summaryHtml) generateMockProblemSummary(true);
+      (async ()=>{
+        if(!activeMock.testCasesGenerated && !activeMock.testCasesAutoTried) await generateMockTestCases(true);
+        if(!activeMock.summaryHtml) generateMockProblemSummary(true);
+      })();
     }
   } else {
     // The <head> script optimistically hid the dashboard on the assumption
