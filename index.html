@@ -5698,6 +5698,7 @@ function resetSolveTestCases(){
   renderSolveTestCases();
 }
 const solveSummaryCache = {}; // problemId -> rendered summary HTML, so it survives modal close/reopen without a re-fetch
+const solveSummaryRawCache = {}; // problemId -> raw (unrendered) AI summary text, used to keep test-case generation consistent with the description — see generateSolveTestCases
 function openCodeEditorModal(id){
   solveModalId = id;
   const p = PROBLEMS.find(x=>x.id===id);
@@ -5758,8 +5759,10 @@ function openCodeEditorModal(id){
   let hasKey = false;
   try{ hasKey = !!localStorage.getItem(APIKEY_KEY); }catch(e){}
   if(hasKey){
-    if(!cachedSummary) generateSolveProblemSummary(true);
-    generateSolveTestCases(true);
+    (async ()=>{
+      if(!cachedSummary) await generateSolveProblemSummary(true);
+      generateSolveTestCases(true);
+    })();
   }
 }
 document.getElementById('solveLangSel').addEventListener('change', ()=>{
@@ -6087,7 +6090,7 @@ async function generateSolveProblemSummary(auto){
     const text = parts.map(b=>b.text||'').join('\n').trim();
     const confidenceFlag = text && detectLowConfidence(text) ? '<div class="confidence-flag">⚠️ The AI flagged uncertainty about this problem\'s exact details — double-check against the real LeetCode statement.</div>' : '';
     box.innerHTML = `<span class="ai-tag">AI paraphrase — verify against the real problem</span>\n${confidenceFlag}${text ? renderLcFormattedSummary(text) : 'No summary came back — try again, or just read it on LeetCode.'}`;
-    if(text) solveSummaryCache[p.id] = box.innerHTML;
+    if(text) { solveSummaryCache[p.id] = box.innerHTML; solveSummaryRawCache[p.id] = text; }
   }catch(err){
     box.innerHTML = `<span class="ai-tag">AI paraphrase</span>\n⚠ ${escapeHtml((err && err.message) ? err.message : String(err))}`;
   }finally{
@@ -6199,6 +6202,18 @@ async function generateSolveTestCases(auto){
   if(!key) return;
   const langLabel = langKeyToLabel(document.getElementById('solveLangSel').value);
   const isSql = langLabel === 'SQL';
+  // If we already generated (or the person already read) a problem summary
+  // for this exact problem, hand it back to the model verbatim and tell it
+  // to treat that as the authoritative statement — otherwise this call and
+  // the summary call each independently guess what the problem is (this
+  // matters most for pattern-printing drills, which have no canonical
+  // LeetCode text to anchor either call to), and the two guesses can diverge:
+  // e.g. the description describing a multi-row pyramid while the testcases
+  // describe a single-line output for the same problem.
+  const groundingSummary = solveSummaryRawCache[p.id];
+  const groundingBlock = groundingSummary
+    ? `The problem statement has ALREADY been written as follows — treat it as the authoritative, fixed definition of the task and generate test cases that are strictly consistent with it (same input/output shape, same behavior on edge cases). Do not reinterpret or invent a different version of the problem:\n"""\n${groundingSummary}\n"""\n\n`
+    : '';
   solveTestCasesLoading = true;
   renderSolveTestCases();
   try{
@@ -6206,7 +6221,7 @@ async function generateSolveTestCases(auto){
       method:'POST',
       headers:{ 'Content-Type':'application/json' },
       body: JSON.stringify({
-        contents:[{ role:'user', parts:[{ text: isSql ?
+        contents:[{ role:'user', parts:[{ text: groundingBlock + (isSql ?
           `Generate ${MIN_SUBMIT_TEST_CASES} UNIQUE example test cases (no two with the same seed data) for the LeetCode SQL problem "${p.title}" (topic: ${p.section}, difficulty: ${p.diff==='E'?'Easy':p.diff==='M'?'Medium':'Hard'}). ` +
           `Put the 3 clearest, most representative cases FIRST — those are shown to the person as visible samples. The remaining ~${MIN_SUBMIT_TEST_CASES - MIN_RUN_TEST_CASES} are used for grading only and must be varied, and should cover realistic edge cases: an empty table, a table with only one row, duplicate/tied values, NULLs where the schema allows them, and any boundary condition specific to this problem. ` +
           `Use well-known example inputs/outputs for this specific problem if you know them for the first cases; otherwise construct small, plausible cases consistent with its usual constraints. ` +
@@ -6221,7 +6236,7 @@ async function generateSolveTestCases(auto){
           `"returnType": "<one of: ${JAVA_TYPE_VOCAB.join(', ')}>", ` +
           `"testCases": [{"input": [<param 1 value>, <param 2 value>, ...], "expected": "<exact plain value the return should equal — a bare number/word, or compact JSON like [1,2,3] for arrays, true/false for booleans>"}, ...exactly ${MIN_SUBMIT_TEST_CASES} of these, unique...]}\n` +
           `"input" must always be a JSON array with exactly one element per parameter, in the same order as "params". Only use types from the given vocabulary (use int[] for any integer list/array regardless of what LeetCode calls it, int[][] for a 2D grid, etc — pick the closest match).`
-        }]}],
+        )}]}],
         generationConfig:{ maxOutputTokens:3000, thinkingConfig:{ thinkingLevel:'minimal' } }
       })
     });
@@ -8493,6 +8508,8 @@ function renderMockActiveView(){
       : '';
     setMockCode(starter);
     lastMockAutoStarter = starter;
+    delete mockWalkthroughCache[activeMock.problemId];
+    resetMockWalkthroughPanel();
     showToast('Editor reset.');
   });
   document.getElementById('mockLastSubmitBtn').addEventListener('click', ()=>{
@@ -9603,8 +9620,15 @@ const query = \`query problemsetQuestionList($categorySlug: String, $limit: Int,
   }
 }\`;
 
+// IMPORTANT: we deliberately do NOT ask LeetCode's API to filter server-side
+// via filters:{status:'AC'} — that filter shape isn't reliably honored by
+// the current schema and silently matches zero questions, which is why this
+// used to write an empty slugs array with no error. Instead we page through
+// every problem (filters:{}) and check each question's own \`status\` field,
+// which LeetCode sets to the string "ac" once you've solved it, "notac" if
+// you've attempted but not solved it, or null if untouched.
 const limit = 100;
-let skip = 0, total = Infinity, slugs = [];
+let skip = 0, total = Infinity, slugs = [], sawAnyStatus = false;
 
 while(skip < total){
   const res = await fetch('https://leetcode.com/graphql/', {
@@ -9614,27 +9638,46 @@ while(skip < total){
       'Cookie': \`LEETCODE_SESSION=\${session}; csrftoken=\${csrf}\`,
       'x-csrftoken': csrf,
       'Referer': 'https://leetcode.com',
+      'User-Agent': 'Mozilla/5.0 (compatible; dsa-tracker-sync/1.0)',
     },
-    body: JSON.stringify({ query, variables: { categorySlug: '', skip, limit, filters: { status: 'AC' } } })
+    body: JSON.stringify({ query, variables: { categorySlug: '', skip, limit, filters: {} } })
   });
   if(!res.ok){
     console.error('LeetCode request failed:', res.status, await res.text());
     process.exit(1);
   }
   const json = await res.json();
+  if(json.errors){
+    console.error('LeetCode GraphQL returned errors:', JSON.stringify(json.errors));
+    process.exit(1);
+  }
   const data = json.data && json.data.problemsetQuestionList;
   if(!data){
     console.error('Unexpected response shape — your session cookie has probably expired. Refresh the LEETCODE_SESSION secret.');
     process.exit(1);
   }
   total = data.total;
-  slugs.push(...data.questions.map(q => q.titleSlug));
+  for(const q of data.questions){
+    if(q.status) sawAnyStatus = true; // any non-null status means the cookie is authenticated
+    if(q.status === 'ac') slugs.push(q.titleSlug);
+  }
   skip += limit;
+}
+
+if(!sawAnyStatus){
+  console.error(
+    'Every question came back with status:null, which means LeetCode did not recognize this run as ' +
+    'logged in — your LEETCODE_SESSION / LEETCODE_CSRF_TOKEN secrets are likely stale. Open leetcode.com ' +
+    'in a browser you are logged into, copy fresh values for the LEETCODE_SESSION and csrftoken cookies ' +
+    '(DevTools > Application > Cookies), update the repo secrets under Settings > Secrets and variables > ' +
+    'Actions, and re-run the workflow.'
+  );
+  process.exit(1);
 }
 
 mkdirSync('data', { recursive: true });
 writeFileSync('data/solved.json', JSON.stringify({ updatedAt: new Date().toISOString(), slugs }, null, 2));
-console.log(\`Wrote \${slugs.length} solved slugs to data/solved.json\`);
+console.log(\`Wrote \${slugs.length} solved slugs to data/solved.json (out of \${total} total problems seen)\`);
 `;
 
 function parseGhOwnerRepo(input){
@@ -10609,6 +10652,8 @@ document.getElementById('solveResetBtn').addEventListener('click', ()=>{
   setSolveCode(solveModalId, lang, starter);
   resetSolveHistory(starter);
   lastAutoStarter = starter;
+  delete solveWalkthroughCache[solveModalId];
+  resetSolveWalkthroughPanel();
   showToast('Editor reset.');
 });
 document.getElementById('solveCopyCodeBtn').addEventListener('click', async ()=>{
