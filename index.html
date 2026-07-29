@@ -6065,12 +6065,19 @@ document.getElementById('solveRunBtn').addEventListener('click', async ()=>{
       const t0 = performance.now();
       const { results } = await runCasesInLang(langVal, code, casesToRun.map(tc=>tc.input));
       const elapsedMs = Math.round(performance.now() - t0);
+      // NOTE: take the raw last log line — do NOT filter out blank lines
+      // first. The harness's println is the last thing printed for a case,
+      // and for some problems (e.g. minWindow's "no valid window") the
+      // CORRECT answer is the empty string, which prints as a blank line.
+      // Filtering blanks before picking the last line used to throw that
+      // real (blank) answer away and fall back to whatever line happened to
+      // be left — showing an unrelated line as if it were the actual output.
       casesToRun.forEach((tc, i)=>{
         const result = results[i];
         if(!result.ok){
           tc.status = result.tle ? 'tle' : 'error'; tc.actual = formatShortError(result);
         } else {
-          const lastLine = (result.logs || []).filter(l=>l.trim()).pop() || '';
+          const lastLine = (result.logs && result.logs.length) ? result.logs[result.logs.length - 1] : '';
           tc.actual = lastLine;
           const ok = normalizeForCompare(lastLine) === normalizeForCompare(tc.expected);
           tc.status = ok ? 'pass' : 'fail';
@@ -6657,7 +6664,7 @@ async function submitSolveTestCases(){
       if(!result.ok){
         tc.status = result.tle ? 'tle' : 'error'; tc.actual = formatShortError(result);
       } else {
-        const lastLine = (result.logs || []).filter(l=>l.trim()).pop() || '';
+        const lastLine = (result.logs && result.logs.length) ? result.logs[result.logs.length - 1] : '';
         tc.actual = lastLine;
         tc.status = normalizeForCompare(lastLine) === normalizeForCompare(tc.expected) ? 'pass' : 'fail';
       }
@@ -7079,15 +7086,15 @@ function cmIndentedNewline(cm){
   const indentMatch = line.match(/^[ \t]*/);
   let indent = indentMatch ? indentMatch[0] : '';
   const trimmedBefore = before.trim();
-  const unit = ' '.repeat(cm.getOption('indentUnit') || 2);
+  const unit = ' '.repeat(cm.getOption('indentUnit') || 4);
   if(/[{(\[:]$/.test(trimmedBefore)) indent += unit;
   cm.replaceSelection('\n' + indent, 'end');
 }
 function cmSharedOptions(){
   return {
     lineNumbers: true,
-    indentUnit: 2,
-    tabSize: 2,
+    indentUnit: 4,
+    tabSize: 4,
     indentWithTabs: false,
     autoCloseBrackets: true,
     matchBrackets: true,
@@ -7738,10 +7745,18 @@ async function runCasesInLang(langKey, wrappedCode, rawInputJsons){
     if(!r.ok){
       return { results: rawInputJsons.map(()=>({ ok:false, logs:[...(compiled.logs||[])], error:r.error })), execMs };
     }
+    // NOTE: compiled.logs (javac/CheerpJ boot-time output, e.g. "Class is
+    // loaded, main is starting") is deliberately NOT spread into every case
+    // below — it happened once, during compilation, and has nothing to do
+    // with any individual test case's runtime output. Attaching it to every
+    // case here used to (a) mask a genuinely correct empty-string result
+    // (the real, correct blank output line would get filtered out downstream
+    // as "blank" and this boot noise would be left behind as the fallback
+    // "actual" value) and (b) pollute crash messages with irrelevant noise.
     return {
       results: splitBatchedJavaLogs(r.logs, rawInputJsons.length).map(res=>({
         ok: res.ok,
-        logs: [...(compiled.logs||[]), ...res.logs],
+        logs: res.logs,
         error: res.error,
       })),
       execMs,
@@ -7815,7 +7830,7 @@ async function runMockCode(){
         if(!result.ok){
           tc.status = result.tle ? 'tle' : 'error'; tc.actual = formatShortError(result);
         } else {
-          const lastLine = (result.logs || []).filter(l=>l.trim()).pop() || '';
+          const lastLine = (result.logs && result.logs.length) ? result.logs[result.logs.length - 1] : '';
           tc.actual = lastLine;
           const ok = normalizeForCompare(lastLine) === normalizeForCompare(tc.expected);
           tc.status = ok ? 'pass' : 'fail';
@@ -8064,7 +8079,7 @@ async function submitMockTestCases(){
       if(!result.ok){
         tc.status = result.tle ? 'tle' : 'error'; tc.actual = formatShortError(result);
       } else {
-        const lastLine = (result.logs || []).filter(l=>l.trim()).pop() || '';
+        const lastLine = (result.logs && result.logs.length) ? result.logs[result.logs.length - 1] : '';
         tc.actual = lastLine;
         tc.status = normalizeForCompare(lastLine) === normalizeForCompare(tc.expected) ? 'pass' : 'fail';
       }
