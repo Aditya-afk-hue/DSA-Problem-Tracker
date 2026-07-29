@@ -7740,31 +7740,33 @@ async function runCasesInLang(langKey, wrappedCode, rawInputJsons){
     // ALL cases are reported as unknown/timed-out together rather than
     // isolating which one hung — that's the one thing the old per-case
     // loop could tell you that this can't.
-    // The reported "Runtime" used to include CheerpJ's one-time cold-start
-    // cost for THIS freshly-compiled class — class loading + JIT warm-up +
-    // the WASM<->JS boundary crossing — on top of the actual algorithm time,
-    // which is why a trivial O(1)/O(n) solution could show ~500ms here vs
-    // ~2ms on LeetCode's judge. That's not a fair comparison: LeetCode's
-    // judge runs your solution on an already-warm, already-JITted JVM, not a
-    // cold one. So run the exact same batch ONCE, untimed, purely to pay
-    // that cold-start cost up front — then run it again, timed, and report
-    // THAT number. This can't get all the way to LeetCode's native-server
-    // numbers (this is still a real JVM interpreting/JITting inside a
-    // browser sandbox, which has its own floor), but it stops charging your
-    // reported runtime for one-time warm-up cost that isn't really "your
-    // code's" time.
-    const warmup = await raceTimeout(runCompiledJavaBatch(compiled.className, rawInputJsons), JAVA_TLE_MS);
-    if(warmup.timedOut){
-      // Don't fire a second cheerpjRunMain call while this one may still be
-      // running in the background (CheerpJ can't run two programs at once,
-      // and canceling it isn't possible in-browser) — just report the
-      // timeout now instead of risking two calls colliding.
-      const tleMsg = `Time Limit Exceeded — no output after ${Math.round(JAVA_TLE_MS/1000)}s. Java can't be safely interrupted mid-run in the browser, so which specific case is stuck can't be isolated — if the page feels unresponsive afterward, reload the tab.`;
-      return { results: rawInputJsons.map(()=>({ ok:false, logs:[], error:tleMsg, tle:true })), execMs: null };
-    }
+    // The reported "Runtime" used to include CheerpJ's overhead for the
+    // cheerpjRunMain call itself — invoking a compiled class through the
+    // WASM<->JS boundary — on top of the actual algorithm time, which is why
+    // a trivial O(1)/O(n) solution could show ~500ms here vs ~2ms on
+    // LeetCode's judge. Re-running the same class doesn't make this
+    // per-call cost go away (tested: identical timing on a second run), so
+    // it isn't a one-time "cold start" that can be warmed away — it's a
+    // fixed tax on every single cheerpjRunMain invocation, warm class or
+    // not. Instead of trying to warm it away, measure it directly: call the
+    // SAME compiled class with an empty args array (the harness's loop then
+    // runs zero iterations, so this measures pure invocation overhead with
+    // none of your actual test-case work), then subtract that floor from
+    // the real, full-batch timed run below. What's left over is the
+    // incremental cost of actually running your test cases — the closest
+    // this environment can get to isolating "your algorithm's time" from
+    // "the cost of asking a browser-sandboxed JVM to run anything at all".
+    // This still won't reach LeetCode's native-server numbers (there's a
+    // real interpretation/JIT floor here that a warm server JVM doesn't
+    // have), but it stops charging your reported runtime for overhead that
+    // isn't really "your code's" time.
+    const floorT0 = performance.now();
+    const floorRace = await raceTimeout(runCompiledJavaBatch(compiled.className, []), JAVA_TLE_MS);
+    const floorMs = floorRace.timedOut ? 0 : Math.round(performance.now() - floorT0);
     const execT0 = performance.now();
     const race = await raceTimeout(runCompiledJavaBatch(compiled.className, rawInputJsons), JAVA_TLE_MS);
-    const execMs = Math.round(performance.now() - execT0);
+    const rawExecMs = Math.round(performance.now() - execT0);
+    const execMs = Math.max(1, rawExecMs - floorMs);
     if(race.timedOut){
       const tleMsg = `Time Limit Exceeded — no output after ${Math.round(JAVA_TLE_MS/1000)}s. Java can't be safely interrupted mid-run in the browser, so which specific case is stuck can't be isolated — if the page feels unresponsive afterward, reload the tab.`;
       return { results: rawInputJsons.map(()=>({ ok:false, logs:[], error:tleMsg, tle:true })), execMs };
@@ -9616,7 +9618,7 @@ function logSubmission(id, lang, code, passed, total, source, elapsedMs){
 function getAcceptedRuntimeHistory(id, lang){
   return getSubmissions(id)
     .filter(s => s.lang === lang && s.total > 0 && s.passed === s.total && typeof s.elapsedMs === 'number')
-    .slice(0, 20)
+    .slice(0, 10)
     .reverse();
 }
 function getSubmissions(id){
