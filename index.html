@@ -5813,16 +5813,16 @@ function openCodeEditorModal(id){
   let hasKey = false;
   try{ hasKey = !!localStorage.getItem(APIKEY_KEY); }catch(e){}
   if(hasKey){
-    // Fire both requests in the same tick instead of awaiting test cases
-    // first — they used to run back-to-back so the summary's network call
-    // didn't even start until the test cases finished, roughly doubling the
-    // wait before anything showed up. Running them concurrently means each
-    // one loses the chance to ground itself on the other's already-finished
-    // output (see the comments inside generateSolveTestCases /
-    // generateSolveProblemSummary), but both panels now populate as soon as
-    // their own call resolves instead of one waiting on the other.
-    generateSolveTestCases(true);
-    if(!cachedSummary) generateSolveProblemSummary(true);
+    // Summary goes first and is awaited before test-case generation starts,
+    // so the test cases can ground themselves on the summary's stated I/O
+    // shape (see the groundingSummary block inside generateSolveTestCases)
+    // instead of the two independently guessing and possibly disagreeing.
+    // This is sequential by design — slower than firing both at once, but
+    // consistent, which matters more here.
+    (async ()=>{
+      if(!cachedSummary) await generateSolveProblemSummary(true);
+      generateSolveTestCases(true);
+    })();
   }
 }
 document.getElementById('solveLangSel').addEventListener('change', ()=>{
@@ -8616,11 +8616,12 @@ function renderMockActiveView(){
     let hasKeyForSummary = false;
     try{ hasKeyForSummary = !!localStorage.getItem(APIKEY_KEY); }catch(e){}
     if(hasKeyForSummary){
-      // Run concurrently rather than awaiting test cases first, so the
-      // summary panel doesn't sit idle waiting on a second network round
-      // trip it doesn't strictly need — see the same change in openSolveModal.
-      if(!activeMock.testCasesGenerated && !activeMock.testCasesAutoTried) generateMockTestCases(true);
-      if(!activeMock.summaryHtml) generateMockProblemSummary(true);
+      // Summary first (awaited), then test cases grounded on it — see the
+      // same change in openSolveModal.
+      (async ()=>{
+        if(!activeMock.summaryHtml) await generateMockProblemSummary(true);
+        if(!activeMock.testCasesGenerated && !activeMock.testCasesAutoTried) generateMockTestCases(true);
+      })();
     }
   }
   document.getElementById('mockConceptBtn').addEventListener('click', ()=>{
@@ -11761,10 +11762,12 @@ function handleMockDeepLink(){
     let hasKey = false;
     try{ hasKey = !!localStorage.getItem(APIKEY_KEY); }catch(e){}
     if(hasKey){
-      // Run concurrently rather than awaiting test cases first — see the
+      // Summary first (awaited), then test cases grounded on it — see the
       // same change in openSolveModal.
-      if(!activeMock.testCasesGenerated && !activeMock.testCasesAutoTried) generateMockTestCases(true);
-      if(!activeMock.summaryHtml) generateMockProblemSummary(true);
+      (async ()=>{
+        if(!activeMock.summaryHtml) await generateMockProblemSummary(true);
+        if(!activeMock.testCasesGenerated && !activeMock.testCasesAutoTried) generateMockTestCases(true);
+      })();
     }
   } else {
     // The <head> script optimistically hid the dashboard on the assumption
