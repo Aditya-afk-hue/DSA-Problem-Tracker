@@ -689,8 +689,15 @@ const PROBLEMS = DSA_PROBLEM_DATA.map(r => {
     // the site itself uses, apostrophes included) for the ~246 real A2Z
     // problems that have no LeetCode page. Generic pattern-printing drills
     // (r[13] empty) have no single discrete problem page, so no link.
+    // The same field also covers the handful of *premium* LeetCode problems
+    // that happen to also be hosted on TUF+ — for those we'd rather send
+    // people to a page they can actually open than to a LeetCode paywall.
     tufSlug: r[13] || '',
     practiceUrl: r[13] ? `https://takeuforward.org/plus/dsa/problems/${r[13]}?source=strivers-a2z-dsa-track` : null,
+    // True only for premium (paywalled) problems that also have a TUF
+    // practice page — these should link out to TUF instead of LeetCode.
+    // Premium problems with no TUF match keep linking to LeetCode as before.
+    redirectsToTuf: !!(r[5] && r[13]),
     neet150: !!r[10],   
     blind75: !!r[11],   
     babbar450: !!r[12]  
@@ -4911,7 +4918,7 @@ function buildRowEl(p){
     p.neet150 ? '<span class="top150-tag neet-tag" title="On NeetCode\'s 150 list">🧊 NeetCode 150</span>' : '',
     p.blind75 ? '<span class="top150-tag blind-tag" title="On the Blind 75 list">🎯 Blind 75</span>' : '',
     p.babbar450 ? '<span class="top150-tag babbar-tag" title="Matched to a problem on Love Babbar\'s 450 DSA sheet">📗 Babbar 105</span>' : '',
-    p.premium ? '<span class="premium-tag">🔒 Premium</span>' : '',
+    p.premium ? `<span class="premium-tag" title="${p.redirectsToTuf ? 'Paywalled on LeetCode — this tracker links to the same problem on TakeUForward+ instead' : 'Requires a paid LeetCode account to open on LeetCode'}">🔒 Premium${p.redirectsToTuf ? ' · via TUF' : ''}</span>` : '',
     p.noOJ ? '<span class="premium-tag no-oj-tag" title="Not hosted on LeetCode — part of the A2Z sheet as a theory topic, pattern drill, or GfG-only implementation. Solved by passing this tracker\'s own test cases (or marking done for non-coding topics), same as a premium problem.">🧩 No OJ</span>' : ''
   ].filter(Boolean).join('');
   const badges = badgeParts ? `<div class="row-badges">${badgeParts}</div>` : '';
@@ -4921,7 +4928,9 @@ function buildRowEl(p){
     ? (p.practiceUrl
         ? `<a class="rtitle no-oj" href="${p.practiceUrl}" target="_blank" rel="noopener">${p.title}</a>`
         : `<span class="rtitle no-oj">${p.title}</span>`)
-    : `<a class="rtitle" href="https://leetcode.com/problems/${p.slug}/" target="_blank" rel="noopener">${p.title}</a>`;
+    : (p.redirectsToTuf
+        ? `<a class="rtitle no-oj" href="${p.practiceUrl}" target="_blank" rel="noopener" title="Premium on LeetCode — opens on TakeUForward+ instead">${p.title}</a>`
+        : `<a class="rtitle" href="https://leetcode.com/problems/${p.slug}/" target="_blank" rel="noopener">${p.title}</a>`);
   row.innerHTML = `
     <span class="rid">${p.lc ? "#"+p.lc : (p.noOJ ? "🧩" : "🏢")}</span>
     ${titleHtml}
@@ -4950,7 +4959,7 @@ function attachRowIconHandlers(root){
       const id = parseInt(btn.getAttribute('data-solve'),10);
       const prob = PROBLEMS.find(x=>x.id===id);
       if(!prob) return;
-      if(prob.noOJ){
+      if(prob.noOJ || prob.redirectsToTuf){
         if(prob.practiceUrl) window.open(prob.practiceUrl, '_blank', 'noopener');
         return;
       }
@@ -5759,7 +5768,7 @@ function openCodeEditorModal(id){
   document.getElementById('codeEditorModalSub').textContent = p.title + ' — ' + p.section;
   renderApiKeyWidget('solveKeySection');
   const lcBtn = document.getElementById('solveOpenLeetcodeBtn');
-  if(p.noOJ){
+  if(p.noOJ || p.redirectsToTuf){
     if(p.practiceUrl){
       lcBtn.style.display = 'inline-flex';
       lcBtn.href = p.practiceUrl;
@@ -8469,7 +8478,7 @@ function renderMockActiveView(){
   preloadRuntimeForLang(activeMock.lang);
   const p = PROBLEMS.find(x=>x.id===activeMock.problemId);
   const url = `https://leetcode.com/problems/${p.slug}/`;
-  const mockTitleHtml = p.noOJ
+  const mockTitleHtml = (p.noOJ || p.redirectsToTuf)
     ? (p.practiceUrl ? `<a href="${p.practiceUrl}" target="_blank" rel="noopener" style="color:inherit;">${escapeHtml(p.title)}</a>` : escapeHtml(p.title))
     : `<a href="${url}" target="_blank" rel="noopener" style="color:inherit;">${escapeHtml(p.title)}</a>`;
   document.getElementById('mockActiveView').innerHTML = `
@@ -9058,7 +9067,9 @@ document.getElementById('planDownloadBtn').addEventListener('click', ()=>{
     d.problems.forEach(p=>{
       md += p.noOJ
         ? (p.practiceUrl ? `- [ ] [${p.title}](${p.practiceUrl}) — not on LeetCode (${p.diff})\n` : `- [ ] ${p.title} — not on LeetCode (${p.diff})\n`)
-        : `- [ ] [${p.title}](https://leetcode.com/problems/${p.slug}/) (${p.diff})\n`;
+        : p.redirectsToTuf
+          ? `- [ ] [${p.title}](${p.practiceUrl}) — premium on LeetCode, via TakeUForward (${p.diff})\n`
+          : `- [ ] [${p.title}](https://leetcode.com/problems/${p.slug}/) (${p.diff})\n`;
     });
     md += `\n`;
   });
