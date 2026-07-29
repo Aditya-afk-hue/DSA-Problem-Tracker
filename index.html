@@ -7740,6 +7740,28 @@ async function runCasesInLang(langKey, wrappedCode, rawInputJsons){
     // ALL cases are reported as unknown/timed-out together rather than
     // isolating which one hung — that's the one thing the old per-case
     // loop could tell you that this can't.
+    // The reported "Runtime" used to include CheerpJ's one-time cold-start
+    // cost for THIS freshly-compiled class — class loading + JIT warm-up +
+    // the WASM<->JS boundary crossing — on top of the actual algorithm time,
+    // which is why a trivial O(1)/O(n) solution could show ~500ms here vs
+    // ~2ms on LeetCode's judge. That's not a fair comparison: LeetCode's
+    // judge runs your solution on an already-warm, already-JITted JVM, not a
+    // cold one. So run the exact same batch ONCE, untimed, purely to pay
+    // that cold-start cost up front — then run it again, timed, and report
+    // THAT number. This can't get all the way to LeetCode's native-server
+    // numbers (this is still a real JVM interpreting/JITting inside a
+    // browser sandbox, which has its own floor), but it stops charging your
+    // reported runtime for one-time warm-up cost that isn't really "your
+    // code's" time.
+    const warmup = await raceTimeout(runCompiledJavaBatch(compiled.className, rawInputJsons), JAVA_TLE_MS);
+    if(warmup.timedOut){
+      // Don't fire a second cheerpjRunMain call while this one may still be
+      // running in the background (CheerpJ can't run two programs at once,
+      // and canceling it isn't possible in-browser) — just report the
+      // timeout now instead of risking two calls colliding.
+      const tleMsg = `Time Limit Exceeded — no output after ${Math.round(JAVA_TLE_MS/1000)}s. Java can't be safely interrupted mid-run in the browser, so which specific case is stuck can't be isolated — if the page feels unresponsive afterward, reload the tab.`;
+      return { results: rawInputJsons.map(()=>({ ok:false, logs:[], error:tleMsg, tle:true })), execMs: null };
+    }
     const execT0 = performance.now();
     const race = await raceTimeout(runCompiledJavaBatch(compiled.className, rawInputJsons), JAVA_TLE_MS);
     const execMs = Math.round(performance.now() - execT0);
