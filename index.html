@@ -10569,6 +10569,30 @@ function getReviewTestCaseTarget(problemId){
   if(activeMock && activeMock.problemId === problemId) return { arr: activeMock.testCases, kind:'mock' };
   return null;
 }
+// For substring/window-style problems (input is an array containing at
+// least one string arg — the "haystack"), a literal-substring check is
+// trivial and 100% reliable to do in JS, but the model doing this same
+// check by manually counting characters/indices in text is exactly where it
+// goes wrong (e.g. confidently declaring a real substring "isn't
+// contiguous" off a miscounted index). So compute it here and hand the
+// model the answer as a verified fact instead of asking it to derive one.
+// Returns null when the case doesn't look like this shape (nothing to add).
+function computeSubstringFacts(tc){
+  let args;
+  try{ args = JSON.parse(tc.input); }catch(e){ return null; }
+  if(!Array.isArray(args)) return null;
+  const strArgs = args.filter(a=>typeof a === 'string' && a.length);
+  if(!strArgs.length) return null;
+  const haystack = strArgs.reduce((a,b)=> a.length>=b.length ? a : b);
+  const facts = [];
+  const describe = (label, val)=>{
+    if(typeof val !== 'string' || !val) return;
+    facts.push(`${label} "${val}" is ${haystack.includes(val) ? 'CONFIRMED (by direct string search, not manual counting) to be' : 'CONFIRMED NOT to be'} a literal contiguous substring of the longest string input, "${haystack}"`);
+  };
+  describe("the code's actual output", tc.actual);
+  describe("the case's current expected value", tc.expected);
+  return facts.length ? facts.join('; ') + '.' : null;
+}
 // Summarizes the last Run/Submit's results as plain text for the review
 // prompt. Returns '' if nothing has actually been run yet (idle cases;
 // nothing to say) so the prompt doesn't get padded with vacuous "no results
@@ -10584,11 +10608,12 @@ function buildReviewTestCaseContext(target){
   const lines = failing.map(tc=>{
     const idx = target.arr.indexOf(tc) + 1; // 1-based — matches the "Case N" numbering shown in the Testcase panel
     const actualText = tc.status === 'error' ? `(error) ${tc.actual || ''}` : (tc.actual || '(no output)');
-    return `Case ${idx} — input: ${tc.input} — expected: ${tc.expected} — actual: ${actualText}`;
+    const facts = computeSubstringFacts(tc);
+    return `Case ${idx} — input: ${tc.input} — expected: ${tc.expected} — actual: ${actualText}` + (facts ? `\n  Verified facts (already computed programmatically — trust these, do not recount characters/indices yourself to double-check them): ${facts}` : '');
   }).join('\n');
   return `Test case results from the last Run/Submit (${ran.length - failing.length}/${ran.length} passed):\n${lines}\n\n` +
     `For each failing case above, work out independently — from the problem's own stated rules and examples — what the correct output for that exact input actually is, then compare it to both the code's actual output and the case's expected value. Judge the two on equal footing; do not default to assuming the code is at fault. ` +
-    `Two specific, easy-to-get-wrong checks, if the problem is a substring/subarray/window search: (1) don't just check that a candidate answer CONTAINS the required characters/elements — count them. If the target has a repeated element (e.g. t = "aba" needs two 'a's, not one), a candidate that satisfies the set of required characters but not their exact required counts is NOT a valid answer, no matter how plausible it looks at a glance. (2) before calling any string a valid alternative answer, confirm it is an actual contiguous substring of the given input at some position — don't just check that the right characters exist somewhere in the input; characters that individually appear in the input don't necessarily appear together, contiguously, in that exact order. Getting either of these wrong produces a confidently-worded but false verdict, so verify both explicitly before concluding. ` +
+    `Two specific, easy-to-get-wrong checks, if the problem is a substring/subarray/window search: (1) don't just check that a candidate answer CONTAINS the required characters/elements — count them. If the target has a repeated element (e.g. t = "aba" needs two 'a's, not one), a candidate that satisfies the set of required characters but not their exact required counts is NOT a valid answer, no matter how plausible it looks at a glance. (2) before calling any string a valid alternative answer, it must be an actual contiguous substring of the given input at some position. Where a "Verified facts" line is given above for a case, that substring check has ALREADY been done programmatically and is guaranteed correct — use it as-is rather than re-deriving it by manually counting characters or indices yourself, since that manual counting is exactly the kind of step that produces a confidently-worded but false verdict. ` +
     `If the code's logic is right and it's the case's "expected" value that's wrong (or the input is malformed/ambiguous), say so plainly and correct it using the FIXED TESTCASE protocol described below. If the code's logic is actually wrong, say so plainly and explain the bug instead. Only leave a case uncorrected if you're genuinely unsure which side is wrong.`;
 }
 let reviewPendingTestContext = '';
@@ -11033,17 +11058,43 @@ async function sendReviewMessage(){
       if(fixMatches.length){
         const target = getReviewTestCaseTarget(reviewModalId);
         const applied = [];
+        const rejected = [];
         if(target && target.arr){
           fixMatches.forEach(m=>{
             const idx1 = parseInt(m[1], 10);
             const newExpected = m[2].trim();
             const tc = target.arr[idx1 - 1];
-            if(tc && newExpected){
-              tc.expected = newExpected;
-              tc.status = 'idle'; // needs a fresh Run/Submit against the corrected value
-              tc.actual = '';
-              applied.push(idx1);
+            if(!tc || !newExpected) return;
+            // Gate against the same verified fact the model was already
+            // handed above: if the code's current actual output is a
+            // CONFIRMED literal substring of the input but the model's own
+            // proposed replacement expected value is NOT, the model is
+            // asking to overwrite a working, verifiably-valid answer with
+            // one that fails the same check it was told to trust — refuse
+            // rather than silently apply a still-wrong "fix" (this is what
+            // was happening across repeated review turns: each guess got a
+            // confident "auto-corrected" label despite being wrong itself).
+            let suspicious = false;
+            try{
+              const args = JSON.parse(tc.input);
+              if(Array.isArray(args)){
+                const strArgs = args.filter(a=>typeof a === 'string' && a.length);
+                if(strArgs.length){
+                  const haystack = strArgs.reduce((a,b)=> a.length>=b.length ? a : b);
+                  if(typeof tc.actual === 'string' && tc.actual && haystack.includes(tc.actual) && !haystack.includes(newExpected)){
+                    suspicious = true;
+                  }
+                }
+              }
+            }catch(e){ /* not a JSON-array input — nothing to gate on, fall through to applying */ }
+            if(suspicious){
+              rejected.push({ idx1, newExpected });
+              return;
             }
+            tc.expected = newExpected;
+            tc.status = 'idle'; // needs a fresh Run/Submit against the corrected value
+            tc.actual = '';
+            applied.push(idx1);
           });
           if(applied.length){
             if(target.kind === 'solve') renderSolveTestCases();
@@ -11054,6 +11105,14 @@ async function sendReviewMessage(){
             fixNote.innerHTML = `<div class="hint-label" style="color:var(--pine);">✏️ Test case${applied.length===1?'':'s'} auto-corrected</div><div class="hint-line">Case${applied.length===1?'':'s'} ${applied.join(', ')} — expected value updated. Run/Submit again to verify.</div>`;
             out.appendChild(fixNote);
             showToast(`✏️ Auto-corrected ${applied.length} test case${applied.length===1?'':'s'} — re-run to verify.`);
+          }
+          if(rejected.length){
+            const rejNote = document.createElement('div');
+            rejNote.className = 'chat-bubble chat-assistant';
+            rejNote.style.cssText = 'border-color:#c9a227;';
+            rejNote.innerHTML = `<div class="hint-label" style="color:#c9a227;">⚠️ Suggested fix withheld</div><div class="hint-line">Case${rejected.length===1?'':'s'} ${rejected.map(r=>r.idx1).join(', ')} — the review suggested a new expected value that isn't a literal contiguous substring of the input, while the code's current output already is. That contradicts a programmatically-verified fact, so it was NOT auto-applied. Please check this one manually before trusting either side.</div>`;
+            out.appendChild(rejNote);
+            showToast(`⚠️ A suggested test-case fix failed verification and wasn't applied.`);
           }
         }
       }
