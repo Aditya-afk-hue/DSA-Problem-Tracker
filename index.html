@@ -5593,9 +5593,13 @@ function renderCodeBlockHtml(code, lang){
 // see insertLineFixIntoEditor below.
 const bugfixRegistry = {};
 let bugfixIdSeq = 0;
-function bugfixCardHtml(lineLabel, desc, beforeCode, afterCode){
+// fullFixedCode (optional): the same review turn's whole-file "FIXED CODE"
+// block, if the model included one. Carried along purely as a fallback for
+// insertLineFixIntoEditor's structural-balance check below — never shown or
+// used unless the one-line swap would itself leave the file broken.
+function bugfixCardHtml(lineLabel, desc, beforeCode, afterCode, fullFixedCode){
   const regId = 'bf' + (bugfixIdSeq++);
-  bugfixRegistry[regId] = { before: beforeCode, after: afterCode };
+  bugfixRegistry[regId] = { before: beforeCode, after: afterCode, fullFixedCode: fullFixedCode || null };
   return `<div class="bugfix-card">` +
     `<div class="bugfix-head"><span class="bugfix-line-badge">Line ${escapeHtml(lineLabel.trim())}</span>` +
     `<span class="bugfix-desc">${mathText(desc)}</span></div>` +
@@ -5658,7 +5662,58 @@ function extractCodeBlocks(raw){
   flushBuf();
   return { text: outLines.join('\n'), codeBlocks };
 }
+// Pulls out the model's own whole-file "FIXED CODE" block from the raw
+// response, independent of the main line-by-line renderer below. Computed
+// once up front (FIXED CODE always comes after BUGS AND FIXES in the
+// prompt's required order, so the per-bug diff cards need this available
+// before they're built, not discovered afterward). Used only as a fallback
+// target for insertLineFixIntoEditor's structural-balance check — this is
+// the one artifact the model was explicitly asked to make fully
+// self-consistent, so it's the safest thing to fall back to when a single
+// line-swap can't be.
+function extractFixedCodeText(raw){
+  const m = raw.match(/^\s*FIXED CODE\s*:\s*([\s\S]*)$/im);
+  if(!m) return null;
+  let rest = m[1];
+  const fenced = rest.match(/```[a-zA-Z0-9+#]*\n?([\s\S]*?)```/);
+  if(fenced) return fenced[1].replace(/\n$/, '').trim() || null;
+  const stopMatch = rest.match(/^\s*(VERDICT|CORRECTNESS|BUGS AND FIXES|COMPLEXITY|SUGGESTIONS|FIXED CODE)\s*:/im);
+  if(stopMatch) rest = rest.slice(0, stopMatch.index);
+  return rest.trim() || null;
+}
+// Best-effort structural sanity check — NOT a real compiler or linter, just
+// a safety net for the bugfix line-swap in insertLineFixIntoEditor. Strips
+// string/char/template literals and // # /* */ comments (approximately —
+// good enough to avoid false positives from brackets that only appear
+// inside quotes) then verifies every ( [ { has a matching, correctly-nested
+// close. A single-line before/after swap can only produce imbalance when
+// the real bug also depended on something elsewhere in the file (e.g. an
+// extra closing brace a few lines up already closing the block) — exactly
+// the failure mode this check exists to catch before it reaches the editor.
+function isStructurallyBalanced(code){
+  let s = code;
+  s = s.replace(/\/\*[\s\S]*?\*\//g, '');
+  s = s.replace(/\/\/.*$/gm, '');
+  s = s.replace(/(^|[^:])#.*$/gm, '$1');
+  s = s.replace(/"(?:\\.|[^"\\])*"/g, '""');
+  s = s.replace(/'(?:\\.|[^'\\])*'/g, "''");
+  s = s.replace(/`(?:\\.|[^`\\])*`/g, '``');
+  const pairs = { ')':'(', ']':'[', '}':'{' };
+  const opens = new Set(['(', '[', '{']);
+  const stack = [];
+  for(const ch of s){
+    if(opens.has(ch)) stack.push(ch);
+    else if(ch in pairs){
+      if(stack.pop() !== pairs[ch]) return false;
+    }
+  }
+  return stack.length === 0;
+}
 function renderReviewText(raw){
+  // The model's own whole-file fix for this turn, if it gave one — threaded
+  // through to every bugfixCardHtml() call below so a broken one-line swap
+  // has something reliable to fall back to. See extractFixedCodeText above.
+  const fixedCodeFullText = extractFixedCodeText(raw);
   // Pull out fenced code blocks first so they render as real code blocks
   // (with copy/insert buttons) instead of being swallowed into plain text
   // lines. Captures the fence's language annotation (e.g. ```python) too, if
@@ -5718,7 +5773,7 @@ function renderReviewText(raw){
       if(fencedTriple){
         inFixedCodeFallback = false; fixedCodeLines = [];
         closeSection(); closeList();
-        html += bugfixCardHtml(fencedTriple[1], fencedTriple[2], fencedTriple[3], fencedTriple[4]);
+        html += bugfixCardHtml(fencedTriple[1], fencedTriple[2], fencedTriple[3], fencedTriple[4], fixedCodeFullText);
         continue;
       }
       // Same idea, for when only the Before/After pair got fenced but the
@@ -5732,7 +5787,7 @@ function renderReviewText(raw){
       if(fencedPairOnly){
         inFixedCodeFallback = false; fixedCodeLines = [];
         closeSection(); closeList();
-        html += bugfixCardHtml('?', '', fencedPairOnly[1], fencedPairOnly[2]);
+        html += bugfixCardHtml('?', '', fencedPairOnly[1], fencedPairOnly[2], fixedCodeFullText);
         continue;
       }
       inFixedCodeFallback = false; fixedCodeLines = [];
@@ -5756,7 +5811,7 @@ function renderReviewText(raw){
         const nextAfter = (lines[k] || '').trim().match(AFTER_RE);
         if(nextBefore && nextAfter){
           closeList();
-          html += bugfixCardHtml(lineMatch[1], lineMatch[2], nextBefore[1], nextAfter[1]);
+          html += bugfixCardHtml(lineMatch[1], lineMatch[2], nextBefore[1], nextAfter[1], fixedCodeFullText);
           i = k;
           continue;
         }
@@ -5770,7 +5825,7 @@ function renderReviewText(raw){
           const pairMatch = block.code.match(/^\s*Before:\s*([^\n]*)\n\s*After:\s*([^\n]*)\s*$/i);
           if(pairMatch){
             closeList();
-            html += bugfixCardHtml(lineMatch[1], lineMatch[2], pairMatch[1], pairMatch[2]);
+            html += bugfixCardHtml(lineMatch[1], lineMatch[2], pairMatch[1], pairMatch[2], fixedCodeFullText);
             i = j;
             continue;
           }
@@ -5873,8 +5928,6 @@ function insertSnippetIntoEditor(code, fenceLang){
       setMockCode(code);
     }
     showToast('Inserted into the mock interview editor.');
-    stopTracePlay();
-    closeModal('aiModal');
     return;
   }
 
@@ -5893,8 +5946,6 @@ function insertSnippetIntoEditor(code, fenceLang){
   setSolveCode(solveModalId, langSel.value, code);
   resetSolveHistory(code);
   showToast('Inserted into the editor.');
-  stopTracePlay();
-  closeModal('aiModal');
 }
 // Insert for a bugfix diff card — deliberately NOT insertSnippetIntoEditor's
 // whole-file replace. Finds the exact "before" line inside whichever editor
@@ -5902,7 +5953,7 @@ function insertSnippetIntoEditor(code, fenceLang){
 // line's own leading indentation and leaving every other line untouched. No
 // "replace everything?" confirmation, because nothing but that one line
 // changes — the only prompts here are for genuinely ambiguous situations.
-function insertLineFixIntoEditor(beforeCode, afterCode){
+function insertLineFixIntoEditor(beforeCode, afterCode, fullFixedCode){
   if(!beforeCode || !beforeCode.trim()){ showToast('Nothing to insert.'); return; }
   const targetIsMock = !!(activeMock && activeMock.problemId === aiModalActiveId);
   const targetIsSolve = !targetIsMock && solveModalId != null && solveModalId === aiModalActiveId;
@@ -5922,11 +5973,31 @@ function insertLineFixIntoEditor(beforeCode, afterCode){
   if(matchIdxs.length > 1 && !confirm(`This exact line appears ${matchIdxs.length} times in the editor. Replace all ${matchIdxs.length} with the fix? (Cancel to leave the editor untouched — use Copy instead if you only want one of them changed.)`)){
     return;
   }
+  const newLines = lines.slice();
   matchIdxs.forEach(idx => {
-    const indent = (lines[idx].match(/^\s*/) || [''])[0];
-    lines[idx] = indent + afterCode.trim();
+    const indent = (newLines[idx].match(/^\s*/) || [''])[0];
+    newLines[idx] = indent + afterCode.trim();
   });
-  const newCode = lines.join('\n');
+  let newCode = newLines.join('\n');
+
+  // Safety net: a one-line swap can only ever leave the file structurally
+  // broken when the real bug also depended on something elsewhere (an extra
+  // brace a few lines away that already closed the block, for instance) —
+  // exactly the failure mode that motivated this check. If that's what
+  // happened, prefer the model's own FIXED CODE block — the one artifact it
+  // was explicitly told to make fully self-consistent — over a fix already
+  // known to be broken.
+  let usedFullFallback = false;
+  if(!isStructurallyBalanced(newCode)){
+    if(fullFixedCode && fullFixedCode.trim() && isStructurallyBalanced(fullFixedCode)){
+      newCode = fullFixedCode;
+      usedFullFallback = true;
+    } else {
+      alert("This fix depends on more than just this one line — inserting it alone would leave mismatched brackets, so nothing was changed. Use Copy and apply it by hand, or ask for the full corrected code.");
+      return;
+    }
+  }
+
   if(targetIsMock){
     setMockCode(newCode);
   } else {
@@ -5934,9 +6005,9 @@ function insertLineFixIntoEditor(beforeCode, afterCode){
     setSolveCode(solveModalId, document.getElementById('solveLangSel').value, newCode);
     pushSolveHistorySnapshot();
   }
-  showToast(matchIdxs.length > 1 ? `Replaced ${matchIdxs.length} matching lines.` : 'Line replaced — rest of the code untouched.');
-  stopTracePlay();
-  closeModal('aiModal');
+  showToast(usedFullFallback
+    ? "This fix spanned more than one line — inserted the full corrected code instead so nothing was left broken."
+    : (matchIdxs.length > 1 ? `Replaced ${matchIdxs.length} matching lines.` : 'Line replaced — rest of the code untouched.'));
 }
 function attachReviewCodeCopyButtons(container){
   container.querySelectorAll('[data-review-copy]').forEach(btn=>{
@@ -5968,7 +6039,7 @@ function attachReviewCodeCopyButtons(container){
     btn.addEventListener('click', ()=>{
       const entry = bugfixRegistry[btn.dataset.bugfixId];
       if(!entry){ showToast('Nothing to insert.'); return; }
-      insertLineFixIntoEditor(entry.before, entry.after);
+      insertLineFixIntoEditor(entry.before, entry.after, entry.fullFixedCode);
     });
   });
   container.querySelectorAll('[data-bugfix-copy]').forEach(btn=>{
@@ -11888,24 +11959,6 @@ async function fetchCodeApproach(tabArg, isBackground){
   const cacheKey = codeCacheKey(codeModalId, tab, lang);
   codeLoading.add(cacheKey);
   if(tab === codeModalTab) renderCodeModalBody();
-  // If this exact problem already has a fixed method signature (from
-  // generated test cases — see solveHarness/activeMock.harness), Run/Submit
-  // and the in-browser Java wrapper (javaHarnessFull) call that EXACT
-  // method (`new Solution().${functionName}(...)`) on whatever gets
-  // Inserted. Previously the prompt below let the model invent its own
-  // class/method names and structure (e.g. a standalone `class Foo { ...
-  // main() ... }`), which reads fine as a solution but breaks the moment
-  // it's Inserted — "cannot find symbol: class Solution" — because nothing
-  // required it to actually match what the harness calls. Passing the real
-  // signature in (when we have one) and hard-requiring a single `Solution`
-  // class with no driver/main code keeps generated code runnable both when
-  // Inserted here AND when pasted straight into LeetCode's own editor.
-  const harnessTarget = (solveModalId != null && solveModalId === codeModalId) ? solveHarness
-    : (typeof activeMock !== 'undefined' && activeMock && activeMock.problemId === codeModalId) ? activeMock.harness
-    : null;
-  const harnessHint = harnessTarget
-    ? `This problem already has a fixed signature that the test runner calls directly — the method MUST be named exactly "${harnessTarget.functionName}", take these parameters in this exact order (${harnessTarget.params.map(pm=>`${pm.name}: ${pm.type}`).join(', ')}), and return ${harnessTarget.returnType}; do not rename or reorder anything, or Insert will produce code that fails to compile/run. `
-    : '';
   try{
     const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=' + encodeURIComponent(key), {
       method:'POST',
@@ -11923,7 +11976,6 @@ async function fetchCodeApproach(tabArg, isBackground){
           `The "line" numbers must correspond line-for-line to the exact "code" string you write — if a step spans a loop body executed repeatedly, point to the specific line inside the loop that's relevant to what that step's "desc" describes, not the loop header every time. ` +
           `If the problem is not array/string based (tree, graph, DP table, linked list, etc.), set "array" to null and "pointers"/"highlight" to empty, but still give clear "steps" with plain-English "desc", a "line" pointer, and relevant "vars" so the flow is still easy to follow without a code editor. ` +
           `The "code" field must be actual ${lang} source code (not pseudocode, not another language) that actually implements the ${tabLabel} approach specifically${tab==='brute' ? ' (even if inefficient)' : ' (the best known approach)'} — use idiomatic ${lang} naming, types, and standard library calls. ` +
-          `STRUCTURE REQUIREMENT for "code" — this must be a single LeetCode-style solution, not a standalone program: for Java/C++/C#, exactly one top-level class named literally "Solution" holding the method (any helper classes must be private/nested/static, never a second top-level public class, and never renamed away from "Solution"); for Python, a single "class Solution:" with the method as an instance method; for JavaScript/TypeScript, a single top-level function/var named after the method. Do NOT include a main method, driver code, sample-input calls, or console/stdin/stdout I/O of any kind — whatever calls this code supplies the inputs and reads the return value directly. ${harnessHint}` +
           `In "explanation", "input_label", and every step's "desc"/"vars" (all plain-English fields, not the "code" field): ${MATH_NOTATION_RULE}`
         }]}],
         generationConfig:{ maxOutputTokens:1800, thinkingConfig:{ thinkingLevel:'minimal' } }
