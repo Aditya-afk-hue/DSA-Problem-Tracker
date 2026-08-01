@@ -291,6 +291,7 @@
     height:100%;background:var(--pine);transition:width .4s ease;
   }
   .rows{max-height:0;overflow:hidden;transition:max-height .01s;}
+  .virtual-spacer{margin:0;padding:0;border:0;}
   .section.open .rows{max-height:none;overflow:visible;}
 
   .section-group{

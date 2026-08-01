@@ -4897,6 +4897,130 @@ function matchesFiltersExcept(p, exclude){
 let openSections = new Set();
 let openGroups = new Set();
 
+// ---- Row virtualization ---------------------------------------------------
+// Some topics (Dynamic Programming, Strings, Arrays — Medium, ...) hold
+// 200-450 problems, and typing in the search box opens every section that
+// matches at once. Previously that meant building a full DOM row — badges,
+// company-logo pills, tag pills, four icon buttons with click handlers —
+// for every single one of those problems, even the hundreds sitting far
+// below the fold. That's the dashboard's real bottleneck, not the 3,266-item
+// filter itself (a plain .filter() over an array that size is trivial).
+//
+// Instead, an open section's row list only ever mounts the handful of rows
+// near the viewport. Everything else is represented by two empty spacer
+// divs sized to match the rows they stand in for, so total scroll height
+// and position stay identical to a full render — the user can't tell the
+// difference except that it's fast.
+const VIRTUAL_OVERSCAN_PX = 900; // build rows this far above/below the viewport before they're visible
+const virtualSections = new Map(); // rows-container element -> { update }
+
+// Rows are variable-height (title wrapping, company pills, badge chips all
+// add lines), so spacer sizing starts from a cheap heuristic and then
+// self-corrects: once a row is actually mounted we measure it for real and
+// nudge the spacers to match, so the scrollbar converges on the true size
+// as the user scrolls instead of drifting from the estimate.
+function estimateRowHeight(p){
+  const m = meta[p.id];
+  let h = 54;
+  if((p.companies||[]).length) h += 26;
+  const badgeCount = (m && m.tags && m.tags.length ? 1 : 0) +
+    [p.a2z, (p.top150||p.onlyTop150), p.onlyCompany, p.neet150, p.blind75, p.babbar450, p.premium, p.noOJ].filter(Boolean).length;
+  if(badgeCount) h += 26;
+  if(window.innerWidth < 640) h += 46; // rows stack into several lines on narrow screens
+  return h;
+}
+
+function clearVirtualSections(){
+  virtualSections.clear();
+}
+
+function mountVirtualRows(rowsEl, list){
+  const heights = list.map(estimateRowHeight);
+  const prefix = new Array(list.length + 1).fill(0);
+  const rebuildPrefix = () => {
+    let s = 0;
+    for(let i=0;i<list.length;i++){ prefix[i] = s; s += heights[i]; }
+    prefix[list.length] = s;
+  };
+  rebuildPrefix();
+
+  const mountedEls = new Map(); // list index -> mounted row element
+  let start = 0, end = 0, firstPass = true;
+
+  const topSpacer = document.createElement('div');
+  const bottomSpacer = document.createElement('div');
+  topSpacer.className = 'virtual-spacer';
+  bottomSpacer.className = 'virtual-spacer';
+  bottomSpacer.style.height = prefix[list.length] + 'px';
+  rowsEl.appendChild(topSpacer);
+  rowsEl.appendChild(bottomSpacer);
+
+  function findWindow(){
+    const rect = rowsEl.getBoundingClientRect();
+    const wantTop = -VIRTUAL_OVERSCAN_PX - rect.top;
+    const wantBottom = window.innerHeight + VIRTUAL_OVERSCAN_PX - rect.top;
+    let lo = 0, hi = list.length;
+    while(lo < hi){ const mid = (lo+hi)>>1; if(prefix[mid+1] <= wantTop) lo = mid+1; else hi = mid; }
+    const s = Math.max(0, Math.min(lo, list.length - 1));
+    lo = 0; hi = list.length;
+    while(lo < hi){ const mid = (lo+hi)>>1; if(prefix[mid] < wantBottom) lo = mid+1; else hi = mid; }
+    const e = Math.max(s+1, Math.min(lo, list.length));
+    return { s, e };
+  }
+
+  function update(){
+    if(!rowsEl.isConnected) return;
+    const { s, e } = findWindow();
+    if(!firstPass && s === start && e === end) return;
+    firstPass = false;
+
+    for(const [idx, el] of mountedEls){
+      if(idx < s || idx >= e){ el.remove(); mountedEls.delete(idx); }
+    }
+    for(let i=s;i<e;i++){
+      if(!mountedEls.has(i)) mountedEls.set(i, buildRowEl(list[i]));
+    }
+    const frag = document.createDocumentFragment();
+    for(let i=s;i<e;i++) frag.appendChild(mountedEls.get(i));
+    rowsEl.insertBefore(frag, bottomSpacer);
+
+    topSpacer.style.height = prefix[s] + 'px';
+    bottomSpacer.style.height = (prefix[list.length] - prefix[e]) + 'px';
+    start = s; end = e;
+    attachRowIconHandlers(rowsEl);
+
+    requestAnimationFrame(() => {
+      if(!rowsEl.isConnected) return;
+      let changed = false;
+      for(let i = start; i < end; i++){
+        const el = mountedEls.get(i);
+        if(!el) continue;
+        const h = el.getBoundingClientRect().height;
+        if(h > 0 && Math.abs(h - heights[i]) > 1){ heights[i] = h; changed = true; }
+      }
+      if(changed){
+        rebuildPrefix();
+        topSpacer.style.height = prefix[start] + 'px';
+        bottomSpacer.style.height = (prefix[list.length] - prefix[end]) + 'px';
+      }
+    });
+  }
+
+  virtualSections.set(rowsEl, { update });
+}
+
+let virtualScrollRafPending = false;
+function scheduleVirtualUpdate(){
+  if(virtualScrollRafPending) return;
+  virtualScrollRafPending = true;
+  requestAnimationFrame(() => {
+    virtualScrollRafPending = false;
+    virtualSections.forEach(v => v.update());
+  });
+}
+window.addEventListener('scroll', scheduleVirtualUpdate, { passive: true });
+window.addEventListener('resize', scheduleVirtualUpdate);
+
 function autoExpandSections(){
   openSections.clear();
   openGroups.clear();
@@ -5065,10 +5189,12 @@ function buildSectionElement(sec, q, activeFilter, folioIndex){
 
   if(list.length === 0){
     rows.innerHTML = `<div class="empty-note">No matches in this section.</div>`;
-  } else {
-    list.forEach(p => {
-      rows.appendChild(buildRowEl(p));
-    });
+  } else if(isOpen){
+    // Closed sections are hidden via max-height:0 anyway (see .rows in
+    // styles.css) — there's no reason to build any row DOM for them at all.
+    // Opening a section always triggers a fresh renderSections() call (see
+    // the section-head click handler below), so its rows get mounted then.
+    mountVirtualRows(rows, list);
   }
 
   secEl.appendChild(head);
@@ -5156,6 +5282,7 @@ function renderSections(focusId){
   const q = document.getElementById('searchBox').value.trim();
   const activeFilter = q || document.getElementById('sectionFilter').value || document.getElementById('diffFilter').value || document.getElementById('companyFilter').value || document.getElementById('tagFilter').value.trim() || showUnsolvedOnly || showTop150Only || showA2ZOnly || showNeetOnly || showBlindOnly || showBabbarOnly;
 
+  clearVirtualSections();
   container.innerHTML = '';
   const folioIndexRef = { i: 0 };
   const renderedGroups = new Set();
@@ -5178,6 +5305,9 @@ function renderSections(focusId){
   });
 
   attachRowIconHandlers(container);
+  // Sections are now attached to the live document, so each open section's
+  // virtualizer can measure real positions and mount its first window of rows.
+  virtualSections.forEach(v => v.update());
 }
 
 function closeMoreCompanies(){
@@ -9338,7 +9468,19 @@ function updateFilterAvailability(){
   if(diffSel.value && !availDiffs.has(diffSel.value)) diffSel.value = '';
 }
 
-document.getElementById('searchBox').addEventListener('input', ()=>{ closeWorkspacePanels(true); updateFilterAvailability(); openSections.clear(); openGroups.clear(); renderSections(); refreshStudyPlanIfOpen(); renderSummary(); scrollResultsIntoView(); });
+function debounce(fn, ms){
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+// Typing fast used to fire a full renderSections() (re-filter every
+// problem, rebuild every matching section) on every single keystroke —
+// each one blocking the next until it finished. A short debounce lets the
+// input itself stay instantly responsive and only does the real work once
+// typing pauses for a beat.
+const runSearchUpdate = debounce(() => {
+  closeWorkspacePanels(true); updateFilterAvailability(); openSections.clear(); openGroups.clear(); renderSections(); refreshStudyPlanIfOpen(); renderSummary(); scrollResultsIntoView();
+}, 150);
+document.getElementById('searchBox').addEventListener('input', runSearchUpdate);
 document.getElementById('sectionFilter').addEventListener('change', ()=>{
   closeWorkspacePanels(true);
   updateFilterAvailability();
