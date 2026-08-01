@@ -5927,6 +5927,7 @@ function insertSnippetIntoEditor(code, fenceLang){
     } else {
       setMockCode(code);
     }
+    closeModal('aiModal');
     showToast('Inserted into the mock interview editor.');
     return;
   }
@@ -5945,6 +5946,7 @@ function insertSnippetIntoEditor(code, fenceLang){
   setSolveEditorValue(code);
   setSolveCode(solveModalId, langSel.value, code);
   resetSolveHistory(code);
+  closeModal('aiModal');
   showToast('Inserted into the editor.');
 }
 // Insert for a bugfix diff card — deliberately NOT insertSnippetIntoEditor's
@@ -6005,6 +6007,7 @@ function insertLineFixIntoEditor(beforeCode, afterCode, fullFixedCode){
     setSolveCode(solveModalId, document.getElementById('solveLangSel').value, newCode);
     pushSolveHistorySnapshot();
   }
+  closeModal('aiModal');
   showToast(usedFullFallback
     ? "This fix spanned more than one line — inserted the full corrected code instead so nothing was left broken."
     : (matchIdxs.length > 1 ? `Replaced ${matchIdxs.length} matching lines.` : 'Line replaced — rest of the code untouched.'));
@@ -11484,7 +11487,7 @@ async function sendReviewMessage(){
       `Never wrap any "Line <N>:"/"Before:"/"After:" line in triple backticks or any other code fence — they render as their own compact diff card automatically as plain text; fencing them breaks that rendering.\n` +
       `COMPLEXITY: the CURRENT code's time and space complexity, plain text, one line.\n` +
       `SUGGESTIONS: if VERDICT was "Correct but not optimal", this is required — name the optimal technique/pattern, explain in 1-2 sentences why it beats the current approach, give its time/space complexity, and include a short fenced code block with the optimal implementation. If the code is already optimal, either omit this section or use it only for minor style/readability notes (no invented bugs, no restating BUGS AND FIXES). ` +
-      `FIXED CODE: only if BUGS AND FIXES was non-empty — the user's FULL original code with every one of those fixes applied, same language, everything else left exactly as they wrote it, inside a single fenced code block (triple backticks). Omit this whole label if the code was already correct — do not repeat the optimal-approach code here, that belongs under SUGGESTIONS. ` +
+      `FIXED CODE: only if BUGS AND FIXES was non-empty — the user's FULL original code with every one of those fixes applied, same language, everything else left exactly as they wrote it, inside a single fenced code block (triple backticks). This must be the COMPLETE file/function, never truncated or abbreviated with "// ... rest unchanged" — and it must actually compile/run and fix every bug listed above; double-check it before answering rather than pasting a partial patch. Omit this whole label if the code was already correct — do not repeat the optimal-approach code here, that belongs under SUGGESTIONS. ` +
       testCaseInstructions +
       `If they just ask a plain question with no code to review, ignore all of the structure above and just answer directly and conversationally. If that question asks you to write new code (not fix what they pasted), ${lastLangPromptRule()} ` +
       `Be concise and concrete. ${MATH_NOTATION_RULE} ` +
@@ -11512,7 +11515,7 @@ async function sendReviewMessage(){
       headers:{ 'Content-Type':'application/json' },
       body: JSON.stringify({
         contents: reviewConversation,
-        generationConfig:{ maxOutputTokens:1800, thinkingConfig:{ thinkingLevel:'minimal' } }
+        generationConfig:{ maxOutputTokens:3000, thinkingConfig:{ thinkingLevel:'low' } }
       })
     });
     if(!resp.ok){
@@ -11976,9 +11979,10 @@ async function fetchCodeApproach(tabArg, isBackground){
           `The "line" numbers must correspond line-for-line to the exact "code" string you write — if a step spans a loop body executed repeatedly, point to the specific line inside the loop that's relevant to what that step's "desc" describes, not the loop header every time. ` +
           `If the problem is not array/string based (tree, graph, DP table, linked list, etc.), set "array" to null and "pointers"/"highlight" to empty, but still give clear "steps" with plain-English "desc", a "line" pointer, and relevant "vars" so the flow is still easy to follow without a code editor. ` +
           `The "code" field must be actual ${lang} source code (not pseudocode, not another language) that actually implements the ${tabLabel} approach specifically${tab==='brute' ? ' (even if inefficient)' : ' (the best known approach)'} — use idiomatic ${lang} naming, types, and standard library calls. ` +
+          `The "code" field must be a COMPLETE, working implementation — never leave a function/method body empty, never insert a "TODO"/"// implement this"/placeholder comment in place of real logic, and never return a stub that only compiles because it does nothing. Before answering, mentally run the code against the example input in "trace" and confirm it produces the correct result; if it wouldn't, fix the logic before responding. ` +
           `In "explanation", "input_label", and every step's "desc"/"vars" (all plain-English fields, not the "code" field): ${MATH_NOTATION_RULE}`
         }]}],
-        generationConfig:{ maxOutputTokens:1800, thinkingConfig:{ thinkingLevel:'minimal' } }
+        generationConfig:{ maxOutputTokens:3500, thinkingConfig:{ thinkingLevel:'low' } }
       })
     });
     if(!resp.ok){
@@ -11990,9 +11994,21 @@ async function fetchCodeApproach(tabArg, isBackground){
     const parts = (candidate && candidate.content && candidate.content.parts) || [];
     const text = parts.map(b=>b.text||'').join('\n').trim();
     if(!text) throw new Error('No response text came back');
+    // A response cut off mid-JSON (hit the token cap before finishing) will
+    // fail JSON.parse below with a confusing "Unexpected end of JSON input"
+    // — check finishReason first so the real cause ("ran out of tokens, try
+    // again for a shorter/simpler approach") surfaces instead of that.
+    if(candidate && candidate.finishReason === 'MAX_TOKENS'){
+      throw new Error('The response was cut off before it finished (ran out of output tokens) — try again, it usually succeeds on a retry');
+    }
     const jsonText = text.replace(/^```(json)?/i,'').replace(/```$/,'').trim();
-    const parsed = JSON.parse(jsonText);
-    if(!parsed.code) throw new Error('Response had no code');
+    let parsed;
+    try{
+      parsed = JSON.parse(jsonText);
+    }catch(parseErr){
+      throw new Error('The response wasn\'t valid JSON (likely got cut off) — try again');
+    }
+    if(!parsed.code || !parsed.code.trim()) throw new Error('Response had no code');
     parsed.stepIndex = 0;
     codeCache[cacheKey] = parsed;
   }catch(err){
