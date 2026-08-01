@@ -5873,6 +5873,8 @@ function insertSnippetIntoEditor(code, fenceLang){
       setMockCode(code);
     }
     showToast('Inserted into the mock interview editor.');
+    stopTracePlay();
+    closeModal('aiModal');
     return;
   }
 
@@ -5891,6 +5893,8 @@ function insertSnippetIntoEditor(code, fenceLang){
   setSolveCode(solveModalId, langSel.value, code);
   resetSolveHistory(code);
   showToast('Inserted into the editor.');
+  stopTracePlay();
+  closeModal('aiModal');
 }
 // Insert for a bugfix diff card — deliberately NOT insertSnippetIntoEditor's
 // whole-file replace. Finds the exact "before" line inside whichever editor
@@ -5931,6 +5935,8 @@ function insertLineFixIntoEditor(beforeCode, afterCode){
     pushSolveHistorySnapshot();
   }
   showToast(matchIdxs.length > 1 ? `Replaced ${matchIdxs.length} matching lines.` : 'Line replaced — rest of the code untouched.');
+  stopTracePlay();
+  closeModal('aiModal');
 }
 function attachReviewCodeCopyButtons(container){
   container.querySelectorAll('[data-review-copy]').forEach(btn=>{
@@ -11882,6 +11888,24 @@ async function fetchCodeApproach(tabArg, isBackground){
   const cacheKey = codeCacheKey(codeModalId, tab, lang);
   codeLoading.add(cacheKey);
   if(tab === codeModalTab) renderCodeModalBody();
+  // If this exact problem already has a fixed method signature (from
+  // generated test cases — see solveHarness/activeMock.harness), Run/Submit
+  // and the in-browser Java wrapper (javaHarnessFull) call that EXACT
+  // method (`new Solution().${functionName}(...)`) on whatever gets
+  // Inserted. Previously the prompt below let the model invent its own
+  // class/method names and structure (e.g. a standalone `class Foo { ...
+  // main() ... }`), which reads fine as a solution but breaks the moment
+  // it's Inserted — "cannot find symbol: class Solution" — because nothing
+  // required it to actually match what the harness calls. Passing the real
+  // signature in (when we have one) and hard-requiring a single `Solution`
+  // class with no driver/main code keeps generated code runnable both when
+  // Inserted here AND when pasted straight into LeetCode's own editor.
+  const harnessTarget = (solveModalId != null && solveModalId === codeModalId) ? solveHarness
+    : (typeof activeMock !== 'undefined' && activeMock && activeMock.problemId === codeModalId) ? activeMock.harness
+    : null;
+  const harnessHint = harnessTarget
+    ? `This problem already has a fixed signature that the test runner calls directly — the method MUST be named exactly "${harnessTarget.functionName}", take these parameters in this exact order (${harnessTarget.params.map(pm=>`${pm.name}: ${pm.type}`).join(', ')}), and return ${harnessTarget.returnType}; do not rename or reorder anything, or Insert will produce code that fails to compile/run. `
+    : '';
   try{
     const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=' + encodeURIComponent(key), {
       method:'POST',
@@ -11899,6 +11923,7 @@ async function fetchCodeApproach(tabArg, isBackground){
           `The "line" numbers must correspond line-for-line to the exact "code" string you write — if a step spans a loop body executed repeatedly, point to the specific line inside the loop that's relevant to what that step's "desc" describes, not the loop header every time. ` +
           `If the problem is not array/string based (tree, graph, DP table, linked list, etc.), set "array" to null and "pointers"/"highlight" to empty, but still give clear "steps" with plain-English "desc", a "line" pointer, and relevant "vars" so the flow is still easy to follow without a code editor. ` +
           `The "code" field must be actual ${lang} source code (not pseudocode, not another language) that actually implements the ${tabLabel} approach specifically${tab==='brute' ? ' (even if inefficient)' : ' (the best known approach)'} — use idiomatic ${lang} naming, types, and standard library calls. ` +
+          `STRUCTURE REQUIREMENT for "code" — this must be a single LeetCode-style solution, not a standalone program: for Java/C++/C#, exactly one top-level class named literally "Solution" holding the method (any helper classes must be private/nested/static, never a second top-level public class, and never renamed away from "Solution"); for Python, a single "class Solution:" with the method as an instance method; for JavaScript/TypeScript, a single top-level function/var named after the method. Do NOT include a main method, driver code, sample-input calls, or console/stdin/stdout I/O of any kind — whatever calls this code supplies the inputs and reads the return value directly. ${harnessHint}` +
           `In "explanation", "input_label", and every step's "desc"/"vars" (all plain-English fields, not the "code" field): ${MATH_NOTATION_RULE}`
         }]}],
         generationConfig:{ maxOutputTokens:1800, thinkingConfig:{ thinkingLevel:'minimal' } }
