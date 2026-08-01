@@ -687,11 +687,6 @@
     border:none !important; border-radius:0 !important;
   }
 
-  .lc-cheer-banner{
-    display:flex;align-items:center;gap:10px;padding:12px 14px;margin-bottom:12px;border-radius:8px;
-    background:var(--pine-glow);border:1.5px solid var(--pine);font-family:'IBM Plex Mono',monospace;
-    font-size:13px;color:var(--pine-deep);font-weight:700;animation:lcCheerIn .35s cubic-bezier(.22,.9,.34,1);
-  }
   @keyframes lcCheerIn{from{opacity:0;transform:translateY(-6px) scale(.97);}to{opacity:1;transform:none;}}
 
   /* Distinct "Accepted" result card, styled after LeetCode's own post-submit
@@ -806,6 +801,10 @@
   .bugfix-diff-row.before .diff-tag{color:var(--stamp);}
   .bugfix-diff-row.after{background:var(--pine-glow);}
   .bugfix-diff-row.after .diff-tag{color:var(--pine);}
+  .bugfix-btns{
+    display:flex;justify-content:flex-end;gap:6px;padding:7px 12px;border-top:1px solid var(--rule-soft);
+  }
+  .bugfix-btns .insert-code-btn, .bugfix-btns .copy-code-btn{position:static;top:auto;right:auto;}
   .hint-output .hint-section{
     margin:14px 0;padding:12px 14px 6px;border-radius:8px;border:1px solid var(--rule-soft);
   }
@@ -849,16 +848,6 @@
   }
   .lcviz-box svg{max-width:100%;height:auto;overflow:hidden;display:block;}
   .modal-note{font-size:11.5px;color:var(--ink-faint);margin-top:10px;line-height:1.5;}
-  .code-section-divider{border-top:1.5px dashed var(--rule-soft);margin:18px 0 14px;}
-  .code-toggle-btn{
-    display:flex;align-items:center;gap:6px;width:100%;text-align:left;
-    font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:600;
-    letter-spacing:0.3px;color:var(--ink);background:var(--card);
-    border:1.5px solid var(--rule);border-radius:8px;padding:10px 12px;cursor:pointer;
-    transition:all .15s ease;
-  }
-  .code-toggle-btn:hover{border-color:var(--pine);color:var(--pine);}
-  .code-toggle-btn.open{border-color:var(--pine);color:var(--pine);background:var(--pine-glow);}
   .code-tabs{display:flex;gap:8px;margin:14px 0 10px;}
   .code-lang-row{display:flex;align-items:center;gap:8px;margin:0 0 12px;}
   .code-lang-row label{
@@ -1094,11 +1083,8 @@
   .mock-config-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:14px;}
   .mock-config-grid label{display:block;font-size:10px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.5px;color:var(--ink-faint);margin-bottom:5px;}
   .mock-config-grid select{width:100%;padding:9px 10px;border:1.5px solid var(--rule);background:var(--paper);border-radius:8px;font-size:13px;color:var(--ink);}
-  .mock-active-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;
-    padding:14px 16px;border:1.5px solid var(--rule-soft);border-radius:10px;background:var(--card);margin-bottom:12px;}
   .mock-timer{font-family:'IBM Plex Mono',monospace;font-size:30px;font-weight:700;color:var(--pine);letter-spacing:1px;}
   .mock-timer.low{color:var(--hard);}
-  .mock-problem-title{font-weight:700;font-size:15px;color:var(--ink);}
   .mock-editor{width:100%;min-height:320px;font-family:'IBM Plex Mono',monospace;font-size:13px;line-height:1.55;
     padding:14px;border:1.5px solid var(--rule);border-radius:10px;background:var(--paper-deep);color:var(--ink);
     resize:vertical;tab-size:2;}
@@ -1112,10 +1098,6 @@
   .mock-problem-summary .ai-tag, .ai-tag{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:9.5px;
     text-transform:uppercase;letter-spacing:.5px;color:var(--pine);background:var(--easy-bg);border-radius:4px;
     padding:2px 6px;margin-bottom:6px;}
-  .mock-editor-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
-    margin-bottom:8px;}
-  .mock-editor-lang{font-family:'IBM Plex Mono',monospace;font-size:11px;text-transform:uppercase;
-    letter-spacing:.5px;color:var(--ink-faint);border:1px solid var(--rule-soft);border-radius:6px;padding:4px 8px;}
   .mock-editor-lang-select{font-family:'IBM Plex Mono',monospace;font-size:11px;text-transform:uppercase;
     letter-spacing:.5px;color:var(--ink);border:1px solid var(--rule-soft);border-radius:6px;padding:4px 22px 4px 8px;
     background:var(--paper) url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="6"><path d="M0 0l5 6 5-6z" fill="%23888"/></svg>') no-repeat right 7px center;
@@ -1141,7 +1123,6 @@
     color:var(--ink);border-bottom:1.5px solid var(--rule);padding:6px 10px;}
   .CodeMirror-dialog input{font-family:'IBM Plex Mono',monospace;background:var(--paper);color:var(--ink);
     border:1px solid var(--rule-soft);border-radius:5px;padding:2px 6px;}
-  .mock-run-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;}
   .mock-output-panel{margin-top:10px;border:1.5px solid var(--rule-soft);border-radius:10px;
     background:var(--paper-deep);padding:12px 14px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;
     line-height:1.6;white-space:pre-wrap;word-break:break-word;max-height:220px;overflow-y:auto;}
@@ -1183,7 +1164,3 @@
   .weak-topic-bar{flex:1 1 120px;height:6px;border-radius:3px;background:var(--rule-soft);overflow:hidden;}
   .weak-topic-bar-fill{height:100%;background:var(--stamp);}
   .weak-topic-pct{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--ink-faint);width:70px;text-align:right;}
-  .account-card{border:1.5px solid var(--rule-soft);border-radius:10px;padding:16px;background:var(--card);margin-bottom:14px;}
-  .account-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;}
-  .account-dot.on{background:var(--pine);}
-  .account-dot.off{background:var(--medium);}

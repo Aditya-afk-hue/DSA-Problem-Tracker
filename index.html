@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DSA Problem Tracker — 2,923 LeetCode Questions</title>
+<title>DSA Problem Tracker — 3,266 LeetCode Questions</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -24,7 +24,7 @@
 
   <header>
     <div class="title-block">
-      <h1>DSA Problem Tracker<span class="stamp-badge">2,923 QUESTIONS</span> <span class="version-badge" id="versionBadge" title="See what changed">v1.1.0</span></h1>
+      <h1>DSA Problem Tracker<span class="stamp-badge">3,266 QUESTIONS</span> <span class="version-badge" id="versionBadge" title="See what changed">v1.1.0</span></h1>
       <p>Striver A2Z prep list merged with every problem from LeetCode's official Top Interview 150, plus the full all-time company-tagged problem list from <a href="https://github.com/liquidslr/leetcode-company-wise-problems" target="_blank" rel="noopener" style="color:inherit;">liquidslr/leetcode-company-wise-problems</a> for 58 companies with a major India hiring presence (LeetCode's Shell, Concurrency, and JS-utility-style problems excluded as out of DSA scope). ⭐ marks every Top 150 problem, 🏢 marks a problem added only because of company-tag matching. Also cross-referenced against NeetCode 150 (🧊), Blind 75 (🎯), and Love Babbar's 450 sheet (📗) — see the badge legend below for details.</p>
 
     </div>
@@ -55,7 +55,7 @@
     <div class="toggle-btn" id="resetFiltersBtn" title="Clear the search box, every dropdown, and every list-narrowing toggle below">↺ RESET FILTERS</div>
     <div class="toggle-btn" id="unsolvedToggle">SHOW UNSOLVED ONLY</div>
     <div class="toggle-btn" id="top150Toggle">⭐ TOP 150</div>
-    <div class="toggle-btn" id="a2zToggle">🅰️ STRIVER A2Z 474</div>
+    <div class="toggle-btn" id="a2zToggle">🅰️ STRIVER A2Z 475</div>
     <div class="toggle-btn" id="neetToggle">🧊 NEETCODE 150</div>
     <div class="toggle-btn" id="blindToggle">🎯 BLIND 75</div>
     <div class="toggle-btn" id="babbarToggle">📗 BABBAR 105</div>
@@ -143,16 +143,16 @@
 
   <div class="footnote">
     <b>How this works:</b> problems are marked solved automatically — there's no manual checkbox to click in this build. Click <b>🔗 Connect LeetCode Profile</b> at the top once (just your public username, no password), then use 🎓 <b>Certificates → 🔄 Sync from LeetCode</b> — it pulls a deep slice of your accepted-submission history (hundreds of solves, not just the last 20) and auto-checks any matches here. There's no real sign-in or live account access possible from a plain webpage, and LeetCode doesn't publicly expose a truly complete solved-problem list without your own session — so an extremely long history can still have a few very old solves fall outside what one pull returns, with no manual way to check those off yet.<br><br>
-    <b>Badges:</b> <span style="color:var(--medium)">⭐ Top 150</span> means this problem is on LeetCode's official Top Interview 150 — whether it was already in the Striver A2Z sheet or added purely because of the official list, it gets the same badge, since it's Top 150 either way. Rows added into their matching topic section purely because of the official list still get a green left border so you can see what was newly added, just without a different badge. <span style="color:var(--pine-deep)">🏢 Company</span> (also a green left border) means it wasn't in the original sheet and was added purely because it's a frequently-asked problem at companies hiring in India. <span style="color:var(--stamp)">🧊 NeetCode 150</span> and <span style="color:var(--pine-deep)">🎯 Blind 75</span> mean the problem is on those respective lists — every single problem on both lists was already present in this tracker, so matching them added no new rows, just badges. <span style="color:var(--ink-soft)">📗 Babbar 105</span> means the problem was matched to an entry on Love Babbar's 450 GeeksforGeeks sheet; most of that sheet is GFG-specific implementation and theory questions (build-a-stack-from-scratch, SPOJ-only problems, "why is X true" questions) with no single corresponding LeetCode problem, so only entries with a genuine LeetCode equivalent are tagged — about 105 of the sheet's ~445 listed problems.<br><br>
+    <b>Badges:</b> <span style="color:var(--medium)">⭐ Top 150</span> means this problem is on LeetCode's official Top Interview 150 — whether it was already in the Striver A2Z sheet or added purely because of the official list, it gets the same badge, since it's Top 150 either way. Rows added into their matching topic section purely because of the official list still get a green left border so you can see what was newly added, just without a different badge. <span style="color:var(--pine-deep)">🏢 Company</span> (also a green left border) means it wasn't in the original sheet and was added purely because it's a frequently-asked problem at companies hiring in India. <span style="color:var(--stamp)">🧊 NeetCode 150</span> and <span style="color:var(--pine-deep)">🎯 Blind 75</span> mean the problem is on those respective lists — every single problem on both lists was already present in this tracker, so matching them added no new rows, just badges. <span style="color:var(--ink-soft)">📗 Babbar <span class="js-babbar-total">105</span></span> means the problem was matched to an entry on Love Babbar's 450 GeeksforGeeks sheet; most of that sheet is GFG-specific implementation and theory questions (build-a-stack-from-scratch, SPOJ-only problems, "why is X true" questions) with no single corresponding LeetCode problem, so only entries with a genuine LeetCode equivalent are tagged — about <span class="js-babbar-total">105</span> of the sheet's ~445 listed problems.<br><br>
     <b>🏢 Company tags:</b> every problem shows the companies (up to 4, click "+N" for the full list) known to have asked it, per the community-maintained <a href="https://github.com/liquidslr/leetcode-company-wise-problems" target="_blank" rel="noopener" style="color:var(--pine);">leetcode-company-wise-problems</a> repo's full all-time lists, filtered to 58 companies with a major India hiring presence. Problems tagged only with Shell, Concurrency, or JS-utility categories were left out as out of scope for a DSA tracker; a few problems added purely from company tags don't have a known official LeetCode number, so they show a 🏢 badge instead of "#123". Use the company dropdown in the controls, or click "🏢 Companies" to browse a searchable grid of every tagged company with counts and jump straight to its problems. This is a point-in-time snapshot of that repo (pulled July 2026) — it won't auto-update if the repo changes.<br><br>
     <b>New per-problem tools:</b> 📝 opens notes/code-snippet + tags for that problem. ⏱ starts/stops a manual timer that logs time spent and counts an attempt (a page reload while it's running will lose that one in-progress interval, so stop it before closing the tab) — this feeds the streak, avg-solve-time, and weak-topic numbers in 📊 Analytics. 💡 gives an optional AI hint if you've added your own Gemini API key (Settings below) — the key is stored only in your browser's local storage and is sent directly from your browser to Google, never to us. Inside that same hint popup, 💻 Get the code expands into brute-force and optimal tabs with real runnable code, complexity, and an animated step-by-step visual walkthrough.<br><br>
     <b>📅 Review Queue:</b> when you mark something solved, it's scheduled to resurface for review after 3, then 7, then 14, then 30, then 90 days — standard spaced repetition. Click the toggle above to see what's due.<br><br>
     <b>📊 Analytics:</b> streak, time spent, solves-per-day, weakest topics by completion rate, and a solve-time trend — all computed from what's stored in this browser or your account (see "Where your progress lives" below).<br><br>
     <b>🎤 Mock Interview Mode:</b> pick a duration, difficulty, topic, and/or company, then get a randomly selected problem, a countdown timer, and a real code editor (any language — it's just a labeled text editor, not a compiler or judge). Self-grade when you finish or time runs out; every session is logged to Session History and feeds the Analytics tab's mock-interview stats.<br><br>
     <b>Where your progress lives:</b> this tracker stores everything — solved problems, notes, timers, mock-interview history — in your browser's local storage. It persists on this device/browser but won't follow you to another one automatically. Use <b>Export Backup</b> to save a JSON file and <b>Import Backup</b> to restore it on another device or browser.<br><br>
-    <b>🅰️ Striver A2Z 474</b> filters the list to just the full 474 problems from Striver's A2Z sheet (everything added later purely for Top 150 or company-tag coverage is hidden). <b>🧊 NeetCode 150</b>, <b>🎯 Blind 75</b>, and <b>📗 Babbar 105</b> filter down to just the problems matched to each of those respective lists.<br><br>
-    <b>🎓 Certificates</b> opens a hub of downloadable "Certificate of Achievement" images — verified practice records, not official or proctored credentials. An <b>Overall Progress</b> certificate is always available. <b>Striver A2Z (474)</b>, <b>LeetCode Top 150</b>, <b>NeetCode 150</b>, <b>Blind 75</b>, and <b>Babbar 105</b> certificates each unlock once every problem in that respective set is solved. A <b>company-track certificate</b> unlocks per company — once every problem tagged with a given company is solved, a 🎓 icon appears on that company's card in the 🏢 Companies panel; click it to generate a certificate naming that company and its tag. Every number on every certificate is computed live from your actual solved set, and each carries a reproducible SHA-256 verification ID plus a link to your public LeetCode profile so anyone can check the numbers themselves. Generating and downloading certificates requires <b>Pro</b> — solving problems and tracking progress stay free regardless of subscription status.<br><br>
-    <b>📋 Study plans:</b> inside the Companies panel, "📋 Generate a study plan" turns any certification sheet (A2Z, Top 150, NeetCode 150, Blind 75, Babbar 105) or any company's tagged problems into a day-by-day checklist, Easy → Medium → Hard, with ties broken by how many of the 58 tracked companies also ask that problem (the closest free proxy for real per-problem frequency data without a paid dataset) — downloadable as Markdown.
+    <b>🅰️ Striver A2Z <span class="js-a2z-total">474</span></b> filters the list to just the full <span class="js-a2z-total">474</span> problems from Striver's A2Z sheet (everything added later purely for Top 150 or company-tag coverage is hidden). <b>🧊 NeetCode 150</b>, <b>🎯 Blind 75</b>, and <b>📗 Babbar <span class="js-babbar-total">105</span></b> filter down to just the problems matched to each of those respective lists.<br><br>
+    <b>🎓 Certificates</b> opens a hub of downloadable "Certificate of Achievement" images — verified practice records, not official or proctored credentials. An <b>Overall Progress</b> certificate is always available. <b>Striver A2Z (<span class="js-a2z-total">474</span>)</b>, <b>LeetCode Top 150</b>, <b>NeetCode 150</b>, <b>Blind 75</b>, and <b>Babbar <span class="js-babbar-total">105</span></b> certificates each unlock once every problem in that respective set is solved. A <b>company-track certificate</b> unlocks per company — once every problem tagged with a given company is solved, a 🎓 icon appears on that company's card in the 🏢 Companies panel; click it to generate a certificate naming that company and its tag. Every number on every certificate is computed live from your actual solved set, and each carries a reproducible SHA-256 verification ID plus a link to your public LeetCode profile so anyone can check the numbers themselves. Generating and downloading certificates requires <b>Pro</b> — solving problems and tracking progress stay free regardless of subscription status.<br><br>
+    <b>📋 Study plans:</b> inside the Companies panel, "📋 Generate a study plan" turns any certification sheet (A2Z, Top 150, NeetCode 150, Blind 75, Babbar <span class="js-babbar-total">105</span>) or any company's tagged problems into a day-by-day checklist, Easy → Medium → Hard, with ties broken by how many of the 58 tracked companies also ask that problem (the closest free proxy for real per-problem frequency data without a paid dataset) — downloadable as Markdown.
   </div>
 
 </div>
@@ -558,8 +558,8 @@
         <div style="font-weight:700;font-size:17px;color:var(--ink);margin-bottom:4px;">🎓 Unlock Pro — real, verifiable certificates</div>
         <div style="font-size:13px;color:var(--ink-soft);margin-bottom:14px;">Solving problems and tracking progress is free forever, no matter what. Pro just unlocks generating and downloading certificates — something worth having in your resume or LinkedIn once you've actually put the work in.</div>
         <ul style="margin:0 0 16px;padding:0;list-style:none;display:grid;gap:8px;">
-          <li style="font-size:13px;color:var(--ink);display:flex;gap:8px;"><span style="color:var(--pine);flex:0 0 auto;">✓</span><span><b>Overall Progress certificate</b> — a live, always-available snapshot of your practice across all 2,923 problems.</span></li>
-          <li style="font-size:13px;color:var(--ink);display:flex;gap:8px;"><span style="color:var(--pine);flex:0 0 auto;">✓</span><span><b>5 sheet-specific certificates</b> — Striver A2Z (474), LeetCode Top 150, NeetCode 150, Blind 75, and Babbar 105, each unlocking as you clear that full list.</span></li>
+          <li style="font-size:13px;color:var(--ink);display:flex;gap:8px;"><span style="color:var(--pine);flex:0 0 auto;">✓</span><span><b>Overall Progress certificate</b> — a live, always-available snapshot of your practice across all <span class="js-total-problems">2,923</span> problems.</span></li>
+          <li style="font-size:13px;color:var(--ink);display:flex;gap:8px;"><span style="color:var(--pine);flex:0 0 auto;">✓</span><span><b>5 sheet-specific certificates</b> — Striver A2Z (<span class="js-a2z-total">474</span>), LeetCode Top 150, NeetCode 150, Blind 75, and Babbar <span class="js-babbar-total">105</span>, each unlocking as you clear that full list.</span></li>
           <li style="font-size:13px;color:var(--ink);display:flex;gap:8px;"><span style="color:var(--pine);flex:0 0 auto;">✓</span><span><b>Unlimited company-track certificates</b> — one per company, unlocking automatically as you clear every problem tagged to that company.</span></li>
           <li style="font-size:13px;color:var(--ink);display:flex;gap:8px;"><span style="color:var(--pine);flex:0 0 auto;">✓</span><span><b>Actually verifiable, not just a nice image</b> — every certificate carries a reproducible SHA-256 verification ID plus a link to your public LeetCode profile, so anyone (a recruiter, for instance) can check the numbers themselves.</span></li>
           <li style="font-size:13px;color:var(--ink);display:flex;gap:8px;"><span style="color:var(--pine);flex:0 0 auto;">✓</span><span><b>One-time payment</b> — ₹499, pay once, Pro stays active on this key forever. No subscription, nothing recurring.</span></li>
@@ -619,11 +619,11 @@
                 <div><label style="display:block;font-size:10px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;color:var(--ink-faint);margin-bottom:5px;">Track</label>
                   <select id="vfyTrack" style="width:100%;padding:8px 6px;border:1.5px solid var(--rule);background:var(--paper);border-radius:7px;font-size:13px;color:var(--ink);">
                     <option value="overall">Overall</option>
-                    <option value="a2z">A2Z-474</option>
+                    <option value="a2z" id="a2zSheetOption">A2Z-474</option>
                     <option value="top150">Top 150</option>
                     <option value="neet150">NeetCode 150</option>
                     <option value="blind75">Blind 75</option>
-                    <option value="babbar450">Babbar 105</option>
+                    <option value="babbar450" id="babbarSheetOption">Babbar 105</option>
                     <option value="company">Company…</option>
                   </select></div>
                 <div><label style="display:block;font-size:10px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;color:var(--ink-faint);margin-bottom:5px;">Company (if any)</label>
@@ -704,8 +704,38 @@ const PROBLEMS = DSA_PROBLEM_DATA.map(r => {
   };
 });
 
-document.getElementById('babbarToggle').textContent =
-  `📗 BABBAR ${PROBLEMS.filter(p => p.babbar450).length}`;
+// Single source of truth for "how many problems are in this sheet" —
+// computed once, here, from the actual tagged data, and reused everywhere
+// else in the app that needs to say "474" or "105" instead of each spot
+// hardcoding its own copy of a number that silently goes stale the moment
+// the underlying tagging changes (exactly what happened here: every
+// on-page "474" had drifted to the real count of 475 without anyone
+// noticing, because nothing but this one line was ever wired to recompute it).
+const A2Z_TOTAL = PROBLEMS.filter(p => p.a2z).length;
+const BABBAR_TOTAL = PROBLEMS.filter(p => p.babbar450).length;
+const TOTAL_PROBLEMS = PROBLEMS.length;
+document.getElementById('a2zToggle').textContent = `🅰️ STRIVER A2Z ${A2Z_TOTAL}`;
+document.getElementById('babbarToggle').textContent = `📗 BABBAR ${BABBAR_TOTAL}`;
+document.querySelector('h1 .stamp-badge').textContent = `${TOTAL_PROBLEMS.toLocaleString()} QUESTIONS`;
+document.title = `DSA Problem Tracker — ${TOTAL_PROBLEMS.toLocaleString()} LeetCode Questions`;
+// Static prose elsewhere (help panel, Pro upsell list, sheet dropdowns) has
+// these same totals baked into plain text/option elements that can't take a
+// template-literal — each one was given a stable hook (a .js-a2z-total /
+// .js-babbar-total / .js-total-problems span, or an id on the <option>) up
+// in the markup specifically so this one pass can keep every copy in sync
+// instead of relying on someone remembering to hand-edit every spot the
+// next time a problem gets added, removed, or re-tagged.
+document.querySelectorAll('.js-a2z-total').forEach(el => el.textContent = A2Z_TOTAL);
+document.querySelectorAll('.js-babbar-total').forEach(el => el.textContent = BABBAR_TOTAL);
+document.querySelectorAll('.js-total-problems').forEach(el => el.textContent = TOTAL_PROBLEMS.toLocaleString());
+const a2zOpt = document.getElementById('a2zSheetOption');
+if(a2zOpt) a2zOpt.textContent = `A2Z-${A2Z_TOTAL}`;
+const babbarOpt = document.getElementById('babbarSheetOption');
+if(babbarOpt) babbarOpt.textContent = `Babbar ${BABBAR_TOTAL}`;
+// Static help/upsell copy elsewhere in the page still has "474"/"105"
+// baked into its prose (see applyDynamicSheetCounts, called once DOM
+// content is ready, further down) — this early pair only covers the two
+// toggle buttons because they're needed before first paint.
 
 // ---- Per-problem deep-link URLs for the code editor ----------------------
 // Gives every problem its own shareable, bookmarkable URL (e.g.
@@ -3946,7 +3976,7 @@ function certCopy(spec, stats){
       eyebrow: 'VERIFIED PRACTICE RECORD',
       title: 'Certificate of Completion',
       preamble: 'in recognition of completing every problem in',
-      strap: "STRIVER'S A2Z DSA SHEET · 474 PROBLEMS",
+      strap: `STRIVER'S A2Z DSA SHEET · ${A2Z_TOTAL} PROBLEMS`,
       body1: `has solved all ${totalSolved} of ${total} problems on Striver's A2Z DSA sheet — ${bydiff.E.s} Easy, ${bydiff.M.s} Medium, ${bydiff.H.s} Hard —`,
       body2: 'demonstrating complete, structured coverage of the beginner-to-advanced DSA curriculum.',
       ringLabel: 'A2Z COMPLETION'
@@ -3993,7 +4023,7 @@ function certCopy(spec, stats){
       strap: "LOVE BABBAR'S 450 DSA SHEET",
       body1: `has solved all ${totalSolved} of ${total} LeetCode-equivalent problems matched from Love Babbar's 450 DSA sheet — ${bydiff.E.s} Easy, ${bydiff.M.s} Medium, ${bydiff.H.s} Hard —`,
       body2: "covering the sheet's LeetCode-mappable core; entries with no single corresponding LeetCode problem are outside this track's scope.",
-      ringLabel: 'BABBAR 105 COMPLETION'
+      ringLabel: `BABBAR ${BABBAR_TOTAL} COMPLETION`
     };
   }
   if(spec.kind === 'company'){
@@ -4019,7 +4049,7 @@ function certCopy(spec, stats){
 }
 
 function certFilename(spec){
-  if(spec.kind === 'a2z') return 'dsa-a2z-474-certificate.png';
+  if(spec.kind === 'a2z') return `dsa-a2z-${A2Z_TOTAL}-certificate.png`;
   if(spec.kind === 'top150') return 'dsa-top150-certificate.png';
   if(spec.kind === 'neet150') return 'dsa-neetcode150-certificate.png';
   if(spec.kind === 'blind75') return 'dsa-blind75-certificate.png';
@@ -4202,12 +4232,12 @@ function renderCertHub(){
   }
 
   const specs = [
-    {kind:'overall', label:'Overall Progress', icon:'📜', note:'Always available — a live snapshot of your practice across all 2,923 problems.'},
-    {kind:'a2z', label:"Striver A2Z Sheet (474)", icon:'🅰️', note:'Unlocks once all 474 A2Z sheet problems are solved.'},
+    {kind:'overall', label:'Overall Progress', icon:'📜', note:`Always available — a live snapshot of your practice across all ${PROBLEMS.length.toLocaleString()} problems.`},
+    {kind:'a2z', label:`Striver A2Z Sheet (${A2Z_TOTAL})`, icon:'🅰️', note:`Unlocks once all ${A2Z_TOTAL} A2Z sheet problems are solved.`},
     {kind:'top150', label:'LeetCode Top 150', icon:'⭐', note:"Unlocks once every problem on LeetCode's official Top Interview 150 is solved."},
     {kind:'neet150', label:'NeetCode 150', icon:'🧊', note:'Unlocks once every problem on the NeetCode 150 list is solved.'},
     {kind:'blind75', label:'Blind 75', icon:'🎯', note:'Unlocks once every problem on the Blind 75 list is solved.'},
-    {kind:'babbar450', label:'Babbar 105', icon:'📗', note:"Unlocks once every LeetCode-matched problem from Love Babbar's 450 sheet is solved."},
+    {kind:'babbar450', label:`Babbar ${BABBAR_TOTAL}`, icon:'📗', note:"Unlocks once every LeetCode-matched problem from Love Babbar's 450 sheet is solved."},
   ];
   const html = specs.map(s=>{
     const st = certStatsFor(s);
@@ -4492,14 +4522,6 @@ window.addEventListener('resize', ()=>{
   scheduleCmRefresh(mockCM);
 });
 
-const LC_CHEER_MESSAGES = [
-  '🎉 All test cases passed — nice work!',
-  '🔥 Clean sweep — every case passed.',
-  '💪 Solved it, all green. On to the next one!',
-  '🏆 Nailed it — perfect run.',
-  '✅ All cases passed. Great job!',
-  '🚀 Crushed it — 100% pass rate.'
-];
 function fireLcConfetti(){
   const colors = ['#146C43','#9B3226','#8C5A12','#34D399','#FF7A59','#FBBF24','#1FA97A'];
   const count = 70;
@@ -4516,13 +4538,6 @@ function fireLcConfetti(){
     document.body.appendChild(piece);
     setTimeout(()=>piece.remove(), 3000);
   }
-}
-function showLcCheer(bannerId){
-  const el = document.getElementById(bannerId);
-  if(!el) return;
-  const msg = LC_CHEER_MESSAGES[Math.floor(Math.random()*LC_CHEER_MESSAGES.length)];
-  el.innerHTML = `<div class="lc-cheer-banner">${msg}</div>`;
-  fireLcConfetti();
 }
 // The actual "Accepted" result card — separate from, and rendered above,
 // the generic Big-O reference chart. LeetCode's real version ranks a
@@ -4778,10 +4793,10 @@ function renderSummary(){
     const shown = names.length <= 2 ? names.join(', ') : `${names.length} selected`;
     const filterParts = [
       showTop150Only ? 'Top 150 only' : '',
-      showA2ZOnly ? 'A2Z 474 only' : '',
+      showA2ZOnly ? `A2Z ${A2Z_TOTAL} only` : '',
       showNeetOnly ? 'NeetCode 150 only' : '',
       showBlindOnly ? 'Blind 75 only' : '',
-      showBabbarOnly ? 'Babbar 105 only' : '',
+      showBabbarOnly ? `Babbar ${BABBAR_TOTAL} only` : '',
       showUnsolvedOnly ? 'Unsolved only' : '',
       document.getElementById('diffFilter').value ? DIFF_LABEL[document.getElementById('diffFilter').value] : '',
       document.getElementById('companyFilter').value || '',
@@ -4794,10 +4809,10 @@ function renderSummary(){
     const scopeParts = [
       company, section, diff ? DIFF_LABEL[diff] : '',
       showTop150Only ? 'Top 150 only' : '',
-      showA2ZOnly ? 'A2Z 474 only' : '',
+      showA2ZOnly ? `A2Z ${A2Z_TOTAL} only` : '',
       showNeetOnly ? 'NeetCode 150 only' : '',
       showBlindOnly ? 'Blind 75 only' : '',
-      showBabbarOnly ? 'Babbar 105 only' : '',
+      showBabbarOnly ? `Babbar ${BABBAR_TOTAL} only` : '',
       showUnsolvedOnly ? 'Unsolved only' : '',
       document.getElementById('tagFilter').value.trim() ? `tag: ${document.getElementById('tagFilter').value.trim()}` : '',
       document.getElementById('searchBox').value.trim() ? `"${document.getElementById('searchBox').value.trim()}"` : '',
@@ -4809,11 +4824,11 @@ function renderSummary(){
     <div class="ledger-cell easy"><div class="num">${bydiff.E.s}/${bydiff.E.t}</div><div class="lbl">Easy</div></div>
     <div class="ledger-cell medium"><div class="num">${bydiff.M.s}/${bydiff.M.t}</div><div class="lbl">Medium</div></div>
     <div class="ledger-cell hard"><div class="num">${bydiff.H.s}/${bydiff.H.t}</div><div class="lbl">Hard</div></div>
-    <div class="ledger-cell"><div class="num">${a2zSolved}<span style="font-size:14px;color:var(--ink-faint)">/${a2zTotal}</span></div><div class="lbl">🅰️ Striver A2Z 474</div></div>
+    <div class="ledger-cell"><div class="num">${a2zSolved}<span style="font-size:14px;color:var(--ink-faint)">/${a2zTotal}</span></div><div class="lbl">🅰️ Striver A2Z ${A2Z_TOTAL}</div></div>
     <div class="ledger-cell"><div class="num">${top150Solved}<span style="font-size:14px;color:var(--ink-faint)">/${top150Total}</span></div><div class="lbl">⭐ Top 150</div></div>
     <div class="ledger-cell"><div class="num">${neetSolved}<span style="font-size:14px;color:var(--ink-faint)">/${neetTotal}</span></div><div class="lbl">🧊 NeetCode 150</div></div>
     <div class="ledger-cell"><div class="num">${blindSolved}<span style="font-size:14px;color:var(--ink-faint)">/${blindTotal}</span></div><div class="lbl">🎯 Blind 75</div></div>
-    <div class="ledger-cell"><div class="num">${babbarSolved}<span style="font-size:14px;color:var(--ink-faint)">/${babbarTotal}</span></div><div class="lbl">📗 Babbar 105</div></div>
+    <div class="ledger-cell"><div class="num">${babbarSolved}<span style="font-size:14px;color:var(--ink-faint)">/${babbarTotal}</span></div><div class="lbl">📗 Babbar ${BABBAR_TOTAL}</div></div>
   `;
   if(selected){
     const clearBtn = document.getElementById('clearTopicSelectionBtn');
@@ -4912,12 +4927,12 @@ function buildRowEl(p){
   const companyPills = comps.length ? `<div class="row-companypills">${shownComps.map(c=>`<span class="row-companypill">${companyLogo(c)} ${escapeHtml(c)}</span>`).join('')}${extraCompCount>0 ? `<button type="button" class="row-companypill more" data-more-companies="${escapeHtml(extraComps.join('|'))}">+${extraCompCount}</button>` : ''}</div>` : '';
   const badgeParts = [
     tagPills,
-    p.a2z ? '<span class="top150-tag a2z-tag" title="Part of the full 474-problem A2Z sheet">🅰️ A2Z</span>' : '',
+    p.a2z ? `<span class="top150-tag a2z-tag" title="Part of the full ${A2Z_TOTAL}-problem A2Z sheet">🅰️ A2Z</span>` : '',
     (p.top150 || p.onlyTop150) ? '<span class="top150-tag" title="Part of LeetCode\'s official Top Interview 150">⭐ Top 150</span>' : '',
     p.onlyCompany ? '<span class="top150-tag company-new" title="Not part of the original Striver A2Z sheet — added because it\'s frequently asked by companies hiring in India">🏢 Company</span>' : '',
     p.neet150 ? '<span class="top150-tag neet-tag" title="On NeetCode\'s 150 list">🧊 NeetCode 150</span>' : '',
     p.blind75 ? '<span class="top150-tag blind-tag" title="On the Blind 75 list">🎯 Blind 75</span>' : '',
-    p.babbar450 ? '<span class="top150-tag babbar-tag" title="Matched to a problem on Love Babbar\'s 450 DSA sheet">📗 Babbar 105</span>' : '',
+    p.babbar450 ? `<span class="top150-tag babbar-tag" title="Matched to a problem on Love Babbar's 450 DSA sheet">📗 Babbar ${BABBAR_TOTAL}</span>` : '',
     p.premium ? `<span class="premium-tag" title="${p.redirectsToTuf ? 'Paywalled on LeetCode — this tracker links to the same problem on TakeUForward+ instead' : 'Requires a paid LeetCode account to open on LeetCode'}">🔒 Premium${p.redirectsToTuf ? ' · via TUF' : ''}</span>` : '',
     p.noOJ ? '<span class="premium-tag no-oj-tag" title="Not hosted on LeetCode — part of the A2Z sheet as a theory topic, pattern drill, or GfG-only implementation. Solved by passing this tracker\'s own test cases (or marking done for non-coding topics), same as a premium problem.">🧩 No OJ</span>' : ''
   ].filter(Boolean).join('');
@@ -5439,6 +5454,31 @@ function renderCodeBlockHtml(code, lang){
     `</div>` +
     `<pre class="code-block"><code>${highlightCode(code)}</code></pre></div>`;
 }
+// Registry backing the bugfix diff-card's OWN Insert button — deliberately
+// separate from chatCodeRegistry/insertSnippetIntoEditor above. That path
+// always replaces the ENTIRE editor contents, which is right for a full
+// FIXED CODE block but wrong here: a bugfix card only ever holds one small
+// before/after line pair, so "Insert" on it needs to find that exact line
+// in the editor and swap in the fix, leaving every other line untouched —
+// see insertLineFixIntoEditor below.
+const bugfixRegistry = {};
+let bugfixIdSeq = 0;
+function bugfixCardHtml(lineLabel, desc, beforeCode, afterCode){
+  const regId = 'bf' + (bugfixIdSeq++);
+  bugfixRegistry[regId] = { before: beforeCode, after: afterCode };
+  return `<div class="bugfix-card">` +
+    `<div class="bugfix-head"><span class="bugfix-line-badge">Line ${escapeHtml(lineLabel.trim())}</span>` +
+    `<span class="bugfix-desc">${mathText(desc)}</span></div>` +
+    `<div class="bugfix-diff">` +
+      `<div class="bugfix-diff-row before"><span class="diff-tag">−</span><code>${highlightCode(beforeCode)}</code></div>` +
+      `<div class="bugfix-diff-row after"><span class="diff-tag">+</span><code>${highlightCode(afterCode)}</code></div>` +
+    `</div>` +
+    `<div class="bugfix-btns">` +
+      `<button type="button" class="insert-code-btn" data-bugfix-insert data-bugfix-id="${regId}" title="Replace just this one line in the editor with the fix — every other line is left exactly as it is">📥 Insert fix</button>` +
+      `<button type="button" class="copy-code-btn" data-bugfix-copy data-bugfix-id="${regId}">Copy</button>` +
+    `</div>` +
+  `</div>`;
+}
 // Pulls fenced ```code``` blocks out of a raw AI response and replaces each
 // with an @@CODEBLOCKn@@ placeholder line, so a text renderer can process
 // the rest as plain prose/labels/lists and drop in a real Insert/Copy code
@@ -5453,6 +5493,14 @@ function renderCodeBlockHtml(code, lang){
 // same way even with no backticks — this is the same trick the old
 // Review-only "FIXED CODE:" fallback used, generalized to any AI response.
 const LOOSE_CODE_LINE_RE = /[{};]\s*$|^\s*(def |class |function\s|public\s|private\s|protected\s|static\s|import\s|from\s|package\s|using\s|namespace\s|#include|struct\s|enum\s|for\s*\(|while\s*\(|if\s*\(|return\b|const\s|let\s|var\s)/;
+// "Line N: ..." / "Before: ..." / "After: ..." (see renderReviewText below)
+// often end in `;` or `{` themselves — e.g. "Before: int N=n;" — which would
+// otherwise match LOOSE_CODE_LINE_RE and get swept into a generic 2-line
+// fenced block by the loop below. That would hand it a plain whole-file
+// Insert button, which for a 1-2 line snippet like "int N=n;" would offer to
+// wipe the entire editor down to just those lines. Exclude them here so
+// they reach renderReviewText's own Before/After diff-card handling instead.
+const STRUCTURED_REVIEW_LINE_RE = /^(Lines?\s+[\d,\-–\s]+\s*:|Before:|After:)/i;
 function extractCodeBlocks(raw){
   const codeBlocks = [];
   let text = stripLatexArtifacts(raw.replace(/```([a-zA-Z0-9+#]*)\n?([\s\S]*?)```/g, (m, lang, code) => {
@@ -5474,7 +5522,7 @@ function extractCodeBlocks(raw){
   };
   lines.forEach(line=>{
     if(/^@@CODEBLOCK\d+@@$/.test(line.trim())){ flushBuf(); outLines.push(line); return; }
-    if(line.trim() && LOOSE_CODE_LINE_RE.test(line)){ buf.push(line); }
+    if(line.trim() && !STRUCTURED_REVIEW_LINE_RE.test(line.trim()) && LOOSE_CODE_LINE_RE.test(line)){ buf.push(line); }
     else { flushBuf(); outLines.push(line); }
   });
   flushBuf();
@@ -5530,30 +5578,72 @@ function renderReviewText(raw){
     if(!trimmed){ if(inFixedCodeFallback) fixedCodeLines.push(''); continue; }
     const codeToken = trimmed.match(/^@@CODEBLOCK(\d+)@@$/);
     if(codeToken){
-      // A real fenced block arrived — the fallback buffer (if any) was just
-      // stray prose before it, not code, so drop it rather than rendering both.
+      const block = codeBlocks[parseInt(codeToken[1],10)] || { code:'', lang:'' };
+      // Defensive fallback: the prompt tells the model never to fence a
+      // Line/Before/After triple, but if it does anyway, this still renders
+      // it as the same safe diff card instead of a generic code block —
+      // generic code blocks offer a whole-file-replace Insert, which for a
+      // 1-2 line snippet would silently wipe out the rest of the editor.
+      const fencedTriple = block.code.match(/^\s*Lines?\s+([\d,\-–\s]+?)\s*:\s*([^\n]*)\n\s*Before:\s*([^\n]*)\n\s*After:\s*([^\n]*)\s*$/i);
+      if(fencedTriple){
+        inFixedCodeFallback = false; fixedCodeLines = [];
+        closeSection(); closeList();
+        html += bugfixCardHtml(fencedTriple[1], fencedTriple[2], fencedTriple[3], fencedTriple[4]);
+        continue;
+      }
+      // Same idea, for when only the Before/After pair got fenced but the
+      // "Line N:" description above it stayed as plain text — see the
+      // lineMatch branch below, which already handles this by peeking
+      // forward before it ever emits the "Line N:" line as plain prose.
+      // Last resort: a fenced Before/After pair with no line label anywhere
+      // (model dropped the "Line N:" line entirely) — still a diff card,
+      // just without a line number, rather than a dangerous whole-file Insert.
+      const fencedPairOnly = block.code.match(/^\s*Before:\s*([^\n]*)\n\s*After:\s*([^\n]*)\s*$/i);
+      if(fencedPairOnly){
+        inFixedCodeFallback = false; fixedCodeLines = [];
+        closeSection(); closeList();
+        html += bugfixCardHtml('?', '', fencedPairOnly[1], fencedPairOnly[2]);
+        continue;
+      }
       inFixedCodeFallback = false; fixedCodeLines = [];
       closeSection();
-      const block = codeBlocks[parseInt(codeToken[1],10)] || { code:'', lang:'' };
       html += renderCodeBlockHtml(block.code, block.lang);
       continue;
     }
     if(!inFixedCodeFallback){
       const lineMatch = trimmed.match(LINE_RE);
       if(lineMatch){
-        const nextBefore = (lines[i+1] || '').trim().match(BEFORE_RE);
-        const nextAfter = (lines[i+2] || '').trim().match(AFTER_RE);
+        // Skip blank lines when looking ahead — extractCodeBlocks pads a
+        // blank line on each side of every @@CODEBLOCKn@@ token it inserts,
+        // so a wrongly-fenced Before/After pair right after this "Line N:"
+        // line would otherwise sit one line further away than expected.
+        let j = i + 1;
+        while(j < lines.length && !lines[j].trim()) j++;
+        const next1Raw = (lines[j] || '').trim();
+        const nextBefore = next1Raw.match(BEFORE_RE);
+        let k = j + 1;
+        while(k < lines.length && !lines[k].trim()) k++;
+        const nextAfter = (lines[k] || '').trim().match(AFTER_RE);
         if(nextBefore && nextAfter){
           closeList();
-          html += `<div class="bugfix-card">` +
-            `<div class="bugfix-head"><span class="bugfix-line-badge">Line ${escapeHtml(lineMatch[1].trim())}</span>` +
-            `<span class="bugfix-desc">${mathText(lineMatch[2])}</span></div>` +
-            `<div class="bugfix-diff">` +
-              `<div class="bugfix-diff-row before"><span class="diff-tag">−</span><code>${highlightCode(nextBefore[1])}</code></div>` +
-              `<div class="bugfix-diff-row after"><span class="diff-tag">+</span><code>${highlightCode(nextAfter[1])}</code></div>` +
-            `</div></div>`;
-          i += 2;
+          html += bugfixCardHtml(lineMatch[1], lineMatch[2], nextBefore[1], nextAfter[1]);
+          i = k;
           continue;
+        }
+        // Fallback: Before/After landed inside a single fenced block (model
+        // ignored the "don't fence these" instruction) while "Line N:" above
+        // it stayed unfenced — pull the pair out of that block instead of
+        // falling through to a generic code block with a whole-file Insert.
+        const tokenMatch = next1Raw.match(/^@@CODEBLOCK(\d+)@@$/);
+        if(tokenMatch){
+          const block = codeBlocks[parseInt(tokenMatch[1],10)] || { code:'' };
+          const pairMatch = block.code.match(/^\s*Before:\s*([^\n]*)\n\s*After:\s*([^\n]*)\s*$/i);
+          if(pairMatch){
+            closeList();
+            html += bugfixCardHtml(lineMatch[1], lineMatch[2], pairMatch[1], pairMatch[2]);
+            i = j;
+            continue;
+          }
         }
       }
     }
@@ -5672,6 +5762,46 @@ function insertSnippetIntoEditor(code, fenceLang){
   resetSolveHistory(code);
   showToast('Inserted into the editor.');
 }
+// Insert for a bugfix diff card — deliberately NOT insertSnippetIntoEditor's
+// whole-file replace. Finds the exact "before" line inside whichever editor
+// is showing this problem and swaps in the "after" line, preserving that
+// line's own leading indentation and leaving every other line untouched. No
+// "replace everything?" confirmation, because nothing but that one line
+// changes — the only prompts here are for genuinely ambiguous situations.
+function insertLineFixIntoEditor(beforeCode, afterCode){
+  if(!beforeCode || !beforeCode.trim()){ showToast('Nothing to insert.'); return; }
+  const targetIsMock = !!(activeMock && activeMock.problemId === aiModalActiveId);
+  const targetIsSolve = !targetIsMock && solveModalId != null && solveModalId === aiModalActiveId;
+  if(!targetIsMock && !targetIsSolve){
+    alert('Open this exact problem in the Solve editor, or start a Mock Interview on it, then use Insert.');
+    return;
+  }
+  const currentCode = targetIsMock ? getMockCode() : document.getElementById('solveCodeInput').value;
+  const target = beforeCode.trim();
+  const lines = currentCode.split('\n');
+  const matchIdxs = [];
+  lines.forEach((l, idx) => { if(l.trim() === target) matchIdxs.push(idx); });
+  if(matchIdxs.length === 0){
+    alert("Couldn't find this exact line in the editor — it may already be fixed, or the code's changed since this review. Nothing was changed; use Copy to grab the fix and paste it in manually.");
+    return;
+  }
+  if(matchIdxs.length > 1 && !confirm(`This exact line appears ${matchIdxs.length} times in the editor. Replace all ${matchIdxs.length} with the fix? (Cancel to leave the editor untouched — use Copy instead if you only want one of them changed.)`)){
+    return;
+  }
+  matchIdxs.forEach(idx => {
+    const indent = (lines[idx].match(/^\s*/) || [''])[0];
+    lines[idx] = indent + afterCode.trim();
+  });
+  const newCode = lines.join('\n');
+  if(targetIsMock){
+    setMockCode(newCode);
+  } else {
+    setSolveEditorValue(newCode);
+    setSolveCode(solveModalId, document.getElementById('solveLangSel').value, newCode);
+    pushSolveHistorySnapshot();
+  }
+  showToast(matchIdxs.length > 1 ? `Replaced ${matchIdxs.length} matching lines.` : 'Line replaced — rest of the code untouched.');
+}
 function attachReviewCodeCopyButtons(container){
   container.querySelectorAll('[data-review-copy]').forEach(btn=>{
     if(btn.dataset.wired) return;
@@ -5694,6 +5824,28 @@ function attachReviewCodeCopyButtons(container){
       const entry = chatCodeRegistry[btn.dataset.insertId];
       if(!entry){ showToast('Nothing to insert.'); return; }
       insertSnippetIntoEditor(entry.code, entry.lang);
+    });
+  });
+  container.querySelectorAll('[data-bugfix-insert]').forEach(btn=>{
+    if(btn.dataset.wired) return;
+    btn.dataset.wired = '1';
+    btn.addEventListener('click', ()=>{
+      const entry = bugfixRegistry[btn.dataset.bugfixId];
+      if(!entry){ showToast('Nothing to insert.'); return; }
+      insertLineFixIntoEditor(entry.before, entry.after);
+    });
+  });
+  container.querySelectorAll('[data-bugfix-copy]').forEach(btn=>{
+    if(btn.dataset.wired) return;
+    btn.dataset.wired = '1';
+    btn.addEventListener('click', ()=>{
+      const entry = bugfixRegistry[btn.dataset.bugfixId];
+      const code = entry ? entry.after : '';
+      navigator.clipboard.writeText(code).then(()=>{
+        const old = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(()=>{ btn.textContent = old; }, 1200);
+      }).catch(()=>{ alert('Could not copy — select and copy manually.'); });
     });
   });
 }
@@ -6053,17 +6205,11 @@ function buildExecutionPayload(langVal, rawUserCode, testCaseInputJson, harness)
   if(langVal === 'java') return { code: javaHarnessFull(rawUserCode, harness), inputJson: testCaseInputJson };
   return { code: rawUserCode, inputJson: testCaseInputJson };
 }
-// result.error alone (e.g. "Compile error — see output above.") was never
-// actually accompanied by anything "above" it — the real javac/JVM
-// stdout+stderr lives in result.logs but every call site below used to
-// throw it away. These two helpers surface it: a multi-line version for the
-// plain-text Run console, and a single-line version for the compact
-// per-test-case status chip.
-function formatRunError(result){
-  const logsText = (result.logs || []).filter(l=>l.trim()).join('\n');
-  if(!logsText) return result.error || 'unknown error';
-  return `${result.error || 'unknown error'}\n    ${logsText.split('\n').join('\n    ')}`;
-}
+// result.error alone (e.g. "Compile error — see output above.") isn't
+// useful without result.logs (the real javac/JVM stdout+stderr) — the
+// plain-text Run console below pushes both into its `lines` array (logs
+// first, error last) for that reason; formatShortError does the equivalent
+// for the compact per-test-case status chip.
 function formatShortError(result){
   const logsText = (result.logs || []).filter(l=>l.trim()).join(' | ');
   if(!logsText) return result.error || 'unknown error';
@@ -7430,7 +7576,7 @@ function runJSCasesInWorker(code, rawInputJsons, timeoutMs){
 // JS/SQL don't need this: their runtimes are tiny/instant by comparison.
 function preloadRuntimeForLang(lang){
   const l = (lang||'').toLowerCase();
-  if(l === 'java') ensureCheerpJ().catch(()=>{});
+  if(l === 'java') warmupJavaCompiler();
   else if(l === 'python') ensurePyodideWorker();
 }
 const PY_TLE_MS = RUN_TLE_MS; // was 8000 — Python got extra rope for interpreter overhead, but the fix here is one hard 1s cap for every language
@@ -7701,6 +7847,31 @@ async function runCompiledJavaBatch(className, rawInputJsons){
     console.error = origError;
   }
 }
+// preloadRuntimeForLang's ensureCheerpJ() call only downloads and boots the
+// CheerpJ engine itself — that's necessary but not sufficient. javac's own
+// first compile inside a freshly-booted JVM carries a separate, substantial
+// class-loading/JIT warm-up cost that's independent of what's being
+// compiled, and nothing above pays it until the user's actual first Run —
+// which is exactly the "boots on first run" delay this is meant to fix.
+// Compiling and running a trivial throwaway program here pays that cost
+// once, in the background, while the person is still reading the problem —
+// so by the time they click Run for real, the JVM is already warm and only
+// their code's own compile time is left on the critical path.
+let javaWarmupPromise = null;
+function warmupJavaCompiler(){
+  if(javaWarmupPromise) return javaWarmupPromise;
+  javaWarmupPromise = ensureCheerpJ().then(async ()=>{
+    const dummy = 'public class Warmup { public static void main(String[] args) { System.out.println("warm"); } }';
+    const compiled = await compileJavaOnce(dummy);
+    if(compiled.ok) await runCompiledJavaBatch(compiled.className, []);
+  }).catch(()=>{
+    // Best-effort only — if warm-up fails for any reason (offline, blocked
+    // CDN, file:// protocol, etc.) the real first Run just pays this cost
+    // itself, exactly like before this existed. Never surface this failure
+    // to the user or block anything on it.
+  });
+  return javaWarmupPromise;
+}
 // Splits one batched Java run's interleaved stdout back into one
 // {ok, logs, error} result per test case, using the ##CASEn_START##/
 // ##CASEn_END## markers the harness prints around each case.
@@ -7794,6 +7965,11 @@ function raceTimeout(promise, ms){
 // compilation on top of the actual execution time.
 async function runCasesInLang(langKey, wrappedCode, rawInputJsons){
   if(langKey === 'java'){
+    // If the background warm-up (see warmupJavaCompiler) is still running,
+    // wait for it rather than starting a second overlapping CheerpJ call —
+    // it's our own trivial dummy program, so this is normally milliseconds,
+    // not the "wait a few seconds" case javaRunLocked below is for.
+    if(javaWarmupPromise) await javaWarmupPromise;
     if(javaRunLocked){
       const err = { ok:false, logs:[], error: "A previous Java run timed out and is still finishing in the background — CheerpJ can't be safely interrupted, so a second run can't start until it settles (this avoids two runs corrupting each other's output). Wait a few seconds and try again, or reload the tab if it's been stuck a while." };
       return { results: rawInputJsons.map(()=>err), execMs: null };
@@ -8964,11 +9140,11 @@ function populateStudyPlanCompanySelect(){
   const sel = document.getElementById('planCompanySel');
   if(!sel || sel.dataset.filled) return;
   const sheetOptions = [
-    {value:'sheet:a2z', label:'Striver A2Z (474)'},
+    {value:'sheet:a2z', label:`Striver A2Z (${A2Z_TOTAL})`},
     {value:'sheet:top150', label:'LeetCode Top 150'},
     {value:'sheet:neet150', label:'NeetCode 150'},
     {value:'sheet:blind75', label:'Blind 75'},
-    {value:'sheet:babbar450', label:'Babbar 105'}
+    {value:'sheet:babbar450', label:`Babbar ${BABBAR_TOTAL}`}
   ].map(s=>`<option value="${s.value}">${escapeHtml(s.label)}</option>`).join('');
   const companyOptions = COMPANIES.map(c=>`<option value="company:${escapeHtml(c.name)}">${escapeHtml(c.name)} (${c.count})</option>`).join('');
   sel.innerHTML = `<optgroup label="Certification sheets">${sheetOptions}</optgroup><optgroup label="Companies">${companyOptions}</optgroup>`;
@@ -8978,7 +9154,7 @@ function studyPlanTargetInfo(value){
   const [kind, ...rest] = value.split(':');
   const arg = rest.join(':');
   if(kind === 'sheet'){
-    const labels = {a2z:'Striver A2Z (474)', top150:'LeetCode Top 150', neet150:'NeetCode 150', blind75:'Blind 75', babbar450:'Babbar 105'};
+    const labels = {a2z:`Striver A2Z (${A2Z_TOTAL})`, top150:'LeetCode Top 150', neet150:'NeetCode 150', blind75:'Blind 75', babbar450:`Babbar ${BABBAR_TOTAL}`};
     return { pool: certPool({kind:arg}), label: labels[arg] || arg };
   }
   return { pool: certPool({kind:'company', company:arg}), label: arg };
@@ -9767,12 +9943,6 @@ function appendReviewHistory(id, userApiTurn, userDisplayText, modelApiTurn, mod
   if(store[id].display.length > MAX_TURNS) store[id].display = store[id].display.slice(-MAX_TURNS);
   saveReviewHistoryStore(store);
 }
-function clearReviewHistory(id){
-  if(id==null) return;
-  const store = loadReviewHistoryStore();
-  delete store[id];
-  saveReviewHistoryStore(store);
-}
 
 // Same idea as REVIEW_HISTORY_KEY above, but for follow-up questions asked
 // in the Core Concept modal's chatbot ("I don't get why X still works
@@ -9801,12 +9971,7 @@ function appendConceptHistory(id, userApiTurn, userDisplayText, modelApiTurn, mo
   if(store[id].display.length > MAX_TURNS) store[id].display = store[id].display.slice(-MAX_TURNS);
   saveConceptHistoryStore(store);
 }
-function clearConceptHistoryStore(id){
-  if(id==null) return;
-  const store = loadConceptHistoryStore();
-  delete store[id];
-  saveConceptHistoryStore(store);
-}
+
 
 function loadGhSyncConfig(){
   try{
@@ -10140,12 +10305,7 @@ function appendFeatureChatHistory(feature, id, userApiTurn, userDisplayText, mod
   if(store[id].display.length > MAX_TURNS) store[id].display = store[id].display.slice(-MAX_TURNS);
   saveFeatureChatStore(feature, store);
 }
-function clearFeatureChatHistoryStore(feature, id){
-  if(id==null) return;
-  const store = loadFeatureChatStore(feature);
-  delete store[id];
-  saveFeatureChatStore(feature, store);
-}
+
 // ChatGPT-style chat history, shared by all 5 AI chat panels (hint,
 // visualize, code, concept, review): "New chat" archives whatever's
 // currently active and starts fresh; "Past chats" lists what's been
@@ -11102,6 +11262,7 @@ async function sendReviewMessage(){
       `Before: <that exact original line's code, verbatim, no "N| " prefix>\n` +
       `After: <the corrected version of that same line, verbatim, minimal fix only>\n` +
       `(If a single bug genuinely needs more than one line changed, still give its main "Line <N>:" line, then put the small multi-line snippet after "Before:"/"After:" instead of a single line.)\n` +
+      `Never wrap any "Line <N>:"/"Before:"/"After:" line in triple backticks or any other code fence — they render as their own compact diff card automatically as plain text; fencing them breaks that rendering.\n` +
       `COMPLEXITY: the CURRENT code's time and space complexity, plain text, one line.\n` +
       `SUGGESTIONS: if VERDICT was "Correct but not optimal", this is required — name the optimal technique/pattern, explain in 1-2 sentences why it beats the current approach, give its time/space complexity, and include a short fenced code block with the optimal implementation. If the code is already optimal, either omit this section or use it only for minor style/readability notes (no invented bugs, no restating BUGS AND FIXES). ` +
       `FIXED CODE: only if BUGS AND FIXES was non-empty — the user's FULL original code with every one of those fixes applied, same language, everything else left exactly as they wrote it, inside a single fenced code block (triple backticks). Omit this whole label if the code was already correct — do not repeat the optimal-approach code here, that belongs under SUGGESTIONS. ` +
