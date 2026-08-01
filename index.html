@@ -6849,6 +6849,64 @@ function pyHarnessFooter(h){
 // utility (not AI-generated) — the AI only ever supplies functionName/params
 // /returnType, this template does the type-directed extraction and printing
 // for every problem the same reliable way.
+// Finds the index just past the "}" that matches the "{" at openIdx,
+// skipping over // line comments, /* block comments */, "string" and 'char'
+// literals along the way so a stray '{' or '}' inside one of those doesn't
+// throw off the depth count (e.g. `char c = '{'` in exactly the kind of
+// bracket-matching problem this tracker is full of). Best-effort, not a full
+// Java parser — good enough for the well-formed code this ever runs on.
+function findMatchingBraceEnd(code, openIdx){
+  let depth = 1, i = openIdx + 1;
+  while(i < code.length && depth > 0){
+    const ch = code[i];
+    if(ch === '/' && code[i+1] === '/'){
+      const nl = code.indexOf('\n', i);
+      i = nl === -1 ? code.length : nl + 1;
+      continue;
+    }
+    if(ch === '/' && code[i+1] === '*'){
+      const end = code.indexOf('*/', i+2);
+      i = end === -1 ? code.length : end + 2;
+      continue;
+    }
+    if(ch === '"'){
+      i++;
+      while(i < code.length && code[i] !== '"'){ if(code[i] === '\\') i++; i++; }
+      i++;
+      continue;
+    }
+    if(ch === "'"){
+      i++;
+      while(i < code.length && code[i] !== "'"){ if(code[i] === '\\') i++; i++; }
+      i++;
+      continue;
+    }
+    if(ch === '{') depth++;
+    else if(ch === '}') depth--;
+    i++;
+  }
+  return i;
+}
+function renameToSolutionClassIfNeeded(code, functionName){
+  if(!functionName || /\bclass\s+Solution\b/.test(code)) return code;
+  const classRe = /\bclass\s+(\w+)\s*(?:extends\s+[\w.<>]+\s*)?(?:implements\s+[\w.,<>\s]+)?\{/g;
+  const methodRe = new RegExp('\\b' + functionName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*\\(');
+  const candidates = [];
+  let m;
+  while((m = classRe.exec(code))){
+    const openIdx = m.index + m[0].length - 1;
+    const bodyEnd = findMatchingBraceEnd(code, openIdx);
+    const body = code.slice(openIdx, bodyEnd);
+    if(methodRe.test(body)){
+      candidates.push({ name: m[1], declStart: m.index, declEnd: m.index + m[0].length });
+    }
+    classRe.lastIndex = bodyEnd; // skip past this class's body — don't also match its nested classes as separate top-level candidates
+  }
+  if(candidates.length !== 1) return code; // none or ambiguous — don't guess
+  const c = candidates[0];
+  const decl = code.slice(c.declStart, c.declEnd).replace(new RegExp('\\bclass\\s+' + c.name + '\\b'), 'class Solution');
+  return code.slice(0, c.declStart) + decl + code.slice(c.declEnd);
+}
 function javaHarnessFull(userCode, h){
   // The person's own code sometimes comes in as a complete standalone
   // program — e.g. the "Get code" AI panel deliberately generates a
@@ -6866,7 +6924,16 @@ function javaHarnessFull(userCode, h){
   // package-private fixes this regardless of where the code came from, and
   // is invisible to them since nothing outside this generated file ever
   // references these classes by name.
-  const sanitizedUserCode = userCode.replace(/\bpublic\s+class\b/g, 'class');
+  let sanitizedUserCode = userCode.replace(/\bpublic\s+class\b/g, 'class');
+  // Belt-and-suspenders for the same failure mode: even with the "name it
+  // Solution" instruction now given to the "Get code" AI (and no way to
+  // enforce that on code a person just pastes in themselves), a top-level
+  // class named something else still means `new Solution().functionName(...)`
+  // below can't find it. If exactly one top-level class actually defines the
+  // harness's target method, rename just that declaration to "Solution"
+  // rather than leaving it to fail — ambiguous cases (none found, or more
+  // than one candidate) are left alone rather than guessed at.
+  sanitizedUserCode = renameToSolutionClassIfNeeded(sanitizedUserCode, h.functionName);
   const argVars = h.params.map((p,i)=>{
     const getter = {
       'int':'toInt','long':'toLong','double':'toDouble','boolean':'toBool','String':'toStr','char':'toChar',
@@ -11952,6 +12019,19 @@ function renderTraceStep(entry, ids){
 
 const codeLoading = new Set(); // codeCacheKey() values currently being generated
 
+// Get code needs to know the EXACT signature the judge harness will call —
+// javaHarnessFull (and its JS/Python equivalents) hard-codes `new
+// Solution().<functionName>(...)`, so an AI-generated program that names its
+// class something else (or adds its own public class/main()) compiles fine
+// standalone but fails here with "cannot find symbol: class Solution". Reuse
+// whichever harness (Solve editor's or the active Mock Interview's) already
+// matches the problem this code modal is open for, so the AI is told to
+// target the real contract instead of inventing its own.
+function harnessForCodeModal(){
+  if(activeMock && activeMock.problemId === codeModalId && activeMock.harness) return activeMock.harness;
+  if(solveModalId != null && solveModalId === codeModalId && solveHarness) return solveHarness;
+  return null;
+}
 async function fetchCodeApproach(tabArg, isBackground){
   const tab = tabArg || codeModalTab;
   const key = isBackground ? getGeminiKey() : requireGeminiKey('codeGenKeySection');
@@ -11962,6 +12042,17 @@ async function fetchCodeApproach(tabArg, isBackground){
   const cacheKey = codeCacheKey(codeModalId, tab, lang);
   codeLoading.add(cacheKey);
   if(tab === codeModalTab) renderCodeModalBody();
+  const COMPILED_LANGS = ['Java','C++','C','C#','TypeScript','Go'];
+  const isCompiled = COMPILED_LANGS.includes(lang);
+  const h = harnessForCodeModal();
+  const signatureRule = h
+    ? `This exact problem already has a fixed method signature this code MUST match so it can be dropped straight into the editor and run: a method named "${h.functionName}" taking (${h.params.map(pr=>pr.type+' '+pr.name).join(', ')}) and returning ${h.returnType}. ` +
+      (isCompiled
+        ? `Put it as a public method inside a class named EXACTLY "Solution" (nothing else) — do NOT rename the class, do NOT add "public" on the class itself, and do NOT add a main()/entry point; the surrounding test harness supplies its own. Any helper methods/classes you need should be private or nested inside "Solution", not separate top-level public types. `
+        : `Define it exactly under that name/signature so it can be called directly. `)
+    : (isCompiled
+        ? `Since this is ${lang}, follow LeetCode's own convention: put the solution as a public method inside a class named exactly "Solution" (never a different class name), do NOT add "public" on the class itself, and do NOT include a main()/entry point or any other top-level public type — just the "Solution" class with the solving method inside it, using LeetCode's real method name for this problem. `
+        : '');
   try{
     const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=' + encodeURIComponent(key), {
       method:'POST',
@@ -11972,13 +12063,14 @@ async function fetchCodeApproach(tabArg, isBackground){
           `Respond with ONLY raw JSON, no markdown code fences, no prose outside the JSON, matching exactly this shape: ` +
           `{"pattern": "<name of the technique used>", "time_complexity": "<Big-O time>", "space_complexity": "<Big-O space>", ` +
           `"explanation": "<2-3 plain-English sentences on how this approach works, no code>", ` +
-          `"code": "<complete, directly runnable ${lang} function/program solving the problem, properly formatted with real newlines and correct ${lang} syntax and conventions>", ` +
+          `"code": "<complete ${lang} solution implementing the ${tabLabel} approach, properly formatted with real newlines and correct ${lang} syntax and conventions>", ` +
           `"trace": {"input_label": "<one small concrete example input, e.g. nums = [2,7,11,15], target = 9>", ` +
           `"array": <array of numbers/strings for the primary input sequence being processed, or null if the problem isn't array/string based>, ` +
           `"steps": [ {"desc": "<one plain-English sentence on what happens at this step>", "line": <the 1-based line number IN THE "code" FIELD ABOVE whose statement this step is actually executing — count real newlines in "code" starting at 1, blank/brace-only lines included>, "highlight": [<indices into array relevant this step, or empty array>], "pointers": {"<name>": <index>, ...}, "vars": {"<name>": "<value as string>", ...}} , ... 4 to 8 of these, walking through the ${tabLabel} algorithm step by step on the example input ] } }. ` +
           `The "line" numbers must correspond line-for-line to the exact "code" string you write — if a step spans a loop body executed repeatedly, point to the specific line inside the loop that's relevant to what that step's "desc" describes, not the loop header every time. ` +
           `If the problem is not array/string based (tree, graph, DP table, linked list, etc.), set "array" to null and "pointers"/"highlight" to empty, but still give clear "steps" with plain-English "desc", a "line" pointer, and relevant "vars" so the flow is still easy to follow without a code editor. ` +
           `The "code" field must be actual ${lang} source code (not pseudocode, not another language) that actually implements the ${tabLabel} approach specifically${tab==='brute' ? ' (even if inefficient)' : ' (the best known approach)'} — use idiomatic ${lang} naming, types, and standard library calls. ` +
+          signatureRule +
           `The "code" field must be a COMPLETE, working implementation — never leave a function/method body empty, never insert a "TODO"/"// implement this"/placeholder comment in place of real logic, and never return a stub that only compiles because it does nothing. Before answering, mentally run the code against the example input in "trace" and confirm it produces the correct result; if it wouldn't, fix the logic before responding. ` +
           `In "explanation", "input_label", and every step's "desc"/"vars" (all plain-English fields, not the "code" field): ${MATH_NOTATION_RULE}`
         }]}],
