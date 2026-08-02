@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-01T19:20:06.070Z",
+  "updatedAt": "2026-08-02T03:37:33.555Z",
   "slugs": [
     "two-sum",
     "longest-substring-without-repeating-characters",
@@ -20,6 +20,7 @@
     "find-first-and-last-position-of-element-in-sorted-array",
     "search-insert-position",
     "combination-sum",
+    "jump-game-ii",
     "permutations",
     "rotate-image",
     "powx-n",
@@ -51,6 +52,7 @@
     "two-sum-ii-input-array-is-sorted",
     "majority-element",
     "rotate-array",
+    "number-of-islands",
     "count-primes",
     "isomorphic-strings",
     "reverse-linked-list",
@@ -74,6 +76,7 @@
     "single-element-in-a-sorted-array",
     "reverse-words-in-a-string-iii",
     "subarray-sum-equals-k",
+    "valid-parenthesis-string",
     "binary-search",
     "rotate-string",
     "lemonade-change",
@@ -84,6 +87,7 @@
     "k-closest-points-to-origin",
     "subarray-sums-divisible-by-k",
     "subarrays-with-k-different-integers",
+    "rotting-oranges",
     "max-consecutive-ones-iii",
     "capacity-to-ship-packages-within-d-days",
     "remove-outermost-parentheses",
