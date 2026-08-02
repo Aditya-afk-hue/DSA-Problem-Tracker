@@ -6044,7 +6044,10 @@ function insertLineFixIntoEditor(beforeCode, afterCode, fullFixedCode){
     setSolveCode(solveModalId, document.getElementById('solveLangSel').value, newCode);
     pushSolveHistorySnapshot();
   }
-  closeModal('aiModal');
+  // Only close the modal when we had to fall back to the whole-file fix —
+  // a genuine full replacement, same as Insert. A plain one-line patch is a
+  // small in-place tweak, so leave the review modal open for it.
+  if(usedFullFallback) closeModal('aiModal');
   showToast(usedFullFallback
     ? "This fix spanned more than one line — inserted the full corrected code instead so nothing was left broken."
     : (matchIdxs.length > 1 ? `Replaced ${matchIdxs.length} matching lines.` : 'Line replaced — rest of the code untouched.'));
@@ -12421,12 +12424,24 @@ refreshProStatus();
 // as soon as they run — this only covers the plain "just opened the
 // tracker" case. Runs after a short idle delay so it doesn't compete with
 // the rest of the page's own startup work.
-setTimeout(()=>{
-  try{
-    preloadRuntimeForLang(localStorage.getItem(SOLVE_LANG_KEY) || 'java');
-    preloadRuntimeForLang(localStorage.getItem(MOCK_LANG_KEY) || 'Python');
-  }catch(e){}
-}, 1200);
+(function(){
+  const warmUp = ()=>{
+    try{
+      preloadRuntimeForLang(localStorage.getItem(SOLVE_LANG_KEY) || 'java');
+      preloadRuntimeForLang(localStorage.getItem(MOCK_LANG_KEY) || 'Python');
+    }catch(e){}
+  };
+  // requestIdleCallback fires as soon as the browser is actually idle —
+  // often well under a second — instead of waiting out a fixed timer, so
+  // the Pyodide/CheerpJ download has more of a head start by the time the
+  // person opens a problem and hits Run. 500ms cap + setTimeout fallback
+  // covers browsers that don't support it (e.g. Safari).
+  if('requestIdleCallback' in window){
+    requestIdleCallback(warmUp, { timeout: 500 });
+  } else {
+    setTimeout(warmUp, 300);
+  }
+})();
 
 (function checkFactoryResetUndo(){
   let raw;
