@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-02T03:37:33.555Z",
+  "updatedAt": "2026-08-02T08:33:22.639Z",
   "slugs": [
     "two-sum",
     "longest-substring-without-repeating-characters",
@@ -91,6 +91,7 @@
     "max-consecutive-ones-iii",
     "capacity-to-ship-packages-within-d-days",
     "remove-outermost-parentheses",
+    "remove-all-adjacent-duplicates-in-string",
     "count-number-of-nice-subarrays",
     "find-the-smallest-divisor-given-a-threshold",
     "number-of-substrings-containing-all-three-characters",
