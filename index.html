@@ -844,6 +844,18 @@ const SECTIONS = [];
 A2Z_SECTION_ORDER.forEach(s => { if(!SECTIONS.includes(s)) SECTIONS.push(s); });
 PROBLEMS.forEach(p => { if(!SECTIONS.includes(p.section)) SECTIONS.push(p.section); });
 
+// Every render used to call PROBLEMS.filter(p => p.section === sec) once
+// per section (~90 times over all ~3,265 problems), and then filter the
+// same member sections all over again while building each group — grouped
+// sections got scanned twice. PROBLEMS never changes after this point (it's
+// built once above from DSA_PROBLEM_DATA), so it's grouped by section here,
+// once, and every render just looks up the array instead of re-scanning.
+const PROBLEMS_BY_SECTION = new Map();
+PROBLEMS.forEach(p => {
+  if(!PROBLEMS_BY_SECTION.has(p.section)) PROBLEMS_BY_SECTION.set(p.section, []);
+  PROBLEMS_BY_SECTION.get(p.section).push(p);
+});
+
 const DIFF_LABEL = {E:'Easy', M:'Medium', H:'Hard'};
 
 let solved = new Set();
@@ -4848,12 +4860,29 @@ function renderSummary(){
   refreshStudyPlanProgress();
 }
 
+// The 5 filter inputs used to be re-read from the DOM on every single call
+// to matchesFilters/matchesFiltersExcept — and those run once per problem
+// (3,000+ times) per render. A filtering pass is always a single
+// synchronous burst of calls (nothing else can run in between — JS is
+// single-threaded and none of these inputs can change mid-pass), so the 5
+// values are read once, cached, and the cache is cleared on the next
+// microtask so the very next user interaction always sees fresh values.
+let _filterStateCache = null;
+function _getFilterState(){
+  if(_filterStateCache) return _filterStateCache;
+  _filterStateCache = {
+    q: document.getElementById('searchBox').value.trim().toLowerCase(),
+    sec: document.getElementById('sectionFilter').value,
+    diff: document.getElementById('diffFilter').value,
+    company: document.getElementById('companyFilter').value,
+    tagQ: document.getElementById('tagFilter').value.trim().toLowerCase()
+  };
+  queueMicrotask(() => { _filterStateCache = null; });
+  return _filterStateCache;
+}
+
 function matchesFilters(p){
-  const q = document.getElementById('searchBox').value.trim().toLowerCase();
-  const sec = document.getElementById('sectionFilter').value;
-  const diff = document.getElementById('diffFilter').value;
-  const company = document.getElementById('companyFilter').value;
-  const tagQ = document.getElementById('tagFilter').value.trim().toLowerCase();
+  const { q, sec, diff, company, tagQ } = _getFilterState();
   if(q && !p.title.toLowerCase().includes(q)) return false;
   if(sec && p.section !== sec) return false;
   if(diff && p.diff !== diff) return false;
@@ -4872,11 +4901,7 @@ function matchesFilters(p){
 }
 
 function matchesFiltersExcept(p, exclude){
-  const q = document.getElementById('searchBox').value.trim().toLowerCase();
-  const sec = document.getElementById('sectionFilter').value;
-  const diff = document.getElementById('diffFilter').value;
-  const company = document.getElementById('companyFilter').value;
-  const tagQ = document.getElementById('tagFilter').value.trim().toLowerCase();
+  const { q, sec, diff, company, tagQ } = _getFilterState();
   if(exclude!=='search' && q && !p.title.toLowerCase().includes(q)) return false;
   if(exclude!=='section' && sec && p.section !== sec) return false;
   if(exclude!=='diff' && diff && p.diff !== diff) return false;
@@ -5091,11 +5116,23 @@ function buildRowEl(p){
   return row;
 }
 
+// Used to re-run 5 querySelectorAll(...).forEach(addEventListener...) passes
+// over the whole root EVERY time it was called — once per full render, plus
+// once per virtual-scroll mount while scrolling an open section. Same
+// call sites, same observable behavior, but now each root only ever gets
+// ONE delegated listener (guarded by this WeakSet so repeat calls on an
+// already-wired root are a no-op); newly mounted/rebuilt rows underneath it
+// — including ones added later by virtual scrolling — are picked up
+// automatically via event bubbling, no re-attachment needed.
+const _delegatedIconRoots = new WeakSet();
 function attachRowIconHandlers(root){
-  root.querySelectorAll('[data-solve]').forEach(btn => {
-    btn.addEventListener('click', (e)=>{
+  if(_delegatedIconRoots.has(root)) return;
+  _delegatedIconRoots.add(root);
+  root.addEventListener('click', (e) => {
+    const solveBtn = e.target.closest('[data-solve]');
+    if(solveBtn){
       e.stopPropagation();
-      const id = parseInt(btn.getAttribute('data-solve'),10);
+      const id = parseInt(solveBtn.getAttribute('data-solve'),10);
       const prob = PROBLEMS.find(x=>x.id===id);
       if(!prob) return;
       if(prob.noOJ || prob.redirectsToTuf){
@@ -5103,41 +5140,41 @@ function attachRowIconHandlers(root){
         return;
       }
       window.open(`https://leetcode.com/problems/${prob.slug}/`, '_blank', 'noopener');
-    });
-  });
-  root.querySelectorAll('[data-flag]').forEach(btn => {
-    btn.addEventListener('click', (e)=>{
+      return;
+    }
+    const flagBtn = e.target.closest('[data-flag]');
+    if(flagBtn){
       e.stopPropagation();
-      toggleFlag(parseInt(btn.getAttribute('data-flag'),10));
-    });
-  });
-  root.querySelectorAll('[data-notes]').forEach(btn => {
-    btn.addEventListener('click', (e)=>{
+      toggleFlag(parseInt(flagBtn.getAttribute('data-flag'),10));
+      return;
+    }
+    const notesBtn = e.target.closest('[data-notes]');
+    if(notesBtn){
       e.stopPropagation();
-      openNotesModal(parseInt(btn.getAttribute('data-notes'),10));
-    });
-  });
-  root.querySelectorAll('[data-hint]').forEach(btn => {
-    btn.addEventListener('click', (e)=>{
+      openNotesModal(parseInt(notesBtn.getAttribute('data-notes'),10));
+      return;
+    }
+    const hintBtn = e.target.closest('[data-hint]');
+    if(hintBtn){
       e.stopPropagation();
       // The hint icon opens the shared AI modal directly on its Hint tab —
       // it does NOT redirect into the full code editor. Get code / Core
       // Concept / Visualize / Review code are all one tab-click away right
       // inside that same modal, so a person can get a hint (and code / a
       // review / a diagram) without ever leaving the problem list.
-      openAiModal(parseInt(btn.getAttribute('data-hint'),10), 'hint');
-    });
-  });
-  root.querySelectorAll('[data-more-companies]').forEach(btn => {
-    btn.addEventListener('click', (e)=>{
+      openAiModal(parseInt(hintBtn.getAttribute('data-hint'),10), 'hint');
+      return;
+    }
+    const moreBtn = e.target.closest('[data-more-companies]');
+    if(moreBtn){
       e.stopPropagation();
-      toggleMoreCompanies(btn);
-    });
+      toggleMoreCompanies(moreBtn);
+    }
   });
 }
 
 function buildSectionElement(sec, q, activeFilter, folioIndex){
-  const items = PROBLEMS.filter(p => p.section === sec);
+  const items = PROBLEMS_BY_SECTION.get(sec) || [];
   const visible = items.filter(matchesFilters);
   if(activeFilter && visible.length === 0) return null;
 
@@ -5205,7 +5242,7 @@ function buildSectionElement(sec, q, activeFilter, folioIndex){
 function buildGroupElement(groupTitle, members, q, activeFilter, groupFolioIndex){
   const memberSections = members.filter(m => SECTIONS.includes(m));
   const allItems = [];
-  memberSections.forEach(m => allItems.push(...PROBLEMS.filter(p => p.section === m)));
+  memberSections.forEach(m => allItems.push(...(PROBLEMS_BY_SECTION.get(m) || [])));
   const visibleAll = allItems.filter(matchesFilters);
   if(activeFilter && visibleAll.length === 0) return null;
 
@@ -9597,8 +9634,15 @@ function updateFilterAvailability(){
   const secSel = document.getElementById('sectionFilter');
   const diffSel = document.getElementById('diffFilter');
 
-  const availSections = new Set(PROBLEMS.filter(p => matchesFiltersExcept(p, 'section')).map(p=>p.section));
-  const availDiffs = new Set(PROBLEMS.filter(p => matchesFiltersExcept(p, 'diff')).map(p=>p.diff));
+  // Was two separate full scans over every problem (one per Set) — merged
+  // into one pass since each problem only needs to be visited once to
+  // decide both memberships.
+  const availSections = new Set();
+  const availDiffs = new Set();
+  for(const p of PROBLEMS){
+    if(matchesFiltersExcept(p, 'section')) availSections.add(p.section);
+    if(matchesFiltersExcept(p, 'diff')) availDiffs.add(p.diff);
+  }
 
   Array.from(secSel.options).forEach(o=>{
     if(o.value===''){ o.hidden=false; o.disabled=false; return; }
@@ -9860,7 +9904,10 @@ document.getElementById('a2zToggle').addEventListener('click', function(){
   renderSummary();
   scrollResultsIntoView();
 });
-document.getElementById('tagFilter').addEventListener('input', ()=>{ closeWorkspacePanels(true); updateFilterAvailability(); autoExpandSections(); renderSections(); refreshStudyPlanIfOpen(); renderSummary(); scrollResultsIntoView(); });
+const runTagFilterUpdate = debounce(() => {
+  closeWorkspacePanels(true); updateFilterAvailability(); autoExpandSections(); renderSections(); refreshStudyPlanIfOpen(); renderSummary(); scrollResultsIntoView();
+}, 150);
+document.getElementById('tagFilter').addEventListener('input', runTagFilterUpdate);
 document.getElementById('resetFiltersBtn').addEventListener('click', function(){
   deactivateAllExcept(null, true);
   clearOtherFilters();
