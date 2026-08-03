@@ -7548,7 +7548,11 @@ async function ensureCodeMirror(modeInfo){
     loadCSS(CM_BASE + '/codemirror.min.css'),
     loadScript(CM_BASE + '/codemirror.min.js')
   ]);
-  if(modeInfo.file) await loadScript(modeInfo.file).catch(()=>{});
+  // Mode file only depends on core (just loaded above), not on the addon
+  // batch below or vice versa — load both in parallel rather than awaiting
+  // the mode file on its own first, which used to add one full serial
+  // network round-trip before the addon batch could even start.
+  const modePromise = modeInfo.file ? loadScript(modeInfo.file).catch(()=>{}) : Promise.resolve();
   // Addons below all extend the base CodeMirror.js that was just loaded, so
   // they must load strictly after it — and, just as importantly, they must
   // finish loading BEFORE the CodeMirror() constructor runs below, which is
@@ -7585,7 +7589,8 @@ async function ensureCodeMirror(modeInfo){
       .catch(()=>{}),
     loadScript(CM_BASE + '/addon/hint/show-hint.min.js')
       .then(()=> loadScript(CM_BASE + '/addon/hint/anyword-hint.min.js'))
-      .catch(()=>{})
+      .catch(()=>{}),
+    modePromise
   ]);
   return modeInfo.mode;
 }
@@ -12429,6 +12434,15 @@ refreshProStatus();
     try{
       preloadRuntimeForLang(localStorage.getItem(SOLVE_LANG_KEY) || 'java');
       preloadRuntimeForLang(localStorage.getItem(MOCK_LANG_KEY) || 'Python');
+      // CodeMirror itself (core + theme + mode + addons) was previously only
+      // ever fetched the first time someone actually opened the code editor
+      // modal — a cold chain of ~8-10 CDN requests sitting between "click
+      // Solve" and a usable editor. Warm it up here too so it's already
+      // cached by then, same reasoning as the runtime preloads above.
+      ensureCodeMirror(cmModeForSolveLang(localStorage.getItem(SOLVE_LANG_KEY) || 'java')).catch(()=>{});
+      if(document.documentElement.getAttribute('data-theme') === 'dark'){
+        loadCSS(CM_BASE + '/theme/dracula.min.css').catch(()=>{});
+      }
     }catch(e){}
   };
   // requestIdleCallback fires as soon as the browser is actually idle —
