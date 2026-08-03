@@ -6,7 +6,8 @@
 <title>DSA Problem Tracker — 3,266 LeetCode Questions</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap"></noscript>
 <link rel="stylesheet" href="styles.css">
 <script>
   // Set this before body content is even parsed, so a deep-linked problem
@@ -17,37 +18,6 @@
   if (new URLSearchParams(location.search).has('solve') || new URLSearchParams(location.search).get('mock') === '1') {
     document.documentElement.classList.add('solo-editor-mode');
   }
-  (function(){
-    // Opening a problem's code editor opens a brand-new browser tab
-    // (?solve=<id>), which starts with an entirely empty cache/JS context
-    // of its own. Left alone, the Python/Java runtime download wouldn't
-    // start until near the very end of the ~580KB main script has parsed
-    // and run (inside handleSolveDeepLink -> openCodeEditorModal). Using
-    // link rel=preload here starts the actual network fetch immediately,
-    // in parallel with everything else loading — no crossorigin attribute,
-    // to match how the real <script>/importScripts loads request these
-    // same URLs later, so the browser reuses this fetch instead of
-    // re-downloading.
-    const params = new URLSearchParams(location.search);
-    const isSolve = params.has('solve');
-    const isMock = params.get('mock') === '1';
-    if (!isSolve && !isMock) return;
-    let lang = 'java';
-    try{
-      lang = ((isSolve
-        ? localStorage.getItem('dsa-tracker-solve-lang-v1')
-        : localStorage.getItem('dsa-tracker-mock-lang-v1')) || (isSolve ? 'java' : 'Python')).toLowerCase();
-    }catch(e){}
-    const preload = (href, as) => {
-      const l = document.createElement('link');
-      l.rel = 'preload'; l.as = as; l.href = href;
-      document.head.appendChild(l);
-    };
-    if (lang === 'java') preload('https://cjrtnc.leaningtech.com/4.3/loader.js', 'script');
-    else if (lang === 'python') preload('https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js', 'script');
-    preload('https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js', 'script');
-    preload('https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css', 'style');
-  })();
 </script>
 </head>
 <body>
@@ -872,8 +842,26 @@ const SECTION_TO_GROUP = {};
 Object.entries(SECTION_GROUPS).forEach(([g, members]) => members.forEach(m => { SECTION_TO_GROUP[m] = g; }));
 
 const SECTIONS = [];
-A2Z_SECTION_ORDER.forEach(s => { if(!SECTIONS.includes(s)) SECTIONS.push(s); });
-PROBLEMS.forEach(p => { if(!SECTIONS.includes(p.section)) SECTIONS.push(p.section); });
+{
+  // .includes() on a growing array, called once per problem (~3,265 times),
+  // means every check re-scans everything seen so far — a Set makes each
+  // check O(1) while SECTIONS itself stays the same ordered array.
+  const seenSections = new Set();
+  A2Z_SECTION_ORDER.forEach(s => { if(!seenSections.has(s)){ seenSections.add(s); SECTIONS.push(s); } });
+  PROBLEMS.forEach(p => { if(!seenSections.has(p.section)){ seenSections.add(p.section); SECTIONS.push(p.section); } });
+}
+
+// Every render used to call PROBLEMS.filter(p => p.section === sec) once
+// per section (~90 times over all ~3,265 problems), and then filter the
+// same member sections all over again while building each group — grouped
+// sections got scanned twice. PROBLEMS never changes after this point (it's
+// built once above from DSA_PROBLEM_DATA), so it's grouped by section here,
+// once, and every render just looks up the array instead of re-scanning.
+const PROBLEMS_BY_SECTION = new Map();
+PROBLEMS.forEach(p => {
+  if(!PROBLEMS_BY_SECTION.has(p.section)) PROBLEMS_BY_SECTION.set(p.section, []);
+  PROBLEMS_BY_SECTION.get(p.section).push(p);
+});
 
 const DIFF_LABEL = {E:'Easy', M:'Medium', H:'Hard'};
 
@@ -1497,7 +1485,13 @@ async function loadSolved(){
     if(!hadSchedule && meta[id] && meta[id].nextReview) backfilled = true;
   });
   if(backfilled) saveMeta();
-  render();
+  // First paint of the list is the heaviest single synchronous chunk of
+  // work on load (building every section/group header). Pushing it one
+  // frame out lets the browser paint the toolbar/header HTML that's
+  // already parsed and sitting above it, instead of that paint waiting
+  // behind this work. Every other call to render()/renderSections()
+  // elsewhere stays synchronous — this only affects the very first one.
+  requestAnimationFrame(render);
   refreshAccountStatus();
 }
 
@@ -4879,12 +4873,29 @@ function renderSummary(){
   refreshStudyPlanProgress();
 }
 
+// The 5 filter inputs used to be re-read from the DOM on every single call
+// to matchesFilters/matchesFiltersExcept — and those run once per problem
+// (3,000+ times) per render. A filtering pass is always a single
+// synchronous burst of calls (nothing else can run in between — JS is
+// single-threaded and none of these inputs can change mid-pass), so the 5
+// values are read once, cached, and the cache is cleared on the next
+// microtask so the very next user interaction always sees fresh values.
+let _filterStateCache = null;
+function _getFilterState(){
+  if(_filterStateCache) return _filterStateCache;
+  _filterStateCache = {
+    q: document.getElementById('searchBox').value.trim().toLowerCase(),
+    sec: document.getElementById('sectionFilter').value,
+    diff: document.getElementById('diffFilter').value,
+    company: document.getElementById('companyFilter').value,
+    tagQ: document.getElementById('tagFilter').value.trim().toLowerCase()
+  };
+  queueMicrotask(() => { _filterStateCache = null; });
+  return _filterStateCache;
+}
+
 function matchesFilters(p){
-  const q = document.getElementById('searchBox').value.trim().toLowerCase();
-  const sec = document.getElementById('sectionFilter').value;
-  const diff = document.getElementById('diffFilter').value;
-  const company = document.getElementById('companyFilter').value;
-  const tagQ = document.getElementById('tagFilter').value.trim().toLowerCase();
+  const { q, sec, diff, company, tagQ } = _getFilterState();
   if(q && !p.title.toLowerCase().includes(q)) return false;
   if(sec && p.section !== sec) return false;
   if(diff && p.diff !== diff) return false;
@@ -4903,11 +4914,7 @@ function matchesFilters(p){
 }
 
 function matchesFiltersExcept(p, exclude){
-  const q = document.getElementById('searchBox').value.trim().toLowerCase();
-  const sec = document.getElementById('sectionFilter').value;
-  const diff = document.getElementById('diffFilter').value;
-  const company = document.getElementById('companyFilter').value;
-  const tagQ = document.getElementById('tagFilter').value.trim().toLowerCase();
+  const { q, sec, diff, company, tagQ } = _getFilterState();
   if(exclude!=='search' && q && !p.title.toLowerCase().includes(q)) return false;
   if(exclude!=='section' && sec && p.section !== sec) return false;
   if(exclude!=='diff' && diff && p.diff !== diff) return false;
@@ -5122,11 +5129,23 @@ function buildRowEl(p){
   return row;
 }
 
+// Used to re-run 5 querySelectorAll(...).forEach(addEventListener...) passes
+// over the whole root EVERY time it was called — once per full render, plus
+// once per virtual-scroll mount while scrolling an open section. Same
+// call sites, same observable behavior, but now each root only ever gets
+// ONE delegated listener (guarded by this WeakSet so repeat calls on an
+// already-wired root are a no-op); newly mounted/rebuilt rows underneath it
+// — including ones added later by virtual scrolling — are picked up
+// automatically via event bubbling, no re-attachment needed.
+const _delegatedIconRoots = new WeakSet();
 function attachRowIconHandlers(root){
-  root.querySelectorAll('[data-solve]').forEach(btn => {
-    btn.addEventListener('click', (e)=>{
+  if(_delegatedIconRoots.has(root)) return;
+  _delegatedIconRoots.add(root);
+  root.addEventListener('click', (e) => {
+    const solveBtn = e.target.closest('[data-solve]');
+    if(solveBtn){
       e.stopPropagation();
-      const id = parseInt(btn.getAttribute('data-solve'),10);
+      const id = parseInt(solveBtn.getAttribute('data-solve'),10);
       const prob = PROBLEMS.find(x=>x.id===id);
       if(!prob) return;
       if(prob.noOJ || prob.redirectsToTuf){
@@ -5134,41 +5153,41 @@ function attachRowIconHandlers(root){
         return;
       }
       window.open(`https://leetcode.com/problems/${prob.slug}/`, '_blank', 'noopener');
-    });
-  });
-  root.querySelectorAll('[data-flag]').forEach(btn => {
-    btn.addEventListener('click', (e)=>{
+      return;
+    }
+    const flagBtn = e.target.closest('[data-flag]');
+    if(flagBtn){
       e.stopPropagation();
-      toggleFlag(parseInt(btn.getAttribute('data-flag'),10));
-    });
-  });
-  root.querySelectorAll('[data-notes]').forEach(btn => {
-    btn.addEventListener('click', (e)=>{
+      toggleFlag(parseInt(flagBtn.getAttribute('data-flag'),10));
+      return;
+    }
+    const notesBtn = e.target.closest('[data-notes]');
+    if(notesBtn){
       e.stopPropagation();
-      openNotesModal(parseInt(btn.getAttribute('data-notes'),10));
-    });
-  });
-  root.querySelectorAll('[data-hint]').forEach(btn => {
-    btn.addEventListener('click', (e)=>{
+      openNotesModal(parseInt(notesBtn.getAttribute('data-notes'),10));
+      return;
+    }
+    const hintBtn = e.target.closest('[data-hint]');
+    if(hintBtn){
       e.stopPropagation();
       // The hint icon opens the shared AI modal directly on its Hint tab —
       // it does NOT redirect into the full code editor. Get code / Core
       // Concept / Visualize / Review code are all one tab-click away right
       // inside that same modal, so a person can get a hint (and code / a
       // review / a diagram) without ever leaving the problem list.
-      openAiModal(parseInt(btn.getAttribute('data-hint'),10), 'hint');
-    });
-  });
-  root.querySelectorAll('[data-more-companies]').forEach(btn => {
-    btn.addEventListener('click', (e)=>{
+      openAiModal(parseInt(hintBtn.getAttribute('data-hint'),10), 'hint');
+      return;
+    }
+    const moreBtn = e.target.closest('[data-more-companies]');
+    if(moreBtn){
       e.stopPropagation();
-      toggleMoreCompanies(btn);
-    });
+      toggleMoreCompanies(moreBtn);
+    }
   });
 }
 
 function buildSectionElement(sec, q, activeFilter, folioIndex){
-  const items = PROBLEMS.filter(p => p.section === sec);
+  const items = PROBLEMS_BY_SECTION.get(sec) || [];
   const visible = items.filter(matchesFilters);
   if(activeFilter && visible.length === 0) return null;
 
@@ -5236,7 +5255,7 @@ function buildSectionElement(sec, q, activeFilter, folioIndex){
 function buildGroupElement(groupTitle, members, q, activeFilter, groupFolioIndex){
   const memberSections = members.filter(m => SECTIONS.includes(m));
   const allItems = [];
-  memberSections.forEach(m => allItems.push(...PROBLEMS.filter(p => p.section === m)));
+  memberSections.forEach(m => allItems.push(...(PROBLEMS_BY_SECTION.get(m) || [])));
   const visibleAll = allItems.filter(matchesFilters);
   if(activeFilter && visibleAll.length === 0) return null;
 
@@ -6038,10 +6057,10 @@ function insertLineFixIntoEditor(beforeCode, afterCode, fullFixedCode){
     setSolveCode(solveModalId, document.getElementById('solveLangSel').value, newCode);
     pushSolveHistorySnapshot();
   }
-  // Only close the modal when we had to fall back to the whole-file fix —
-  // a genuine full replacement, same as Insert. A plain one-line patch is a
-  // small in-place tweak, so leave the review modal open for it.
-  if(usedFullFallback) closeModal('aiModal');
+  // Deliberately NOT closeModal('aiModal') here, unlike insertSnippetIntoEditor
+  // above — a review can list several bugfix cards, and this only ever
+  // touches one line, so the popup stays open to let the person keep
+  // applying the rest of them (or re-read the review) without reopening it.
   showToast(usedFullFallback
     ? "This fix spanned more than one line — inserted the full corrected code instead so nothing was left broken."
     : (matchIdxs.length > 1 ? `Replaced ${matchIdxs.length} matching lines.` : 'Line replaced — rest of the code untouched.'));
@@ -7542,11 +7561,7 @@ async function ensureCodeMirror(modeInfo){
     loadCSS(CM_BASE + '/codemirror.min.css'),
     loadScript(CM_BASE + '/codemirror.min.js')
   ]);
-  // Mode file only depends on core (just loaded above), not on the addon
-  // batch below or vice versa — load both in parallel rather than awaiting
-  // the mode file on its own first, which used to add one full serial
-  // network round-trip before the addon batch could even start.
-  const modePromise = modeInfo.file ? loadScript(modeInfo.file).catch(()=>{}) : Promise.resolve();
+  if(modeInfo.file) await loadScript(modeInfo.file).catch(()=>{});
   // Addons below all extend the base CodeMirror.js that was just loaded, so
   // they must load strictly after it — and, just as importantly, they must
   // finish loading BEFORE the CodeMirror() constructor runs below, which is
@@ -7583,8 +7598,7 @@ async function ensureCodeMirror(modeInfo){
       .catch(()=>{}),
     loadScript(CM_BASE + '/addon/hint/show-hint.min.js')
       .then(()=> loadScript(CM_BASE + '/addon/hint/anyword-hint.min.js'))
-      .catch(()=>{}),
-    modePromise
+      .catch(()=>{})
   ]);
   return modeInfo.mode;
 }
@@ -9636,8 +9650,15 @@ function updateFilterAvailability(){
   const secSel = document.getElementById('sectionFilter');
   const diffSel = document.getElementById('diffFilter');
 
-  const availSections = new Set(PROBLEMS.filter(p => matchesFiltersExcept(p, 'section')).map(p=>p.section));
-  const availDiffs = new Set(PROBLEMS.filter(p => matchesFiltersExcept(p, 'diff')).map(p=>p.diff));
+  // Was two separate full scans over every problem (one per Set) — merged
+  // into one pass since each problem only needs to be visited once to
+  // decide both memberships.
+  const availSections = new Set();
+  const availDiffs = new Set();
+  for(const p of PROBLEMS){
+    if(matchesFiltersExcept(p, 'section')) availSections.add(p.section);
+    if(matchesFiltersExcept(p, 'diff')) availDiffs.add(p.diff);
+  }
 
   Array.from(secSel.options).forEach(o=>{
     if(o.value===''){ o.hidden=false; o.disabled=false; return; }
@@ -9899,7 +9920,10 @@ document.getElementById('a2zToggle').addEventListener('click', function(){
   renderSummary();
   scrollResultsIntoView();
 });
-document.getElementById('tagFilter').addEventListener('input', ()=>{ closeWorkspacePanels(true); updateFilterAvailability(); autoExpandSections(); renderSections(); refreshStudyPlanIfOpen(); renderSummary(); scrollResultsIntoView(); });
+const runTagFilterUpdate = debounce(() => {
+  closeWorkspacePanels(true); updateFilterAvailability(); autoExpandSections(); renderSections(); refreshStudyPlanIfOpen(); renderSummary(); scrollResultsIntoView();
+}, 150);
+document.getElementById('tagFilter').addEventListener('input', runTagFilterUpdate);
 document.getElementById('resetFiltersBtn').addEventListener('click', function(){
   deactivateAllExcept(null, true);
   clearOtherFilters();
@@ -12413,39 +12437,12 @@ refreshProStatus();
 // as soon as they run — this only covers the plain "just opened the
 // tracker" case. Runs after a short idle delay so it doesn't compete with
 // the rest of the page's own startup work.
-(function(){
-  const warmUpRuntimes = ()=>{
-    try{
-      preloadRuntimeForLang(localStorage.getItem(SOLVE_LANG_KEY) || 'java');
-      preloadRuntimeForLang(localStorage.getItem(MOCK_LANG_KEY) || 'Python');
-    }catch(e){}
-  };
-  // CodeMirror itself (core + theme + mode + addons) was previously only
-  // ever fetched the first time someone actually opened the code editor —
-  // a cold chain of ~8-10 CDN requests. Worth warming up too, BUT
-  // deliberately staggered several seconds after the runtime preload
-  // rather than fired at the same time: Pyodide/CheerpJ are multi-MB
-  // downloads, and running CodeMirror's requests in parallel with those
-  // eats into the browser's limited concurrent-connection budget for the
-  // exact download people are actually waiting on when they hit Run.
-  const warmUpEditor = ()=>{
-    try{
-      ensureCodeMirror(cmModeForSolveLang(localStorage.getItem(SOLVE_LANG_KEY) || 'java')).catch(()=>{});
-      if(document.documentElement.getAttribute('data-theme') === 'dark'){
-        loadCSS(CM_BASE + '/theme/dracula.min.css').catch(()=>{});
-      }
-    }catch(e){}
-  };
-  // requestIdleCallback fires as soon as the browser is actually idle —
-  // often well under a second — instead of waiting out a fixed timer.
-  // 500ms cap + setTimeout fallback covers browsers without it (Safari).
-  if('requestIdleCallback' in window){
-    requestIdleCallback(warmUpRuntimes, { timeout: 500 });
-  } else {
-    setTimeout(warmUpRuntimes, 300);
-  }
-  setTimeout(warmUpEditor, 6000);
-})();
+setTimeout(()=>{
+  try{
+    preloadRuntimeForLang(localStorage.getItem(SOLVE_LANG_KEY) || 'java');
+    preloadRuntimeForLang(localStorage.getItem(MOCK_LANG_KEY) || 'Python');
+  }catch(e){}
+}, 1200);
 
 (function checkFactoryResetUndo(){
   let raw;
@@ -12469,24 +12466,6 @@ refreshProStatus();
     banner.style.display = 'none';
   });
 })();
-
-// Clean up: an earlier version of this app registered a service worker for
-// caching. That's been removed since it was causing more problems than it
-// solved, but browsers keep an already-installed service worker active
-// indefinitely — without this, anyone who had that version installed would
-// keep having the OLD cached files served back to them even after getting
-// this fix. Safe to run for everyone: it's a no-op if nothing was ever
-// registered.
-if('serviceWorker' in navigator){
-  navigator.serviceWorker.getRegistrations().then((regs)=>{
-    regs.forEach((r)=> r.unregister());
-  }).catch(()=>{});
-  if('caches' in window){
-    caches.keys().then((names)=>{
-      names.filter((n)=> n.indexOf('dsa-tracker-') === 0).forEach((n)=> caches.delete(n));
-    }).catch(()=>{});
-  }
-}
 </script>
 </body>
 </html>
