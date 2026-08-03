@@ -8073,7 +8073,7 @@ async function runSQLCode(code, rawInputJson){
 function ensureCheerpJ(){
   if(cheerpjLoadPromise) return cheerpjLoadPromise;
   cheerpjLoadPromise = loadScript('https://cjrtnc.leaningtech.com/4.3/loader.js')
-    .then(()=> cheerpjInit());
+    .then(()=> cheerpjInit({ status: 'splash' }));
   return cheerpjLoadPromise;
 }
 // CheerpJ's /app/ mount point is an absolute path from the domain root, not
