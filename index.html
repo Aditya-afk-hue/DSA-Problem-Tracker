@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 <script>
-(new URLSearchParams(location.search).has("solve")||"1"===new URLSearchParams(location.search).get("mock"))&&document.documentElement.classList.add("solo-editor-mode");
+(new URLSearchParams(location.search).has("solve")||"1"===new URLSearchParams(location.search).get("mock"))&&document.documentElement.classList.add("solo-editor-mode"),function(){const e=new URLSearchParams(location.search),o=e.has("solve"),a="1"===e.get("mock");if(!o&&!a)return;const c=((o?localStorage.getItem("dsa-tracker-solve-lang-v1"):localStorage.getItem("dsa-tracker-mock-lang-v1"))||(o?"java":"Python")).toLowerCase(),t=(e,o)=>{const a=document.createElement("link");a.rel="preload",a.as=o,a.href=e,document.head.appendChild(a)};"java"===c?t("https://cjrtnc.leaningtech.com/4.3/loader.js","script"):"python"===c&&t("https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js","script"),t("https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js","script"),t("https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css","style")}();
 </script>
 </head>
 <body>
