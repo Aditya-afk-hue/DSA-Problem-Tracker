@@ -6,6 +6,15 @@
 <title>DSA Problem Tracker — 3,266 LeetCode Questions</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- These four are the runtimes the code editor's "Run" button loads on
+     first use per language (CheerpJ for Java, Pyodide for Python, sql.js +
+     CodeMirror both off cdnjs). Their first download is inherently large
+     (a real JVM / a WASM Python interpreter can't be shrunk), but a
+     preconnect at least means that download doesn't also have to pay for
+     DNS + TLS handshake time before it can start. -->
+<link rel="preconnect" href="https://cjrtnc.leaningtech.com">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap"></noscript>
 <link rel="stylesheet" href="styles.css">
@@ -12435,14 +12444,22 @@ refreshProStatus();
 // hit Run. Deliberately NOT the deep-link cases above — those already
 // trigger their own preload via openCodeEditorModal()/renderMockActiveView()
 // as soon as they run — this only covers the plain "just opened the
-// tracker" case. Runs after a short idle delay so it doesn't compete with
-// the rest of the page's own startup work.
-setTimeout(()=>{
+// tracker" case. Fires via requestIdleCallback so it starts the moment the
+// browser is actually idle (usually well under 1200ms, especially now that
+// the first render is itself deferred a frame) rather than waiting out a
+// fixed delay regardless of how fast the page actually finished loading —
+// every bit of that head start matters given how large these runtimes are.
+const _runPreloadWarmup = () => {
   try{
     preloadRuntimeForLang(localStorage.getItem(SOLVE_LANG_KEY) || 'java');
     preloadRuntimeForLang(localStorage.getItem(MOCK_LANG_KEY) || 'Python');
   }catch(e){}
-}, 1200);
+};
+if(window.requestIdleCallback){
+  requestIdleCallback(_runPreloadWarmup, { timeout: 1200 });
+} else {
+  setTimeout(_runPreloadWarmup, 300);
+}
 
 (function checkFactoryResetUndo(){
   let raw;
