@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-04T08:49:46.286Z",
+  "updatedAt": "2026-08-04T14:32:57.295Z",
   "slugs": [
     "two-sum",
     "longest-substring-without-repeating-characters",
@@ -75,6 +75,7 @@
     "sort-characters-by-frequency",
     "assign-cookies",
     "max-consecutive-ones",
+    "next-greater-element-i",
     "fibonacci-number",
     "single-element-in-a-sorted-array",
     "reverse-words-in-a-string-iii",
