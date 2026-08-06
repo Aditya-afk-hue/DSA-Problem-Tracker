@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-06T03:22:15.039Z",
+  "updatedAt": "2026-08-06T08:48:39.923Z",
   "slugs": [
     "two-sum",
     "longest-substring-without-repeating-characters",
@@ -20,6 +20,7 @@
     "find-first-and-last-position-of-element-in-sorted-array",
     "search-insert-position",
     "combination-sum",
+    "trapping-rain-water",
     "jump-game-ii",
     "permutations",
     "rotate-image",
