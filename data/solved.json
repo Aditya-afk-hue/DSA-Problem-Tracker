@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-07T13:19:19.608Z",
+  "updatedAt": "2026-08-07T19:06:56.403Z",
   "slugs": [
     "two-sum",
     "longest-substring-without-repeating-characters",
@@ -90,6 +90,7 @@
     "koko-eating-bananas",
     "middle-of-the-linked-list",
     "fruit-into-baskets",
+    "sum-of-subarray-minimums",
     "binary-subarrays-with-sum",
     "k-closest-points-to-origin",
     "subarray-sums-divisible-by-k",
@@ -110,6 +111,7 @@
     "find-a-peak-element-ii",
     "largest-odd-number-in-string",
     "delete-the-middle-node-of-a-linked-list",
+    "sum-of-subarray-ranges",
     "rearrange-array-elements-by-sign",
     "minimum-bit-flips-to-convert-number"
   ]
