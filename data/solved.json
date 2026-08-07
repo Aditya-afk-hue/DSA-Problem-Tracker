@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-07T00:09:35.177Z",
+  "updatedAt": "2026-08-07T07:34:59.763Z",
   "slugs": [
     "two-sum",
     "longest-substring-without-repeating-characters",
@@ -84,6 +84,7 @@
     "subarray-sum-equals-k",
     "valid-parenthesis-string",
     "binary-search",
+    "asteroid-collision",
     "rotate-string",
     "lemonade-change",
     "koko-eating-bananas",
