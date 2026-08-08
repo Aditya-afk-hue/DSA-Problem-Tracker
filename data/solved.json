@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-07T19:06:56.403Z",
+  "updatedAt": "2026-08-08T02:06:13.301Z",
   "slugs": [
     "two-sum",
     "longest-substring-without-repeating-characters",
@@ -72,6 +72,7 @@
     "find-median-from-data-stream",
     "longest-increasing-subsequence",
     "is-subsequence",
+    "remove-k-digits",
     "longest-repeating-character-replacement",
     "sort-characters-by-frequency",
     "assign-cookies",
