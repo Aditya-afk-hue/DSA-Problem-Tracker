@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-08T02:06:13.301Z",
+  "updatedAt": "2026-08-08T07:04:41.314Z",
   "slugs": [
     "two-sum",
     "longest-substring-without-repeating-characters",
@@ -38,6 +38,8 @@
     "subsets",
     "remove-duplicates-from-sorted-array-ii",
     "search-in-rotated-sorted-array-ii",
+    "largest-rectangle-in-histogram",
+    "maximal-rectangle",
     "merge-sorted-array",
     "pascals-triangle",
     "best-time-to-buy-and-sell-stock",
