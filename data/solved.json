@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-09T07:06:42.509Z",
+  "updatedAt": "2026-08-09T13:06:02.868Z",
   "slugs": [
     "two-sum",
     "longest-substring-without-repeating-characters",
@@ -12,6 +12,7 @@
     "longest-common-prefix",
     "remove-nth-node-from-end-of-list",
     "valid-parentheses",
+    "merge-k-sorted-lists",
     "remove-duplicates-from-sorted-array",
     "remove-element",
     "find-the-index-of-the-first-occurrence-in-a-string",
