@@ -7827,7 +7827,7 @@ async function initSolveCodeEditor(langVal){
 // unrecoverable background work (see javaRunLocked below) — cutting it to
 // 1s everywhere shrinks that exposure far more than any single language's
 // old default did.
-const RUN_TLE_MS = 1000;
+const RUN_TLE_MS = 10000;
 function runJSInWorker(code, rawInputJson, timeoutMs){
   return runJSCasesInWorker(code, [rawInputJson], timeoutMs).then(rs=>rs[0]);
 }
@@ -7918,7 +7918,7 @@ function preloadRuntimeForLang(lang){
   if(l === 'java') warmupJavaCompiler();
   else if(l === 'python') ensurePyodideWorker();
 }
-const PY_TLE_MS = RUN_TLE_MS; // was 8000 — Python got extra rope for interpreter overhead, but the fix here is one hard 1s cap for every language
+const PY_TLE_MS = RUN_TLE_MS; // was 8000 — Python got extra rope for interpreter overhead, but the fix here is one hard cap (now 10s) for every language
 let pyodideWorker = null;
 function pyodideWorkerSrc(){
   return `
