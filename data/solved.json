@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-13T02:32:13.365Z",
+  "updatedAt": "2026-08-16T03:58:39.090Z",
   "slugs": [
     "two-sum",
     "longest-substring-without-repeating-characters",
@@ -46,6 +46,7 @@
     "best-time-to-buy-and-sell-stock",
     "valid-palindrome",
     "longest-consecutive-sequence",
+    "candy",
     "single-number",
     "linked-list-cycle",
     "linked-list-cycle-ii",
