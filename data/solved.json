@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-27T22:09:46.954Z",
+  "updatedAt": "2026-08-28T11:05:11.790Z",
   "slugs": [
     "two-sum",
     "longest-substring-without-repeating-characters",
@@ -115,6 +115,7 @@
     "minimum-number-of-days-to-make-m-bouquets",
     "kth-missing-positive-number",
     "maximum-nesting-depth-of-the-parentheses",
+    "check-if-array-is-sorted-and-rotated",
     "sum-of-beauty-of-all-substrings",
     "find-a-peak-element-ii",
     "largest-odd-number-in-string",
