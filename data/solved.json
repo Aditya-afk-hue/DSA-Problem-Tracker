@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-28T22:09:30.407Z",
+  "updatedAt": "2026-08-30T01:29:15.958Z",
   "slugs": [
     "two-sum",
     "longest-substring-without-repeating-characters",
@@ -33,6 +33,7 @@
     "merge-intervals",
     "length-of-last-word",
     "climbing-stairs",
+    "set-matrix-zeroes",
     "search-a-2d-matrix",
     "sort-colors",
     "minimum-window-substring",
